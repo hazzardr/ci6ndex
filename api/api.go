@@ -14,11 +14,12 @@ import (
 	"os/signal"
 )
 
-type Config struct {
-	DiscordToken string `mapstructure:"DISCORD_API_TOKEN"`
+type AppConfig struct {
+	DiscordToken                   string `mapstructure:"DISCORD_API_TOKEN"`
+	GoogleCloudCredentialsLocation string `mapstructure:"GCLOUD_CREDS_LOC"`
 }
 
-var config Config
+var config AppConfig
 
 type Mode string
 
@@ -33,7 +34,6 @@ var r = mux.NewRouter()
 var d discordgo.Session
 
 func Start(mode string) {
-	//TODO: get discord token / register app
 	viper.AddConfigPath(".")
 	viper.SetConfigName("app")
 	viper.SetConfigType("env")
@@ -83,6 +83,7 @@ func StartBot() {
 func StartServer() {
 	slog.Info("starting http server...")
 	server.Handler = r
+	server.Addr = ":8080"
 
 	r.HandleFunc("/health", Health).Methods("GET")
 
@@ -116,5 +117,8 @@ func StopServer(code int) {
 
 func Health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
-	json.NewEncoder(w).Encode("OK")
+	err := json.NewEncoder(w).Encode("OK")
+	if err != nil {
+		w.WriteHeader(500)
+	}
 }

@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/fact-cli.iml" filepath="$PROJECT_DIR$/.idea/fact-cli.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/ci6ndex.iml" filepath="$PROJECT_DIR$/.idea/ci6ndex.iml" />
     </modules>
   </component>
 </project>

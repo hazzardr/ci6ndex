@@ -23,3 +23,5 @@ go.work
 # local def
 ci6ndex
 app.env
+build/
+gcloud_oauth2.json
