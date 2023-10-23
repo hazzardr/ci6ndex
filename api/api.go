@@ -17,6 +17,7 @@ import (
 type AppConfig struct {
 	DiscordToken                   string `mapstructure:"DISCORD_API_TOKEN"`
 	GoogleCloudCredentialsLocation string `mapstructure:"GCLOUD_CREDS_LOC"`
+	CivRankingSheetId              string `mapstructure:"RANKING_SHEET_ID"`
 }
 
 var config AppConfig
@@ -86,9 +87,8 @@ func StartServer() {
 	server.Addr = ":8080"
 
 	r.HandleFunc("/health", Health).Methods("GET")
-
+	r.HandleFunc("/rankings", GetRankings).Methods("GET")
 	http.Handle("/", r)
-
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
 
@@ -99,6 +99,16 @@ func StartServer() {
 	<-stop
 
 	StopServer(0)
+}
+
+func GetRankings(w http.ResponseWriter, r *http.Request) {
+	err := getRankings(&config)
+	if err != nil {
+		slog.Error("could not get rankings", "error", err)
+		w.WriteHeader(500)
+		return
+	}
+	w.WriteHeader(200)
 }
 
 func StopServer(code int) {
