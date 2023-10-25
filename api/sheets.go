@@ -14,7 +14,7 @@ import (
 	"os"
 )
 
-func getRankings(c *AppConfig) error {
+func updateLocalRankings(c *AppConfig) error {
 	ctx := context.Background()
 	oauthConfigFile, err := os.ReadFile(c.GoogleCloudCredentialsLocation)
 	if err != nil {
@@ -36,7 +36,6 @@ func getRankings(c *AppConfig) error {
 
 	civLeaderCells := "A2:K80"
 	ss, err := srv.Spreadsheets.Values.BatchGet(c.CivRankingSheetId).Ranges(civLeaderCells).Do()
-	//ss, err := srv.Spreadsheets.Values.Get(c.CivRankingSheetId, readRange).Do()
 	if err != nil {
 		return err
 	}

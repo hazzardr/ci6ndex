@@ -102,7 +102,7 @@ func StartServer() {
 }
 
 func GetRankings(w http.ResponseWriter, r *http.Request) {
-	err := getRankings(&config)
+	err := updateLocalRankings(&config)
 	if err != nil {
 		slog.Error("could not get rankings", "error", err)
 		w.WriteHeader(500)
