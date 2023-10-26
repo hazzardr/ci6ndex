@@ -2,11 +2,11 @@ package api
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/viper"
 	"log"
 	"log/slog"
@@ -23,6 +23,7 @@ type AppConfig struct {
 }
 
 var config AppConfig
+var storage *Storage
 
 type Mode string
 
@@ -37,11 +38,8 @@ var r = mux.NewRouter()
 var d discordgo.Session
 
 func Start(mode string) {
-	viper.AddConfigPath(".")
-	viper.SetConfigName("app")
-	viper.SetConfigType("env")
+	viper.SetConfigFile(".env")
 	err := viper.ReadInConfig()
-
 	if err != nil {
 		panic(fmt.Errorf("failed to load configuration, error=%w", err))
 	}
@@ -49,6 +47,13 @@ func Start(mode string) {
 	err = viper.Unmarshal(&config)
 	if err != nil {
 		panic(fmt.Errorf("failed to load configuration, error=%w", err))
+	}
+
+	//TODO:
+	storage, err = NewDBConnection(config.DatabaseUrl)
+	if err != nil {
+		slog.Error("could not connect to database", "error", err)
+		os.Exit(1)
 	}
 
 	switch mode {
@@ -128,21 +133,40 @@ func StopServer(code int) {
 }
 
 func Health(w http.ResponseWriter, r *http.Request) {
+	err := storage.Health()
+	if err != nil {
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+	}
 	w.WriteHeader(200)
-	err := json.NewEncoder(w).Encode("OK")
+	err = json.NewEncoder(w).Encode("OK")
 	if err != nil {
 		w.WriteHeader(500)
 	}
 }
 
-type PostgresConnectionParams struct {
-	dbName   string
-	host     string
-	port     string
-	user     string
-	password string
+type Storage struct {
+	db *pgxpool.Pool
 }
 
-type PostgresConnection struct {
-	db *sql.DB
+func (s Storage) Health() error {
+	err := s.db.Ping(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func NewDBConnection(dbUrl string) (*Storage, error) {
+	conn, err := pgxpool.New(context.Background(), dbUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	err = conn.Ping(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return &Storage{db: conn}, nil
 }
