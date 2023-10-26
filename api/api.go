@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
@@ -16,6 +17,7 @@ import (
 
 type AppConfig struct {
 	DiscordToken                   string `mapstructure:"DISCORD_API_TOKEN"`
+	DatabaseUrl                    string `mapstructure:"POSTGRES_URL"`
 	GoogleCloudCredentialsLocation string `mapstructure:"GCLOUD_CREDS_LOC"`
 	CivRankingSheetId              string `mapstructure:"RANKING_SHEET_ID"`
 }
@@ -131,4 +133,16 @@ func Health(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(500)
 	}
+}
+
+type PostgresConnectionParams struct {
+	dbName   string
+	host     string
+	port     string
+	user     string
+	password string
+}
+
+type PostgresConnection struct {
+	db *sql.DB
 }

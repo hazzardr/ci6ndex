@@ -5,12 +5,12 @@
 ### APIs
 * HTTP server via Gorilla/mux
 * Discord Bot via DiscordGo
-* Google Sheets Client via Google Sheets API v4
+* Google Sheets Client via Google Sheets API Library
 
 ### Bootstrapping / Config
 * CLI via Cobra
 * Config via Viper
-* TODO: GCPSM
+* TODO: GCPSM so i don't have to keep shuffling around secrets
 
 ### Storage
 * Postgres DB via pgx
