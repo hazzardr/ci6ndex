@@ -4,3 +4,17 @@ Accept: application/json
 ###
 
 GET http://localhost:8080/rankings
+
+
+###
+POST http://localhost:8080/rankings
+
+###
+
+PUT http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "Name": "Greg",
+  "DiscordName": "meowmix"
+}

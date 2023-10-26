@@ -15,13 +15,14 @@
 ### Storage
 * Postgres DB via pgx
 * DB Migrations via Atlas
+* sqlc for generating go code from sql
 
 ```
 source .env
 # start postgres
 docker-compose up -d
 # apply db migrations
-atlas schema apply -u "postgresql://${POSTGRES_USER}:${POSTGRES_PASS}@:5432/${POSTGRES_DB}?sslmode=disable" --to file://./db/schema.sql --dev-url "docker://postgres/15/dev"
+atlas schema apply -u "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@:5432/${POSTGRES_DB}?sslmode=disable" --to file://./db/schema.sql --dev-url "docker://postgres/15/dev"
 ```
 
 # Needed locally:

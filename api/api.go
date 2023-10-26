@@ -1,11 +1,14 @@
 package api
 
 import (
+	"ci6ndex/domain"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/viper"
 	"log"
@@ -23,7 +26,7 @@ type AppConfig struct {
 }
 
 var config AppConfig
-var storage *Storage
+var db *DatabaseOperations
 
 type Mode string
 
@@ -49,8 +52,7 @@ func Start(mode string) {
 		panic(fmt.Errorf("failed to load configuration, error=%w", err))
 	}
 
-	//TODO:
-	storage, err = NewDBConnection(config.DatabaseUrl)
+	db, err = NewDBConnection(config.DatabaseUrl)
 	if err != nil {
 		slog.Error("could not connect to database", "error", err)
 		os.Exit(1)
@@ -79,7 +81,7 @@ func StartBot() {
 
 	d.Identify.Intents = discordgo.IntentsGuildMessages
 	d.AddHandler(ready)
-	d.AddHandler(messageCreate)
+	//d.AddHandler(messageCreate)
 
 	err = d.Open()
 	if err != nil {
@@ -94,7 +96,12 @@ func StartServer() {
 	server.Addr = ":8080"
 
 	r.HandleFunc("/health", Health).Methods("GET")
-	r.HandleFunc("/rankings", GetRankings).Methods("GET")
+
+	r.HandleFunc("/users", CreateUser).Methods("PUT")
+
+	//r.HandleFunc("/rankings", GetRankings).Methods("GET")
+	r.HandleFunc("/rankings", RefreshRankings).Methods("POST")
+
 	http.Handle("/", r)
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
@@ -108,32 +115,8 @@ func StartServer() {
 	StopServer(0)
 }
 
-func GetRankings(w http.ResponseWriter, r *http.Request) {
-	err := updateLocalRankings(&config)
-	if err != nil {
-		slog.Error("could not get rankings", "error", err)
-		w.WriteHeader(500)
-		return
-	}
-	w.WriteHeader(200)
-}
-
-func StopServer(code int) {
-	slog.Info("shutting down application")
-	err := d.Close()
-	if err != nil {
-		slog.Warn("did not shut down application gracefully", "error", err)
-	} else {
-		slog.Info("discord connection shut down successfully")
-	}
-	err = server.Shutdown(context.Background())
-	if err != nil {
-		slog.Warn("did not shut down application gracefully", "error", err)
-	}
-}
-
 func Health(w http.ResponseWriter, r *http.Request) {
-	err := storage.Health()
+	err := db.Health()
 	if err != nil {
 		w.WriteHeader(500)
 		_ = json.NewEncoder(w).Encode(err)
@@ -145,11 +128,97 @@ func Health(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type Storage struct {
-	db *pgxpool.Pool
+func CreateUser(w http.ResponseWriter, r *http.Request) {
+	var params domain.CreateUserParams
+	err := json.NewDecoder(r.Body).Decode(&params)
+	if err != nil {
+		w.WriteHeader(400)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+
+	user, err := db.queries.CreateUser(r.Context(), params)
+	if err != nil {
+		var sqlErr *pgconn.PgError
+		if errors.As(err, &sqlErr) {
+			if sqlErr.Code == "23505" {
+				w.WriteHeader(409)
+				_ = json.NewEncoder(w).Encode("user already exists")
+				return
+			}
+		} else {
+			w.WriteHeader(500)
+			_ = json.NewEncoder(w).Encode(err)
+			return
+		}
+		return
+	}
+
+	w.WriteHeader(201)
+	err = json.NewEncoder(w).Encode(user)
+	if err != nil {
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
 }
 
-func (s Storage) Health() error {
+func GetRankings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(200)
+}
+
+func RefreshRankings(w http.ResponseWriter, r *http.Request) {
+	ranks, err := getRankingsFromSheets(&config)
+	if err != nil {
+		slog.Error("could not get rankings", "error", err)
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+	slog.Info("got rankings", "ranking_count", len(ranks))
+
+	//err = db.queries.DeleteRankings(r.Context())
+	if err != nil {
+		slog.Error("could not delete existing rankings", "error", err)
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+
+	w.WriteHeader(200)
+	err = json.NewEncoder(w).Encode("successfully refreshed rankings from google sheets")
+	if err != nil {
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+}
+
+func StopServer(code int) {
+	slog.Info("shutting down application")
+	err := d.Close()
+	if err != nil {
+		slog.Warn("did not shut down application gracefully", "error", err)
+	} else {
+		slog.Info("discord connection shut down successfully")
+	}
+
+	slog.Info("closing database connection")
+	db.Close()
+	slog.Info("database connection closed successfully")
+
+	err = server.Shutdown(context.Background())
+	if err != nil {
+		slog.Warn("did not shut down application gracefully", "error", err)
+	}
+}
+
+type DatabaseOperations struct {
+	db      *pgxpool.Pool
+	queries *domain.Queries
+}
+
+func (s DatabaseOperations) Health() error {
 	err := s.db.Ping(context.Background())
 	if err != nil {
 		return err
@@ -157,7 +226,7 @@ func (s Storage) Health() error {
 	return nil
 }
 
-func NewDBConnection(dbUrl string) (*Storage, error) {
+func NewDBConnection(dbUrl string) (*DatabaseOperations, error) {
 	conn, err := pgxpool.New(context.Background(), dbUrl)
 	if err != nil {
 		return nil, err
@@ -168,5 +237,15 @@ func NewDBConnection(dbUrl string) (*Storage, error) {
 		return nil, err
 	}
 
-	return &Storage{db: conn}, nil
+	q := domain.New(conn)
+
+	return &DatabaseOperations{db: conn, queries: q}, nil
 }
+
+func (s DatabaseOperations) Close() {
+	s.db.Close()
+}
+
+//func (r Ranking) convert() (domain.CreateRankingsParams, error) {
+//
+//}

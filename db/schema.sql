@@ -2,9 +2,12 @@ CREATE SCHEMA IF NOT EXISTS ci6ndex;
 
 CREATE TABLE ci6ndex.users (
     id BIGSERIAL NOT NULL,
+    discord_name TEXT NOT NULL,
     name TEXT NOT NULL,
     PRIMARY KEY (id)
 );
+
+CREATE UNIQUE INDEX users_discord_name_uindex ON ci6ndex.users (discord_name);
 
 CREATE TABLE ci6ndex.games (
    id BIGSERIAL NOT NULL,

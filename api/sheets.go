@@ -12,39 +12,91 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
+	"strconv"
 )
 
-func updateLocalRankings(c *AppConfig) error {
+type Ranking struct {
+	Ranker            string
+	CombinedLeaderCiv string
+	Tier              float64
+}
+
+func getRankingsFromSheets(config *AppConfig) ([]Ranking, error) {
 	ctx := context.Background()
-	oauthConfigFile, err := os.ReadFile(c.GoogleCloudCredentialsLocation)
+	oauthConfigFile, err := os.ReadFile(config.GoogleCloudCredentialsLocation)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	oauthConfig, err := google.ConfigFromJSON(oauthConfigFile, "https://www.googleapis.com/auth/spreadsheets.readonly")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	client, err := getClient(oauthConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	srv, err := sheets.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	civLeaderCells := "A2:K80"
-	ss, err := srv.Spreadsheets.Values.BatchGet(c.CivRankingSheetId).Ranges(civLeaderCells).Do()
+	ss, err := srv.Spreadsheets.Values.Get(config.CivRankingSheetId, civLeaderCells).MajorDimension("ROWS").Do()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if ss.ServerResponse.HTTPStatusCode != 200 {
 		slog.Error("could not get spreadsheet", "status", ss.ServerResponse.HTTPStatusCode)
-		return errors.New("could not get spreadsheet")
+		return nil, errors.New("could not get spreadsheet")
 	}
 
-	return nil
+	var rankings []Ranking
+	ignoreNames := []string{"Civ", "Average", "Deviation"}
+
+	for rowNum, row := range ss.Values {
+		r := Ranking{}
+		for colNum, cell := range row {
+			// Labels
+			if rowNum == 0 || colNum == 0 {
+				continue
+			}
+
+			ranker, ok := ss.Values[0][colNum].(string)
+			if !ok {
+				slog.Error("sheets header data is malformed, stopping processing", "colNum", colNum)
+				return nil, fmt.Errorf("sheets header data is malformed at column=%d, stopping processing", colNum)
+			}
+
+			// Ignore computed fields
+			if slices.Contains(ignoreNames, ranker) {
+				continue
+			}
+
+			val, ok := cell.(string)
+			if !ok {
+				slog.Warn("found non-string in sheets tier cell, skipping", "colNum", colNum, "rowNum", rowNum, "cell", cell)
+				continue
+			}
+
+			if val == "" {
+				continue
+			}
+
+			tier, err := strconv.ParseFloat(val, 64)
+			if err != nil {
+				slog.Warn("could not parse tier from string, skipping", "string", val, "error", err)
+				continue
+			}
+			r.Tier = tier
+			r.Ranker = ranker
+			r.CombinedLeaderCiv = ss.Values[rowNum][0].(string)
+			rankings = append(rankings, r)
+		}
+	}
+
+	return rankings, nil
 
 }
 
