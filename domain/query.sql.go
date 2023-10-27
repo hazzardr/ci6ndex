@@ -7,6 +7,8 @@ package domain
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createDraft = `-- name: CreateDraft :one
@@ -241,7 +243,7 @@ RETURNING id, draft_id, user_id, leader_id, offered
 
 type SubmitDraftPickParams struct {
 	DraftID  int64
-	LeaderID int64
+	LeaderID pgtype.Int8
 	UserID   int64
 	Offered  []byte
 }
