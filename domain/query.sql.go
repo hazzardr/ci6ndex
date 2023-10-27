@@ -21,7 +21,7 @@ RETURNING id, user_id, tier, leader_id
 
 type CreateRankingParams struct {
 	UserID   int32
-	Tier     int32
+	Tier     float64
 	LeaderID int32
 }
 
@@ -39,7 +39,7 @@ func (q *Queries) CreateRanking(ctx context.Context, arg CreateRankingParams) (C
 
 type CreateRankingsParams struct {
 	UserID   int32
-	Tier     int32
+	Tier     float64
 	LeaderID int32
 }
 
@@ -67,7 +67,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (Ci6ndex
 
 const deleteRankings = `-- name: DeleteRankings :exec
 DELETE FROM ci6ndex.rankings
-RETURNING count(*)
+RETURNING id, user_id, tier, leader_id
 `
 
 func (q *Queries) DeleteRankings(ctx context.Context) error {
@@ -75,23 +75,42 @@ func (q *Queries) DeleteRankings(ctx context.Context) error {
 	return err
 }
 
-const getUserFromDiscordName = `-- name: GetUserFromDiscordName :one
+const getLeader = `-- name: GetLeader :one
+SELECT id, civ_name, leader_name FROM ci6ndex.leaders
+WHERE leader_name = $1
+AND civ_name = $2
+LIMIT 1
+`
+
+type GetLeaderParams struct {
+	LeaderName string
+	CivName    string
+}
+
+func (q *Queries) GetLeader(ctx context.Context, arg GetLeaderParams) (Ci6ndexLeader, error) {
+	row := q.db.QueryRow(ctx, getLeader, arg.LeaderName, arg.CivName)
+	var i Ci6ndexLeader
+	err := row.Scan(&i.ID, &i.CivName, &i.LeaderName)
+	return i, err
+}
+
+const getUserByDiscordName = `-- name: GetUserByDiscordName :one
 SELECT id, discord_name, name FROM ci6ndex.users WHERE discord_name = $1 LIMIT 1
 `
 
-func (q *Queries) GetUserFromDiscordName(ctx context.Context, discordName string) (Ci6ndexUser, error) {
-	row := q.db.QueryRow(ctx, getUserFromDiscordName, discordName)
+func (q *Queries) GetUserByDiscordName(ctx context.Context, discordName string) (Ci6ndexUser, error) {
+	row := q.db.QueryRow(ctx, getUserByDiscordName, discordName)
 	var i Ci6ndexUser
 	err := row.Scan(&i.ID, &i.DiscordName, &i.Name)
 	return i, err
 }
 
-const getUserFromName = `-- name: GetUserFromName :one
+const getUserByName = `-- name: GetUserByName :one
 SELECT id, discord_name, name FROM ci6ndex.users WHERE name = $1 LIMIT 1
 `
 
-func (q *Queries) GetUserFromName(ctx context.Context, name string) (Ci6ndexUser, error) {
-	row := q.db.QueryRow(ctx, getUserFromName, name)
+func (q *Queries) GetUserByName(ctx context.Context, name string) (Ci6ndexUser, error) {
+	row := q.db.QueryRow(ctx, getUserByName, name)
 	var i Ci6ndexUser
 	err := row.Scan(&i.ID, &i.DiscordName, &i.Name)
 	return i, err

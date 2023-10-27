@@ -1,7 +1,7 @@
--- name: GetUserFromName :one
+-- name: GetUserByName :one
 SELECT * FROM ci6ndex.users WHERE name = $1 LIMIT 1;
 
--- name: GetUserFromDiscordName :one
+-- name: GetUserByDiscordName :one
 SELECT * FROM ci6ndex.users WHERE discord_name = $1 LIMIT 1;
 
 -- name: CreateUser :one
@@ -15,7 +15,7 @@ RETURNING *;
 
 -- name: DeleteRankings :exec
 DELETE FROM ci6ndex.rankings
-RETURNING count(*);
+RETURNING *;
 
 -- name: CreateRanking :one
 INSERT INTO ci6ndex.rankings
@@ -33,3 +33,9 @@ INSERT INTO ci6ndex.rankings
 ) VALUES (
     $1, $2, $3
 );
+
+-- name: GetLeader :one
+SELECT * FROM ci6ndex.leaders
+WHERE leader_name = $1
+AND civ_name = $2
+LIMIT 1;

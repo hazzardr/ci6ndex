@@ -20,7 +20,7 @@ type Ci6ndexLeader struct {
 type Ci6ndexRanking struct {
 	ID       int64
 	UserID   int32
-	Tier     int32
+	Tier     float64
 	LeaderID int32
 }
 

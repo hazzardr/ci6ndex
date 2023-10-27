@@ -17,13 +17,12 @@ import (
 )
 
 type Ranking struct {
-	Ranker            string
+	Player            string
 	CombinedLeaderCiv string
 	Tier              float64
 }
 
-func getRankingsFromSheets(config *AppConfig) ([]Ranking, error) {
-	ctx := context.Background()
+func getRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, error) {
 	oauthConfigFile, err := os.ReadFile(config.GoogleCloudCredentialsLocation)
 	if err != nil {
 		return nil, err
@@ -66,7 +65,7 @@ func getRankingsFromSheets(config *AppConfig) ([]Ranking, error) {
 			ranker, ok := ss.Values[0][colNum].(string)
 			if !ok {
 				slog.Error("sheets header data is malformed, stopping processing", "colNum", colNum)
-				return nil, fmt.Errorf("sheets header data is malformed at column=%d, stopping processing", colNum)
+				return nil, fmt.Errorf("sheets header data is malformed at column=%disc, stopping processing", colNum)
 			}
 
 			// Ignore computed fields
@@ -90,7 +89,7 @@ func getRankingsFromSheets(config *AppConfig) ([]Ranking, error) {
 				continue
 			}
 			r.Tier = tier
-			r.Ranker = ranker
+			r.Player = ranker
 			r.CombinedLeaderCiv = ss.Values[rowNum][0].(string)
 			rankings = append(rankings, r)
 		}

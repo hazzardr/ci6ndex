@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 )
 
 type AppConfig struct {
@@ -36,9 +37,9 @@ const (
 )
 
 var server http.Server
-var r = mux.NewRouter()
+var route = mux.NewRouter()
 
-var d discordgo.Session
+var disc discordgo.Session
 
 func Start(mode string) {
 	viper.SetConfigFile(".env")
@@ -81,7 +82,7 @@ func StartBot() {
 
 	d.Identify.Intents = discordgo.IntentsGuildMessages
 	d.AddHandler(ready)
-	//d.AddHandler(messageCreate)
+	//disc.AddHandler(messageCreate)
 
 	err = d.Open()
 	if err != nil {
@@ -92,17 +93,18 @@ func StartBot() {
 
 func StartServer() {
 	slog.Info("starting http server...")
-	server.Handler = r
-	server.Addr = ":8080"
 
-	r.HandleFunc("/health", Health).Methods("GET")
-
-	r.HandleFunc("/users", CreateUser).Methods("PUT")
+	route.HandleFunc("/health", Health).Methods("GET")
+	route.HandleFunc("/users", CreateUser).Methods("PUT")
 
 	//r.HandleFunc("/rankings", GetRankings).Methods("GET")
-	r.HandleFunc("/rankings", RefreshRankings).Methods("POST")
+	route.HandleFunc("/rankings", RefreshRankings).Methods("POST")
 
-	http.Handle("/", r)
+	server = http.Server{
+		Addr:    ":8080",
+		Handler: route,
+	}
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
 
@@ -167,17 +169,16 @@ func GetRankings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 }
 
-func RefreshRankings(w http.ResponseWriter, r *http.Request) {
-	ranks, err := getRankingsFromSheets(&config)
+func RefreshRankings(w http.ResponseWriter, req *http.Request) {
+	ranks, err := getRankingsFromSheets(&config, req.Context())
 	if err != nil {
 		slog.Error("could not get rankings", "error", err)
 		w.WriteHeader(500)
 		_ = json.NewEncoder(w).Encode(err)
 		return
 	}
-	slog.Info("got rankings", "ranking_count", len(ranks))
 
-	//err = db.queries.DeleteRankings(r.Context())
+	err = db.queries.DeleteRankings(req.Context())
 	if err != nil {
 		slog.Error("could not delete existing rankings", "error", err)
 		w.WriteHeader(500)
@@ -185,8 +186,28 @@ func RefreshRankings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for _, r := range ranks {
+		dbp, err := r.ToRankingDBParam(req.Context())
+		if err != nil {
+			slog.Error("could not convert gsheet ranking to db param", "error", err)
+			w.WriteHeader(500)
+			_ = json.NewEncoder(w).Encode(err)
+			return
+		}
+
+		_, err = db.queries.CreateRanking(req.Context(), dbp)
+		if err != nil {
+			slog.Error("could not create ranking", "error", err)
+			w.WriteHeader(500)
+			_ = json.NewEncoder(w).Encode(err)
+			return
+		}
+	}
+
 	w.WriteHeader(200)
-	err = json.NewEncoder(w).Encode("successfully refreshed rankings from google sheets")
+	success := "successfully refreshed rankings from google sheets"
+	slog.Info(success, "ranks_added", len(ranks))
+	err = json.NewEncoder(w).Encode(success)
 	if err != nil {
 		w.WriteHeader(500)
 		_ = json.NewEncoder(w).Encode(err)
@@ -196,7 +217,7 @@ func RefreshRankings(w http.ResponseWriter, r *http.Request) {
 
 func StopServer(code int) {
 	slog.Info("shutting down application")
-	err := d.Close()
+	err := disc.Close()
 	if err != nil {
 		slog.Warn("did not shut down application gracefully", "error", err)
 	} else {
@@ -246,6 +267,39 @@ func (s DatabaseOperations) Close() {
 	s.db.Close()
 }
 
-//func (r Ranking) convert() (domain.CreateRankingsParams, error) {
-//
-//}
+func (r Ranking) ToRankingDBParam(ctx context.Context) (domain.CreateRankingParams, error) {
+	user, err := db.queries.GetUserByName(ctx, r.Player)
+	if err != nil {
+		return domain.CreateRankingParams{}, err
+	}
+
+	re, err := regexp.Compile(`^(.*?) \((.*?)\)$`)
+	if err != nil {
+		return domain.CreateRankingParams{}, err
+	}
+	matches := re.FindStringSubmatch(r.CombinedLeaderCiv)
+
+	var civ string
+	var leader string
+	if len(matches) == 3 {
+		civ = matches[1]
+		leader = matches[2]
+	} else {
+		return domain.CreateRankingParams{}, errors.New("could not parse civ and leader from google sheets cell")
+	}
+
+	l, err := db.queries.GetLeader(ctx, domain.GetLeaderParams{
+		LeaderName: leader,
+		CivName:    civ,
+	})
+
+	if err != nil {
+		return domain.CreateRankingParams{}, err
+	}
+
+	return domain.CreateRankingParams{
+		UserID:   int32(user.ID),
+		Tier:     r.Tier,
+		LeaderID: int32(l.ID),
+	}, nil
+}
