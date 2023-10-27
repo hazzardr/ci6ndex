@@ -1,4 +1,4 @@
-package internal
+package main
 
 import (
 	"github.com/bwmarrin/discordgo"
@@ -15,7 +15,7 @@ func messageCreate(s *discordgo.Session, e *discordgo.MessageCreate) {
 func ready(s *discordgo.Session, e *discordgo.Ready) {
 	err := s.UpdateGameStatus(0, "!ci6ndex")
 	if err != nil {
-		slog.Error("could not update discord status on startup")
+		slog.Warn("could not update discord status on startup")
 	}
 	slog.Info("bot initialized and ready to receive events")
 }

@@ -1,3 +1,6 @@
+-- name: GetUser :one
+SELECT * FROM ci6ndex.users WHERE id = $1 LIMIT 1;
+
 -- name: GetUserByName :one
 SELECT * FROM ci6ndex.users WHERE name = $1 LIMIT 1;
 
@@ -36,6 +39,11 @@ INSERT INTO ci6ndex.rankings
 
 -- name: GetLeader :one
 SELECT * FROM ci6ndex.leaders
+         WHERE id = $1
+         LIMIT 1;
+
+-- name: GetLeaderByNameAndCiv :one
+SELECT * FROM ci6ndex.leaders
 WHERE leader_name = $1
 AND civ_name = $2
 LIMIT 1;
@@ -56,3 +64,26 @@ LIMIT 1;
 
 -- name: GetDraftStrategies :many
 SELECT * FROM ci6ndex.draft_strategies;
+
+-- name: CreateDraft :one
+INSERT INTO ci6ndex.drafts
+(
+    draft_strategy
+) VALUES (
+    $1
+)
+RETURNING *;
+
+-- name: GetDraft :one
+SELECT * FROM ci6ndex.drafts
+WHERE id = $1
+LIMIT 1;
+
+-- name: SubmitDraftPick :one
+INSERT INTO ci6ndex.draft_picks
+(
+    draft_id, leader_id, user_id, offered
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING *;

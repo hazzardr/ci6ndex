@@ -10,20 +10,32 @@ import (
 
 type Ci6ndexDraft struct {
 	ID            int64
-	UserID        int32
 	DraftStrategy string
 }
 
+type Ci6ndexDraftPick struct {
+	ID       int64
+	DraftID  int64
+	UserID   int64
+	LeaderID int64
+	// The civs that were offered to the user.
+	Offered []byte
+}
+
+// The strategies that can be used to draft a civ
 type Ci6ndexDraftStrategy struct {
 	Name        string
 	Description string
+	// Specific rules that this draft has to follow.
+	Rules []byte
 }
 
 type Ci6ndexGame struct {
 	ID        int64
-	DraftID   int32
+	DraftID   int64
 	StartDate pgtype.Date
 	EndDate   pgtype.Date
+	GameStats []byte
 }
 
 type Ci6ndexLeader struct {
@@ -34,16 +46,16 @@ type Ci6ndexLeader struct {
 
 type Ci6ndexRanking struct {
 	ID       int64
-	UserID   int32
+	UserID   int64
 	Tier     float64
-	LeaderID int32
+	LeaderID int64
 }
 
 type Ci6ndexStat struct {
 	ID     int64
 	Stats  []byte
-	UserID int32
-	GameID int32
+	UserID int64
+	GameID int64
 }
 
 type Ci6ndexUser struct {

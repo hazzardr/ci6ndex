@@ -9,6 +9,23 @@ import (
 	"context"
 )
 
+const createDraft = `-- name: CreateDraft :one
+INSERT INTO ci6ndex.drafts
+(
+    draft_strategy
+) VALUES (
+    $1
+)
+RETURNING id, draft_strategy
+`
+
+func (q *Queries) CreateDraft(ctx context.Context, draftStrategy string) (Ci6ndexDraft, error) {
+	row := q.db.QueryRow(ctx, createDraft, draftStrategy)
+	var i Ci6ndexDraft
+	err := row.Scan(&i.ID, &i.DraftStrategy)
+	return i, err
+}
+
 const createDraftStrategy = `-- name: CreateDraftStrategy :one
 INSERT INTO ci6ndex.draft_strategies
 (
@@ -16,7 +33,7 @@ INSERT INTO ci6ndex.draft_strategies
 ) VALUES (
     $1, $2
 )
-RETURNING name, description
+RETURNING name, description, rules
 `
 
 type CreateDraftStrategyParams struct {
@@ -27,7 +44,7 @@ type CreateDraftStrategyParams struct {
 func (q *Queries) CreateDraftStrategy(ctx context.Context, arg CreateDraftStrategyParams) (Ci6ndexDraftStrategy, error) {
 	row := q.db.QueryRow(ctx, createDraftStrategy, arg.Name, arg.Description)
 	var i Ci6ndexDraftStrategy
-	err := row.Scan(&i.Name, &i.Description)
+	err := row.Scan(&i.Name, &i.Description, &i.Rules)
 	return i, err
 }
 
@@ -42,9 +59,9 @@ RETURNING id, user_id, tier, leader_id
 `
 
 type CreateRankingParams struct {
-	UserID   int32
+	UserID   int64
 	Tier     float64
-	LeaderID int32
+	LeaderID int64
 }
 
 func (q *Queries) CreateRanking(ctx context.Context, arg CreateRankingParams) (Ci6ndexRanking, error) {
@@ -60,9 +77,9 @@ func (q *Queries) CreateRanking(ctx context.Context, arg CreateRankingParams) (C
 }
 
 type CreateRankingsParams struct {
-	UserID   int32
+	UserID   int64
 	Tier     float64
-	LeaderID int32
+	LeaderID int64
 }
 
 const createUser = `-- name: CreateUser :one
@@ -97,8 +114,21 @@ func (q *Queries) DeleteRankings(ctx context.Context) error {
 	return err
 }
 
+const getDraft = `-- name: GetDraft :one
+SELECT id, draft_strategy FROM ci6ndex.drafts
+WHERE id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetDraft(ctx context.Context, id int64) (Ci6ndexDraft, error) {
+	row := q.db.QueryRow(ctx, getDraft, id)
+	var i Ci6ndexDraft
+	err := row.Scan(&i.ID, &i.DraftStrategy)
+	return i, err
+}
+
 const getDraftStrategies = `-- name: GetDraftStrategies :many
-SELECT name, description FROM ci6ndex.draft_strategies
+SELECT name, description, rules FROM ci6ndex.draft_strategies
 `
 
 func (q *Queries) GetDraftStrategies(ctx context.Context) ([]Ci6ndexDraftStrategy, error) {
@@ -110,7 +140,7 @@ func (q *Queries) GetDraftStrategies(ctx context.Context) ([]Ci6ndexDraftStrateg
 	var items []Ci6ndexDraftStrategy
 	for rows.Next() {
 		var i Ci6ndexDraftStrategy
-		if err := rows.Scan(&i.Name, &i.Description); err != nil {
+		if err := rows.Scan(&i.Name, &i.Description, &i.Rules); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -122,7 +152,7 @@ func (q *Queries) GetDraftStrategies(ctx context.Context) ([]Ci6ndexDraftStrateg
 }
 
 const getDraftStrategy = `-- name: GetDraftStrategy :one
-SELECT name, description FROM ci6ndex.draft_strategies
+SELECT name, description, rules FROM ci6ndex.draft_strategies
 WHERE name = $1
 LIMIT 1
 `
@@ -130,26 +160,50 @@ LIMIT 1
 func (q *Queries) GetDraftStrategy(ctx context.Context, name string) (Ci6ndexDraftStrategy, error) {
 	row := q.db.QueryRow(ctx, getDraftStrategy, name)
 	var i Ci6ndexDraftStrategy
-	err := row.Scan(&i.Name, &i.Description)
+	err := row.Scan(&i.Name, &i.Description, &i.Rules)
 	return i, err
 }
 
 const getLeader = `-- name: GetLeader :one
+SELECT id, civ_name, leader_name FROM ci6ndex.leaders
+         WHERE id = $1
+         LIMIT 1
+`
+
+func (q *Queries) GetLeader(ctx context.Context, id int64) (Ci6ndexLeader, error) {
+	row := q.db.QueryRow(ctx, getLeader, id)
+	var i Ci6ndexLeader
+	err := row.Scan(&i.ID, &i.CivName, &i.LeaderName)
+	return i, err
+}
+
+const getLeaderByNameAndCiv = `-- name: GetLeaderByNameAndCiv :one
 SELECT id, civ_name, leader_name FROM ci6ndex.leaders
 WHERE leader_name = $1
 AND civ_name = $2
 LIMIT 1
 `
 
-type GetLeaderParams struct {
+type GetLeaderByNameAndCivParams struct {
 	LeaderName string
 	CivName    string
 }
 
-func (q *Queries) GetLeader(ctx context.Context, arg GetLeaderParams) (Ci6ndexLeader, error) {
-	row := q.db.QueryRow(ctx, getLeader, arg.LeaderName, arg.CivName)
+func (q *Queries) GetLeaderByNameAndCiv(ctx context.Context, arg GetLeaderByNameAndCivParams) (Ci6ndexLeader, error) {
+	row := q.db.QueryRow(ctx, getLeaderByNameAndCiv, arg.LeaderName, arg.CivName)
 	var i Ci6ndexLeader
 	err := row.Scan(&i.ID, &i.CivName, &i.LeaderName)
+	return i, err
+}
+
+const getUser = `-- name: GetUser :one
+SELECT id, discord_name, name FROM ci6ndex.users WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetUser(ctx context.Context, id int64) (Ci6ndexUser, error) {
+	row := q.db.QueryRow(ctx, getUser, id)
+	var i Ci6ndexUser
+	err := row.Scan(&i.ID, &i.DiscordName, &i.Name)
 	return i, err
 }
 
@@ -172,5 +226,40 @@ func (q *Queries) GetUserByName(ctx context.Context, name string) (Ci6ndexUser, 
 	row := q.db.QueryRow(ctx, getUserByName, name)
 	var i Ci6ndexUser
 	err := row.Scan(&i.ID, &i.DiscordName, &i.Name)
+	return i, err
+}
+
+const submitDraftPick = `-- name: SubmitDraftPick :one
+INSERT INTO ci6ndex.draft_picks
+(
+    draft_id, leader_id, user_id, offered
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING id, draft_id, user_id, leader_id, offered
+`
+
+type SubmitDraftPickParams struct {
+	DraftID  int64
+	LeaderID int64
+	UserID   int64
+	Offered  []byte
+}
+
+func (q *Queries) SubmitDraftPick(ctx context.Context, arg SubmitDraftPickParams) (Ci6ndexDraftPick, error) {
+	row := q.db.QueryRow(ctx, submitDraftPick,
+		arg.DraftID,
+		arg.LeaderID,
+		arg.UserID,
+		arg.Offered,
+	)
+	var i Ci6ndexDraftPick
+	err := row.Scan(
+		&i.ID,
+		&i.DraftID,
+		&i.UserID,
+		&i.LeaderID,
+		&i.Offered,
+	)
 	return i, err
 }

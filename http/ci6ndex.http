@@ -2,11 +2,6 @@ GET http://localhost:8080/health
 Accept: application/json
 
 ###
-
-GET http://localhost:8080/rankings
-
-
-###
 POST http://localhost:8080/rankings
 
 ###
@@ -25,3 +20,24 @@ GET http://localhost:8080/draft_strategies
 ###
 
 GET http://localhost:8080/draft_strategies/test
+
+###
+
+PUT http://localhost:8080/drafts
+Content-Type: application/json
+
+{
+  "draft_strategy": "AllPick"
+}
+
+###
+PUT http://localhost:8080/drafts/5/picks
+Content-Type: application/json
+
+{
+  "leader": {
+    "name": "Lautaro",
+    "civ": "Mapuche"
+  },
+  "discord_user": "hazzard_"
+}

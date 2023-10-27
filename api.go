@@ -1,4 +1,4 @@
-package api
+package main
 
 import (
 	"ci6ndex/domain"
@@ -18,6 +18,8 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strconv"
+	"strings"
 )
 
 type AppConfig struct {
@@ -100,7 +102,9 @@ func StartServer() {
 
 	route.HandleFunc("/draft_strategies", GetDraftStrategies).Methods("GET")
 	route.HandleFunc("/draft_strategies/{name}", GetDraftStrategy).Methods("GET")
-	//route.HandleFunc("/draft_strategies", CreateDraftStrategy).Methods("PUT")
+
+	route.HandleFunc("/drafts", CreateDraft).Methods("PUT")
+	route.HandleFunc("/drafts/{draftId}/picks", SubmitDraftPick).Methods("PUT")
 
 	route.HandleFunc("/rankings", RefreshRankings).Methods("POST")
 
@@ -169,6 +173,152 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type CreateDraftRequest struct {
+	DraftStrategy string `json:"draft_strategy"`
+}
+
+func CreateDraft(w http.ResponseWriter, req *http.Request) {
+	var cdr CreateDraftRequest
+	err := json.NewDecoder(req.Body).Decode(&cdr)
+	if err != nil {
+		w.WriteHeader(400)
+		_ = json.NewEncoder(w).Encode("could not parse strategy from request body")
+		return
+	}
+
+	strategy := cdr.DraftStrategy
+
+	_, err = db.queries.GetDraftStrategy(req.Context(), strategy)
+	if err != nil {
+		w.WriteHeader(422)
+		_ = json.NewEncoder(w).Encode(fmt.Sprintf("draft_strategy=%v does not exist", strategy))
+		return
+	}
+
+	draft, err := db.queries.CreateDraft(req.Context(), strategy)
+	if err != nil {
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+
+	}
+
+	w.WriteHeader(201)
+	err = json.NewEncoder(w).Encode(draft)
+	if err != nil {
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+}
+
+type Leader struct {
+	Name string `json:"name"`
+	Civ  string `json:"civ"`
+}
+
+// SubmitDraftPickRequest DiscordUser is case sensitive
+type SubmitDraftPickRequest struct {
+	Leader      Leader   `json:"leader"`
+	DiscordUser string   `json:"discord_user"`
+	Offered     []Leader `json:"offered"`
+}
+
+func SubmitDraftPick(w http.ResponseWriter, r *http.Request) {
+	var sdp SubmitDraftPickRequest
+	err := json.NewDecoder(r.Body).Decode(&sdp)
+	if err != nil {
+		w.WriteHeader(400)
+		_ = json.NewEncoder(w).Encode("could not parse draft pick from request body")
+		return
+	}
+
+	vars := mux.Vars(r)
+	draftId, err := strconv.ParseInt(vars["draftId"], 10, 64)
+	if err != nil {
+		w.WriteHeader(400)
+		_ = json.NewEncoder(w).Encode("could not parse draft id from request path")
+		return
+	}
+
+	_, err = db.queries.GetDraft(r.Context(), draftId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			w.WriteHeader(422)
+			_ = json.NewEncoder(w).Encode(fmt.Sprintf("draft_id=%v does not exist", draftId))
+			return
+		}
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+
+	user, err := db.queries.GetUserByDiscordName(r.Context(), sdp.DiscordUser)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			w.WriteHeader(422)
+			_ = json.NewEncoder(w).Encode(fmt.Sprintf("discord_user=%v does not exist", sdp.DiscordUser))
+			return
+		}
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+
+	leader, err := db.queries.GetLeaderByNameAndCiv(r.Context(), domain.GetLeaderByNameAndCivParams{
+		LeaderName: strings.ToUpper(sdp.Leader.Name),
+		CivName:    strings.ToUpper(sdp.Leader.Civ),
+	})
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			w.WriteHeader(422)
+			_ = json.NewEncoder(w).Encode(fmt.Sprintf("leader=%v does not exist", sdp.Leader))
+			return
+		}
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+
+	offered, err := json.Marshal(sdp.Offered)
+	if err != nil {
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(fmt.Sprintf("could not serialize offered leaders to database"))
+		return
+	}
+
+	pick, err := db.queries.SubmitDraftPick(r.Context(), domain.SubmitDraftPickParams{
+		DraftID:  draftId,
+		LeaderID: leader.ID,
+		UserID:   user.ID,
+		Offered:  offered,
+	})
+
+	if err != nil {
+		var sqlErr *pgconn.PgError
+		if errors.As(err, &sqlErr) {
+			if sqlErr.Code == "23505" {
+				w.WriteHeader(409)
+				err = json.NewEncoder(w).Encode(fmt.Sprint("user has already submitted a pick for this draft"))
+				return
+			}
+		} else {
+			w.WriteHeader(500)
+			_ = json.NewEncoder(w).Encode(err)
+			return
+		}
+	}
+
+	w.WriteHeader(201)
+	err = json.NewEncoder(w).Encode(pick)
+	if err != nil {
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(fmt.Sprint("failed to encode draft pick, but it was submitted successfully"))
+	}
+
+}
+
 func GetDraftStrategies(w http.ResponseWriter, r *http.Request) {
 	strats, err := db.queries.GetDraftStrategies(r.Context())
 	if err != nil {
@@ -207,12 +357,6 @@ func GetDraftStrategy(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(err)
 		return
 	}
-	//
-	//if strat == nil {
-	//	w.WriteHeader(404)
-	//	_ = json.NewEncoder(w).Encode("draft strategy not found")
-	//	return
-	//}
 
 	w.WriteHeader(200)
 	err = json.NewEncoder(w).Encode(strat)
@@ -342,7 +486,7 @@ func (r Ranking) ToRankingDBParam(ctx context.Context) (domain.CreateRankingPara
 		return domain.CreateRankingParams{}, errors.New("could not parse civ and leader from google sheets cell")
 	}
 
-	l, err := db.queries.GetLeader(ctx, domain.GetLeaderParams{
+	l, err := db.queries.GetLeaderByNameAndCiv(ctx, domain.GetLeaderByNameAndCivParams{
 		LeaderName: leader,
 		CivName:    civ,
 	})
@@ -352,8 +496,8 @@ func (r Ranking) ToRankingDBParam(ctx context.Context) (domain.CreateRankingPara
 	}
 
 	return domain.CreateRankingParams{
-		UserID:   int32(user.ID),
+		UserID:   user.ID,
 		Tier:     r.Tier,
-		LeaderID: int32(l.ID),
+		LeaderID: l.ID,
 	}, nil
 }
