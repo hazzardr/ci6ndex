@@ -9,6 +9,28 @@ import (
 	"context"
 )
 
+const createDraftStrategy = `-- name: CreateDraftStrategy :one
+INSERT INTO ci6ndex.draft_strategies
+(
+    name, description
+) VALUES (
+    $1, $2
+)
+RETURNING name, description
+`
+
+type CreateDraftStrategyParams struct {
+	Name        string
+	Description string
+}
+
+func (q *Queries) CreateDraftStrategy(ctx context.Context, arg CreateDraftStrategyParams) (Ci6ndexDraftStrategy, error) {
+	row := q.db.QueryRow(ctx, createDraftStrategy, arg.Name, arg.Description)
+	var i Ci6ndexDraftStrategy
+	err := row.Scan(&i.Name, &i.Description)
+	return i, err
+}
+
 const createRanking = `-- name: CreateRanking :one
 INSERT INTO ci6ndex.rankings
 (
@@ -73,6 +95,43 @@ RETURNING id, user_id, tier, leader_id
 func (q *Queries) DeleteRankings(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteRankings)
 	return err
+}
+
+const getDraftStrategies = `-- name: GetDraftStrategies :many
+SELECT name, description FROM ci6ndex.draft_strategies
+`
+
+func (q *Queries) GetDraftStrategies(ctx context.Context) ([]Ci6ndexDraftStrategy, error) {
+	rows, err := q.db.Query(ctx, getDraftStrategies)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ci6ndexDraftStrategy
+	for rows.Next() {
+		var i Ci6ndexDraftStrategy
+		if err := rows.Scan(&i.Name, &i.Description); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getDraftStrategy = `-- name: GetDraftStrategy :one
+SELECT name, description FROM ci6ndex.draft_strategies
+WHERE name = $1
+LIMIT 1
+`
+
+func (q *Queries) GetDraftStrategy(ctx context.Context, name string) (Ci6ndexDraftStrategy, error) {
+	row := q.db.QueryRow(ctx, getDraftStrategy, name)
+	var i Ci6ndexDraftStrategy
+	err := row.Scan(&i.Name, &i.Description)
+	return i, err
 }
 
 const getLeader = `-- name: GetLeader :one

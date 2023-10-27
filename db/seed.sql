@@ -1,4 +1,3 @@
-
 INSERT INTO ci6ndex.leaders (civ_name, leader_name)
 VALUES
     ('America', 'Abe'),
@@ -79,4 +78,29 @@ VALUES
     ('Sweden', 'Kristina'),
     ('Vietnam', 'Bà Triệu'),
     ('Zulu', 'Shaka')
+;
+
+INSERT INTO ci6ndex.draft_strategies (name, description, rules)
+VALUES
+(
+ 'AllPick',
+ 'Everyone can freely pick a leader, no restrictions.',
+ null
+),
+(
+ 'RandomPick',
+ 'Everyone gets a randomized leader.',
+ '{ "randomize": true }'
+),
+(
+ 'RandomPickPool3',
+ 'Everyone gets assigned a pool of 3 random leaders to pick from.',
+ '{ "randomize": true, "pool_size": 3 }'
+),
+--     Potentially in the future add attr. like monger, culture etc?
+(
+ 'RandomPickPool3Standard',
+ 'Everyone gets assigned a pool of 3 random leaders to pick from.',
+ '{ "randomize": true, "pool_size": 3, "tiers_offered_min": {"1": 1}}'
+)
 ;

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/viper"
@@ -97,7 +98,10 @@ func StartServer() {
 	route.HandleFunc("/health", Health).Methods("GET")
 	route.HandleFunc("/users", CreateUser).Methods("PUT")
 
-	//r.HandleFunc("/rankings", GetRankings).Methods("GET")
+	route.HandleFunc("/draft_strategies", GetDraftStrategies).Methods("GET")
+	route.HandleFunc("/draft_strategies/{name}", GetDraftStrategy).Methods("GET")
+	//route.HandleFunc("/draft_strategies", CreateDraftStrategy).Methods("PUT")
+
 	route.HandleFunc("/rankings", RefreshRankings).Methods("POST")
 
 	server = http.Server{
@@ -165,8 +169,58 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func GetRankings(w http.ResponseWriter, r *http.Request) {
+func GetDraftStrategies(w http.ResponseWriter, r *http.Request) {
+	strats, err := db.queries.GetDraftStrategies(r.Context())
+	if err != nil {
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+
 	w.WriteHeader(200)
+	if strats == nil {
+		strats = []domain.Ci6ndexDraftStrategy{}
+	}
+	err = json.NewEncoder(w).Encode(strats)
+	if err != nil {
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+}
+
+func GetDraftStrategy(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	// We can defer sql sanitization to pgx here because they use prepared statements
+	// and our sqlc generated code "parameterizes our parameters" (i.e. it uses $1, $2, etc.)
+	// See more:
+	// * https://github.com/jackc/pgx/wiki/Automatic-Prepared-Statement-Caching#automatic-prepared-statement-caching
+	strat, err := db.queries.GetDraftStrategy(r.Context(), vars["name"])
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			w.WriteHeader(404)
+			_ = json.NewEncoder(w).Encode(fmt.Sprintf("draft_strategy=%v not found", vars["name"]))
+			return
+		}
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+	//
+	//if strat == nil {
+	//	w.WriteHeader(404)
+	//	_ = json.NewEncoder(w).Encode("draft strategy not found")
+	//	return
+	//}
+
+	w.WriteHeader(200)
+	err = json.NewEncoder(w).Encode(strat)
+	if err != nil {
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
 }
 
 func RefreshRankings(w http.ResponseWriter, req *http.Request) {

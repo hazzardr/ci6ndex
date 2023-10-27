@@ -4,11 +4,26 @@
 
 package domain
 
-import ()
+import (
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
+type Ci6ndexDraft struct {
+	ID            int64
+	UserID        int32
+	DraftStrategy string
+}
+
+type Ci6ndexDraftStrategy struct {
+	Name        string
+	Description string
+}
 
 type Ci6ndexGame struct {
-	ID      int64
-	UserIds []int32
+	ID        int64
+	DraftID   int32
+	StartDate pgtype.Date
+	EndDate   pgtype.Date
 }
 
 type Ci6ndexLeader struct {

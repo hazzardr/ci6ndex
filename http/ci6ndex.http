@@ -18,3 +18,10 @@ Content-Type: application/json
   "Name": "Greg",
   "DiscordName": "meowmix"
 }
+
+###
+
+GET http://localhost:8080/draft_strategies
+###
+
+GET http://localhost:8080/draft_strategies/test

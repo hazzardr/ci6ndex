@@ -39,3 +39,20 @@ SELECT * FROM ci6ndex.leaders
 WHERE leader_name = $1
 AND civ_name = $2
 LIMIT 1;
+
+-- name: CreateDraftStrategy :one
+INSERT INTO ci6ndex.draft_strategies
+(
+    name, description
+) VALUES (
+    $1, $2
+)
+RETURNING *;
+
+-- name: GetDraftStrategy :one
+SELECT * FROM ci6ndex.draft_strategies
+WHERE name = $1
+LIMIT 1;
+
+-- name: GetDraftStrategies :many
+SELECT * FROM ci6ndex.draft_strategies;
