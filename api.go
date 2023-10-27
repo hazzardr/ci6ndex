@@ -487,8 +487,8 @@ func (r Ranking) ToRankingDBParam(ctx context.Context) (domain.CreateRankingPara
 	}
 
 	l, err := db.queries.GetLeaderByNameAndCiv(ctx, domain.GetLeaderByNameAndCivParams{
-		LeaderName: leader,
-		CivName:    civ,
+		LeaderName: strings.ToUpper(leader),
+		CivName:    strings.ToUpper(civ),
 	})
 
 	if err != nil {
