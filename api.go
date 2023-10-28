@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/viper"
 	"log"
@@ -27,16 +28,15 @@ type AppConfig struct {
 	DatabaseUrl                    string `mapstructure:"POSTGRES_URL"`
 	GoogleCloudCredentialsLocation string `mapstructure:"GCLOUD_CREDS_LOC"`
 	CivRankingSheetId              string `mapstructure:"RANKING_SHEET_ID"`
+	FokGuildID                     string `mapstructure:"FOK_GUILD_ID"`
 }
 
 var config AppConfig
 var db *DatabaseOperations
 
-type Mode string
-
 const (
-	Bot    Mode = "bot"
-	Server Mode = "server"
+	Bot    string = "bot"
+	Server string = "server"
 )
 
 var server http.Server
@@ -63,10 +63,10 @@ func Start(mode string) {
 	}
 
 	switch mode {
-	case string(Server):
+	case Server:
 		slog.Info("starting in server mode only")
 		StartServer()
-	case string(Bot):
+	case Bot:
 		StartBot()
 		StartServer()
 	default:
@@ -85,9 +85,9 @@ func StartBot() {
 
 	d.Identify.Intents = discordgo.IntentsGuildMessages
 	d.AddHandler(ready)
-	//disc.AddHandler(messageCreate)
 
 	err = d.Open()
+	AttachSlashCommands(d, &config)
 	if err != nil {
 		slog.Error("could not open connection to discord, exiting", "error", err)
 		os.Exit(1)
@@ -290,7 +290,7 @@ func SubmitDraftPick(w http.ResponseWriter, r *http.Request) {
 
 	pick, err := db.queries.SubmitDraftPick(r.Context(), domain.SubmitDraftPickParams{
 		DraftID:  draftId,
-		LeaderID: leader.ID,
+		LeaderID: pgtype.Int8{Int64: leader.ID},
 		UserID:   user.ID,
 		Offered:  offered,
 	})
@@ -437,14 +437,6 @@ type DatabaseOperations struct {
 	queries *domain.Queries
 }
 
-func (s DatabaseOperations) Health() error {
-	err := s.db.Ping(context.Background())
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func NewDBConnection(dbUrl string) (*DatabaseOperations, error) {
 	conn, err := pgxpool.New(context.Background(), dbUrl)
 	if err != nil {
@@ -459,6 +451,14 @@ func NewDBConnection(dbUrl string) (*DatabaseOperations, error) {
 	q := domain.New(conn)
 
 	return &DatabaseOperations{db: conn, queries: q}, nil
+}
+
+func (s DatabaseOperations) Health() error {
+	err := s.db.Ping(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s DatabaseOperations) Close() {
