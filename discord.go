@@ -9,51 +9,18 @@ import (
 )
 
 const (
-	FreeRollCivs        = "rollcivs"
+	StartDraft          = "start-draft"
+	FreeRollCivs        = "roll-civs"
 	RollCivsForDraft    = "rollcivsdraft"
 	RerollCivsForPlayer = "rollcivsplayer"
 )
 
 func freeRollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	//slog.Info("command received", "command", i.Interaction)
-	options := i.ApplicationCommandData().Options
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		optionMap[opt.Name] = opt
-	}
-
-	// This example stores the provided arguments in an []interface{}
-	// which will be used to format the bot's response
-	margs := make([]interface{}, 0, len(options))
-	msgformat := "You learned how to use command options! " +
-		"Take a look at the value(s) you entered:\n"
-
-	// Get the value from the option map.
-	// When the option exists, ok = true
-	if option, ok := optionMap["draft-strategy"]; ok {
-		// Option values must be type asserted from interface{}.
-		// Discordgo provides utility functions to make this simple.
-		margs = append(margs, option.StringValue())
-		msgformat += "> draft-strategy: %s\n"
-	}
-
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		// Ignore type for now, they will be discussed in "responses"
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf(
-				msgformat,
-				margs...,
-			),
-		},
-	})
-	if err != nil {
-		slog.Error(err.Error())
-	}
+	//TODO
 }
 
 func rollCivsForDraft(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
+	//TODO
 }
 
 func followupsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -109,27 +76,34 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) {
 		panic(fmt.Errorf("couldn't get required defaults: %w", err))
 	}
 
-	var defaultDraftChoices []*discordgo.ApplicationCommandOptionChoice
+	var stratOptions []*discordgo.ApplicationCommandOptionChoice
 	for _, strategy := range strategies {
-		defaultDraftChoices = append(defaultDraftChoices, &discordgo.ApplicationCommandOptionChoice{
+		stratOptions = append(stratOptions, &discordgo.ApplicationCommandOptionChoice{
 			Name:  strategy.Name,
 			Value: strategy.Name,
 		})
 	}
 
+	draftStrategyOptions := []*discordgo.ApplicationCommandOption{
+		{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "draft-strategy",
+			Description: "How to decide which civs to roll",
+			Choices:     stratOptions,
+			Required:    true,
+		},
+	}
+
 	commands := []*discordgo.ApplicationCommand{
+		{
+			Name:        StartDraft,
+			Description: "Start a draft. You can then roll civs for players and they can submit their picks.",
+			Options:     draftStrategyOptions,
+		},
 		{
 			Name:        FreeRollCivs,
 			Description: "Roll civs for a given number of players (not associated with draft and not saved)",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "draft-strategy",
-					Description: "How to decide which civs to roll",
-					Choices:     defaultDraftChoices,
-					Required:    true,
-				},
-			},
+			Options:     draftStrategyOptions,
 		},
 		{
 			Name:        "ci6ndex",
@@ -137,15 +111,15 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) {
 		},
 	}
 	handlers := map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"ci6ndex":    basicCommand,
-		"followups":  followupsCommand,
-		FreeRollCivs: freeRollCivs,
+		"ci6ndex":  basicCommand,
+		StartDraft: startDraft,
 	}
 	for _, c := range commands {
 		_, err := s.ApplicationCommandCreate(s.State.User.ID, config.FokGuildID, c)
 		if err != nil {
 			slog.Error("could not create slash command", "command", c.Name, "error", err)
 		}
+		slog.Info("registered command", "command", c.Name)
 	}
 	slog.Info("slash commands attached")
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -153,6 +127,10 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) {
 			h(s, i)
 		}
 	})
+
+}
+
+func startDraft(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 }
 

@@ -11,6 +11,7 @@ import (
 type Ci6ndexDraft struct {
 	ID            int64
 	DraftStrategy string
+	Active        bool
 }
 
 type Ci6ndexDraftPick struct {

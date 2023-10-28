@@ -79,6 +79,10 @@ SELECT * FROM ci6ndex.drafts
 WHERE id = $1
 LIMIT 1;
 
+-- name: GetActiveDrafts :many
+SELECT * FROM ci6ndex.drafts
+WHERE active = true;
+
 -- name: SubmitDraftPick :one
 INSERT INTO ci6ndex.draft_picks
 (

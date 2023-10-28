@@ -18,13 +18,13 @@ INSERT INTO ci6ndex.drafts
 ) VALUES (
     $1
 )
-RETURNING id, draft_strategy
+RETURNING id, draft_strategy, active
 `
 
 func (q *Queries) CreateDraft(ctx context.Context, draftStrategy string) (Ci6ndexDraft, error) {
 	row := q.db.QueryRow(ctx, createDraft, draftStrategy)
 	var i Ci6ndexDraft
-	err := row.Scan(&i.ID, &i.DraftStrategy)
+	err := row.Scan(&i.ID, &i.DraftStrategy, &i.Active)
 	return i, err
 }
 
@@ -116,8 +116,33 @@ func (q *Queries) DeleteRankings(ctx context.Context) error {
 	return err
 }
 
+const getActiveDrafts = `-- name: GetActiveDrafts :many
+SELECT id, draft_strategy, active FROM ci6ndex.drafts
+WHERE active = true
+`
+
+func (q *Queries) GetActiveDrafts(ctx context.Context) ([]Ci6ndexDraft, error) {
+	rows, err := q.db.Query(ctx, getActiveDrafts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ci6ndexDraft
+	for rows.Next() {
+		var i Ci6ndexDraft
+		if err := rows.Scan(&i.ID, &i.DraftStrategy, &i.Active); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getDraft = `-- name: GetDraft :one
-SELECT id, draft_strategy FROM ci6ndex.drafts
+SELECT id, draft_strategy, active FROM ci6ndex.drafts
 WHERE id = $1
 LIMIT 1
 `
@@ -125,7 +150,7 @@ LIMIT 1
 func (q *Queries) GetDraft(ctx context.Context, id int64) (Ci6ndexDraft, error) {
 	row := q.db.QueryRow(ctx, getDraft, id)
 	var i Ci6ndexDraft
-	err := row.Scan(&i.ID, &i.DraftStrategy)
+	err := row.Scan(&i.ID, &i.DraftStrategy, &i.Active)
 	return i, err
 }
 
