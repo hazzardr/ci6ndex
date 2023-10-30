@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"context"
@@ -119,7 +119,7 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) {
 		if err != nil {
 			slog.Error("could not create slash command", "command", c.Name, "error", err)
 		}
-		slog.Info("registered command", "command", c.Name)
+		slog.Info("registered", "command", c.Name)
 	}
 	slog.Info("slash commands attached")
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {

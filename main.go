@@ -1,5 +1,7 @@
 package main
 
+import "ci6ndex/internal"
+
 func main() {
-	Start("bot")
+	internal.Start("bot")
 }
