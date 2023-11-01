@@ -42,3 +42,36 @@ func (r iteratorForCreateRankings) Err() error {
 func (q *Queries) CreateRankings(ctx context.Context, arg []CreateRankingsParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"ci6ndex", "rankings"}, []string{"user_id", "tier", "leader_id"}, &iteratorForCreateRankings{rows: arg})
 }
+
+// iteratorForCreateUsers implements pgx.CopyFromSource.
+type iteratorForCreateUsers struct {
+	rows                 []CreateUsersParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateUsers) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateUsers) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].Name,
+		r.rows[0].DiscordName,
+	}, nil
+}
+
+func (r iteratorForCreateUsers) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateUsers(ctx context.Context, arg []CreateUsersParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"ci6ndex", "users"}, []string{"name", "discord_name"}, &iteratorForCreateUsers{rows: arg})
+}

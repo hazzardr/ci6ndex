@@ -16,6 +16,14 @@ INSERT INTO ci6ndex.users
 )
 RETURNING *;
 
+-- name: CreateUsers :copyfrom
+INSERT INTO ci6ndex.users
+(
+    name, discord_name
+) VALUES (
+    $1, $2
+);
+
 -- name: DeleteRankings :exec
 DELETE FROM ci6ndex.rankings
 RETURNING *;

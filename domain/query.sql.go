@@ -106,6 +106,11 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (Ci6ndex
 	return i, err
 }
 
+type CreateUsersParams struct {
+	Name        string
+	DiscordName string
+}
+
 const deleteRankings = `-- name: DeleteRankings :exec
 DELETE FROM ci6ndex.rankings
 RETURNING id, user_id, tier, leader_id

@@ -43,7 +43,7 @@ const (
 var server http.Server
 var route = mux.NewRouter()
 
-var disc discordgo.Session
+var disc *discordgo.Session
 
 func Start(mode string) {
 	viper.SetConfigFile(".env")
@@ -58,6 +58,12 @@ func Start(mode string) {
 	}
 
 	db, err = NewDBConnection(config.DatabaseUrl)
+	slog.Info("initializing discord bot...")
+	disc, err = discordgo.New("Bot " + config.DiscordToken)
+	if err != nil {
+		slog.Error("could not start discord client, exiting", "error", err)
+		os.Exit(1)
+	}
 	if err != nil {
 		slog.Error("could not connect to database", "error", err)
 		os.Exit(1)
@@ -77,18 +83,12 @@ func Start(mode string) {
 }
 
 func StartBot() {
-	slog.Info("initializing discord bot...")
-	d, err := discordgo.New("Bot " + config.DiscordToken)
-	if err != nil {
-		slog.Error("could not start discord client, exiting", "error", err)
-		os.Exit(1)
-	}
 
-	d.Identify.Intents = discordgo.IntentsGuildMessages
-	d.AddHandler(ready)
+	disc.Identify.Intents = discordgo.IntentsGuildMessages
+	disc.AddHandler(ready)
 
-	err = d.Open()
-	AttachSlashCommands(d, &config)
+	err := disc.Open()
+	AttachSlashCommands(disc, &config)
 	if err != nil {
 		slog.Error("could not open connection to discord, exiting", "error", err)
 		os.Exit(1)
@@ -100,6 +100,7 @@ func StartServer() {
 
 	route.HandleFunc("/health", Health).Methods("GET")
 	route.HandleFunc("/users", CreateUser).Methods("PUT")
+	route.HandleFunc("/users/bulk", CreateUsers).Methods("PUT")
 
 	route.HandleFunc("/draft_strategies", GetDraftStrategies).Methods("GET")
 	route.HandleFunc("/draft_strategies/{name}", GetDraftStrategy).Methods("GET")
@@ -128,11 +129,60 @@ func StartServer() {
 	StopServer(0)
 }
 
+func DeleteDiscordCommands(w http.ResponseWriter, req *http.Request) {
+	commands, err := disc.ApplicationCommands(config.BotApplicationID, config.FokGuildID)
+	if err != nil {
+		var derr *discordgo.RESTError
+		if errors.As(err, &derr) {
+			if derr.Response.StatusCode == 404 {
+				w.WriteHeader(http.StatusNotFound)
+				_ = json.NewEncoder(w).Encode("could not find commands for guild")
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(derr)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(err)
+		}
+		return
+	}
+
+	for _, c := range commands {
+		err = disc.ApplicationCommandDelete(config.BotApplicationID, config.FokGuildID, c.ID)
+		var derr *discordgo.RESTError
+		if errors.As(err, &derr) {
+			if derr.Response.StatusCode == 404 {
+				w.WriteHeader(http.StatusNotFound)
+				_ = json.NewEncoder(w).Encode("could not find commands for guild")
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(derr)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(err)
+		}
+	}
+}
+
 func GetDiscordCommands(w http.ResponseWriter, req *http.Request) {
 	commands, err := disc.ApplicationCommands(config.BotApplicationID, config.FokGuildID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(err)
+		var derr *discordgo.RESTError
+		if errors.As(err, &derr) {
+			if derr.Response.StatusCode == 404 {
+				w.WriteHeader(http.StatusNotFound)
+				_ = json.NewEncoder(w).Encode("could not find commands for guild")
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(derr)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(err)
+		}
+		return
 	}
 
 	err = json.NewEncoder(w).Encode(commands)
@@ -140,6 +190,7 @@ func GetDiscordCommands(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(err)
+		return
 	}
 
 }
@@ -167,6 +218,41 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := db.queries.CreateUser(r.Context(), params)
+	if err != nil {
+		var sqlErr *pgconn.PgError
+		if errors.As(err, &sqlErr) {
+			if sqlErr.Code == "23505" {
+				w.WriteHeader(409)
+				_ = json.NewEncoder(w).Encode("user already exists")
+				return
+			}
+		} else {
+			w.WriteHeader(500)
+			_ = json.NewEncoder(w).Encode(err)
+			return
+		}
+		return
+	}
+
+	w.WriteHeader(201)
+	err = json.NewEncoder(w).Encode(user)
+	if err != nil {
+		w.WriteHeader(500)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+}
+
+func CreateUsers(w http.ResponseWriter, r *http.Request) {
+	var users []domain.CreateUsersParams
+	err := json.NewDecoder(r.Body).Decode(&users)
+	if err != nil {
+		w.WriteHeader(400)
+		_ = json.NewEncoder(w).Encode(err)
+		return
+	}
+
+	user, err := db.queries.CreateUsers(r.Context(), users)
 	if err != nil {
 		var sqlErr *pgconn.PgError
 		if errors.As(err, &sqlErr) {
@@ -487,7 +573,7 @@ func (s DatabaseOperations) Close() {
 func (r Ranking) ToRankingDBParam(ctx context.Context) (domain.CreateRankingParams, error) {
 	user, err := db.queries.GetUserByName(ctx, r.Player)
 	if err != nil {
-		return domain.CreateRankingParams{}, err
+		return domain.CreateRankingParams{}, errors.New(fmt.Sprintf("could not find user=%v from google sheets in local database", r.Player))
 	}
 
 	re, err := regexp.Compile(`^(.*?) \((.*?)\)$`)
