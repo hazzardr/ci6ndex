@@ -29,6 +29,7 @@ type AppConfig struct {
 	GoogleCloudCredentialsLocation string `mapstructure:"GCLOUD_CREDS_LOC"`
 	CivRankingSheetId              string `mapstructure:"RANKING_SHEET_ID"`
 	FokGuildID                     string `mapstructure:"FOK_GUILD_ID"`
+	BotApplicationID               string `mapstructure:"DISCORD_BOT_APPLICATION_ID"`
 }
 
 var config AppConfig
@@ -108,6 +109,8 @@ func StartServer() {
 
 	route.HandleFunc("/rankings", RefreshRankings).Methods("POST")
 
+	route.HandleFunc("/discord/commands", GetDiscordCommands).Methods("GET")
+
 	server = http.Server{
 		Addr:    ":8080",
 		Handler: route,
@@ -123,6 +126,22 @@ func StartServer() {
 	<-stop
 
 	StopServer(0)
+}
+
+func GetDiscordCommands(w http.ResponseWriter, req *http.Request) {
+	commands, err := disc.ApplicationCommands(config.BotApplicationID, config.FokGuildID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(err)
+	}
+
+	err = json.NewEncoder(w).Encode(commands)
+	w.WriteHeader(http.StatusOK)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(err)
+	}
+
 }
 
 func Health(w http.ResponseWriter, r *http.Request) {

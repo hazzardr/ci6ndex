@@ -41,3 +41,7 @@ Content-Type: application/json
   },
   "discord_user": "hazzard_"
 }
+
+###
+GET http://localhost:8080/discord/commands
+###
