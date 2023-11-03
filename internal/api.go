@@ -28,7 +28,6 @@ type AppConfig struct {
 	DatabaseUrl                    string `mapstructure:"POSTGRES_URL"`
 	GoogleCloudCredentialsLocation string `mapstructure:"GCLOUD_CREDS_LOC"`
 	CivRankingSheetId              string `mapstructure:"RANKING_SHEET_ID"`
-	FokGuildID                     string `mapstructure:"FOK_GUILD_ID"`
 	BotApplicationID               string `mapstructure:"DISCORD_BOT_APPLICATION_ID"`
 }
 
@@ -88,7 +87,7 @@ func StartBot() {
 	disc.AddHandler(ready)
 
 	err := disc.Open()
-	AttachSlashCommands(disc, &config)
+
 	if err != nil {
 		slog.Error("could not open connection to discord, exiting", "error", err)
 		os.Exit(1)
@@ -111,6 +110,8 @@ func StartServer() {
 	route.HandleFunc("/rankings", RefreshRankings).Methods("POST")
 
 	route.HandleFunc("/discord/commands", GetDiscordCommands).Methods("GET")
+	route.HandleFunc("/discord/commands", InitializeDiscordCommands).Methods("POST")
+	route.HandleFunc("/discord/commands", DeleteDiscordCommands).Methods("DELETE")
 
 	server = http.Server{
 		Addr:    ":8080",
@@ -130,7 +131,7 @@ func StartServer() {
 }
 
 func DeleteDiscordCommands(w http.ResponseWriter, req *http.Request) {
-	commands, err := disc.ApplicationCommands(config.BotApplicationID, config.FokGuildID)
+	commands, err := disc.ApplicationCommands(config.BotApplicationID, "")
 	if err != nil {
 		var derr *discordgo.RESTError
 		if errors.As(err, &derr) {
@@ -149,25 +150,43 @@ func DeleteDiscordCommands(w http.ResponseWriter, req *http.Request) {
 	}
 
 	for _, c := range commands {
-		err = disc.ApplicationCommandDelete(config.BotApplicationID, config.FokGuildID, c.ID)
-		var derr *discordgo.RESTError
-		if errors.As(err, &derr) {
-			if derr.Response.StatusCode == 404 {
-				w.WriteHeader(http.StatusNotFound)
-				_ = json.NewEncoder(w).Encode("could not find commands for guild")
+		err = disc.ApplicationCommandDelete(config.BotApplicationID, "", c.ID)
+		if err != nil {
+			var derr *discordgo.RESTError
+			if errors.As(err, &derr) {
+				if derr.Response.StatusCode == 404 {
+					w.WriteHeader(http.StatusNotFound)
+					_ = json.NewEncoder(w).Encode("could not find commands for guild")
+					return
+				}
+				w.WriteHeader(http.StatusInternalServerError)
+				_ = json.NewEncoder(w).Encode(derr)
 				return
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+				_ = json.NewEncoder(w).Encode(err)
 			}
-			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(derr)
-		} else {
-			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(err)
 		}
+		slog.Info("removed command", "command", c.Name)
 	}
 }
 
+func InitializeDiscordCommands(w http.ResponseWriter, req *http.Request) {
+	ccmds, err := AttachSlashCommands(disc, &config)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(errors.Join(errors.New("could not attach slash commands"), err))
+	}
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(ccmds)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+}
+
 func GetDiscordCommands(w http.ResponseWriter, req *http.Request) {
-	commands, err := disc.ApplicationCommands(config.BotApplicationID, config.FokGuildID)
+	commands, err := disc.ApplicationCommands(config.BotApplicationID, "")
 	if err != nil {
 		var derr *discordgo.RESTError
 		if errors.As(err, &derr) {

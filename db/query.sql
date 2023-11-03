@@ -7,6 +7,9 @@ SELECT * FROM ci6ndex.users WHERE name = $1 LIMIT 1;
 -- name: GetUserByDiscordName :one
 SELECT * FROM ci6ndex.users WHERE discord_name = $1 LIMIT 1;
 
+-- name: GetUsers :many
+SELECT * FROM ci6ndex.users;
+
 -- name: CreateUser :one
 INSERT INTO ci6ndex.users
 (

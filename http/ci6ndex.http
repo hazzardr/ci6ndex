@@ -49,3 +49,7 @@ Content-Type: application/json
 ###
 GET http://localhost:8080/discord/commands
 ###
+DELETE http://localhost:8080/discord/commands
+###
+POST http://localhost:8080/discord/commands
+###

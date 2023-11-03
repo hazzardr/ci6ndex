@@ -45,7 +45,7 @@ CREATE TABLE ci6ndex.drafts
 (
     id BIGSERIAL NOT NULL,
     draft_strategy TEXT NOT NULL,
-    active BOOLEAN NOT NULL DEFAULT FALSE,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
     PRIMARY KEY (id),
     CONSTRAINT draft_strategies_fk FOREIGN KEY (draft_strategy) REFERENCES ci6ndex.draft_strategies (name)
 );

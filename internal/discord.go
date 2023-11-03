@@ -5,24 +5,24 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"log/slog"
+	"strings"
 )
 
 const (
-	StartDraft          = "start-draft"
-	FreeRollCivs        = "roll-civs"
-	RollCivsForDraft    = "rollcivsdraft"
-	RerollCivsForPlayer = "rollcivsplayer"
+	StartDraft = "start-draft"
+	Players    = "players"
+	RollCivs   = "roll-civs"
 )
 
 // AttachSlashCommands attaches all slash commands to the bot. Database has to be initialized first.
-func AttachSlashCommands(s *discordgo.Session, config *AppConfig) {
+func AttachSlashCommands(s *discordgo.Session, config *AppConfig) ([]*discordgo.ApplicationCommand, error) {
 	err := db.Health()
 	if err != nil {
-		panic(fmt.Errorf("can't attach commands prior to db: %w", err))
+		return nil, fmt.Errorf("can't attach commands prior to db being initialized: %w", err)
 	}
 	strategies, err := db.queries.GetDraftStrategies(context.Background())
 	if err != nil {
-		panic(fmt.Errorf("couldn't get required defaults: %w", err))
+		return nil, fmt.Errorf("couldn't get required defaults: %w", err)
 	}
 
 	var stratOptions []*discordgo.ApplicationCommandOptionChoice
@@ -50,9 +50,13 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) {
 			Options:     draftStrategyOptions,
 		},
 		{
-			Name:        FreeRollCivs,
-			Description: "Roll civs for a given number of players (not associated with draft and not saved)",
+			Name:        RollCivs,
+			Description: "Roll civs for all players",
 			Options:     draftStrategyOptions,
+		},
+		{
+			Name:        Players,
+			Description: "Get a list of players eligible for a draft",
 		},
 		{
 			Name:        "ci6ndex",
@@ -62,13 +66,17 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) {
 	handlers := map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"ci6ndex":  basicCommand,
 		StartDraft: startDraft,
+		Players:    players,
 	}
+
+	var ccommands []*discordgo.ApplicationCommand
 	for _, c := range commands {
-		_, err := s.ApplicationCommandCreate(s.State.User.ID, config.FokGuildID, c)
+		ccmd, err := s.ApplicationCommandCreate(config.BotApplicationID, "", c)
 		if err != nil {
 			slog.Error("could not create slash command", "command", c.Name, "error", err)
 		}
 		slog.Info("registered", "command", c.Name)
+		ccommands = append(ccommands, ccmd)
 	}
 	slog.Info("slash commands attached")
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -76,19 +84,33 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) {
 			h(s, i)
 		}
 	})
-
+	return ccommands, nil
 }
 
-func startDraft(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
-}
-
-func basicCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	slog.Info("command received", "command", i.Interaction)
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+func players(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
+	users, err := db.queries.GetUsers(context.Background())
+	if err != nil {
+		slog.Error("error getting players", "error", err)
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("Error getting players: %s", err.Error()),
+			},
+		})
+		if err != nil {
+			slog.Error("error responding to user", "error", err)
+		}
+		return
+	}
+	var playerNames []string
+	for _, p := range users {
+		playerNames = append(playerNames, p.Name)
+	}
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "test test test!",
+			Content: fmt.Sprintf("Players eligible for draft: %s", strings.Join(playerNames, ", ")),
 		},
 	})
 	if err != nil {
@@ -96,72 +118,75 @@ func basicCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 }
 
-func optionsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	slog.Info("command received", "command", i.Interaction)
+func startDraft(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
+
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+
 	for _, opt := range options {
 		optionMap[opt.Name] = opt
 	}
 
-	// This example stores the provided arguments in an []interface{}
-	// which will be used to format the bot's response
-	margs := make([]interface{}, 0, len(options))
-	msgformat := "You learned how to use command options! " +
-		"Take a look at the value(s) you entered:\n"
+	strat := optionMap["draft-strategy"].StringValue()
 
-	// Get the value from the option map.
-	// When the option exists, ok = true
-	if option, ok := optionMap["string-option"]; ok {
-		// Option values must be type asserted from interface{}.
-		// Discordgo provides utility functions to make this simple.
-		margs = append(margs, option.StringValue())
-		msgformat += "> string-option: %s\n"
+	if strat == "" {
+		slog.Error("no strategy provided for draft - this should not be possible")
+		return
 	}
 
-	if option, ok := optionMap["string-choice"]; ok {
-		margs = append(margs, option.StringValue())
-		msgformat += "> string-choice: %s\n"
+	ds, err := db.queries.GetDraftStrategy(context.Background(), strat)
+
+	if err != nil {
+		ReportError("error fetching draft strategy", err, s, i)
+		return
 	}
 
-	if opt, ok := optionMap["integer-option"]; ok {
-		margs = append(margs, opt.IntValue())
-		msgformat += "> integer-option: %d\n"
+	actives, err := db.queries.GetActiveDrafts(context.Background())
+
+	if err != nil {
+		ReportError("error fetching active draft", err, s, i)
+		return
 	}
 
-	if opt, ok := optionMap["number-option"]; ok {
-		margs = append(margs, opt.FloatValue())
-		msgformat += "> number-option: %f\n"
+	if len(actives) > 0 {
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "There is already an active draft. Please end it before starting a new one.",
+			},
+		})
+		if err != nil {
+			slog.Error("error responding to user", "error", err)
+		}
+		return
 	}
 
-	if opt, ok := optionMap["bool-option"]; ok {
-		margs = append(margs, opt.BoolValue())
-		msgformat += "> bool-option: %v\n"
+	draft, err := db.queries.CreateDraft(context.Background(), ds.Name)
+
+	if err != nil {
+		ReportError("error creating draft", err, s, i)
+		return
 	}
 
-	if opt, ok := optionMap["channel-option"]; ok {
-		margs = append(margs, opt.ChannelValue(nil).ID)
-		msgformat += "> channel-option: <#%s>\n"
-	}
-
-	if opt, ok := optionMap["user-option"]; ok {
-		margs = append(margs, opt.UserValue(nil).ID)
-		msgformat += "> user-option: <@%s>\n"
-	}
-
-	if opt, ok := optionMap["role-option"]; ok {
-		margs = append(margs, opt.RoleValue(nil, "").ID)
-		msgformat += "> role-option: <@&%s>\n"
-	}
-
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		// Ignore type for now, they will be discussed in "responses"
+	slog.Info("draft created", "draft", draft.ID, "strategy", ds.Name, "startedBy", i.Interaction.Member.User.Username)
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf(
-				msgformat,
-				margs...,
-			),
+			Content: fmt.Sprintf("Draft #%v %s started by user %s. %s", draft.ID, ds.Name, i.Interaction.Member.User.Username, ds.Description),
+		},
+	})
+	if err != nil {
+		slog.Error(err.Error())
+	}
+}
+
+func basicCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Ci6ndex (Civ VI Index) is a bot for managing civ 6 drafts. Use /start-draft to start a draft, or /roll-civs to assign civs to players",
 		},
 	})
 	if err != nil {
@@ -170,9 +195,22 @@ func optionsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 func ready(s *discordgo.Session, e *discordgo.Ready) {
-	err := s.UpdateGameStatus(0, "!ci6ndex")
+	err := s.UpdateGameStatus(0, "/ci6ndex")
 	if err != nil {
 		slog.Warn("could not update discord status on startup")
 	}
 	slog.Info("bot initialized and ready to receive events")
+}
+
+func ReportError(msg string, err error, s *discordgo.Session, i *discordgo.InteractionCreate) {
+	slog.Error(msg, "error", err)
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: msg,
+		},
+	})
+	if err != nil {
+		slog.Error("error responding to user", "error", err)
+	}
 }

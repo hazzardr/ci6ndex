@@ -261,6 +261,30 @@ func (q *Queries) GetUserByName(ctx context.Context, name string) (Ci6ndexUser, 
 	return i, err
 }
 
+const getUsers = `-- name: GetUsers :many
+SELECT id, discord_name, name FROM ci6ndex.users
+`
+
+func (q *Queries) GetUsers(ctx context.Context) ([]Ci6ndexUser, error) {
+	rows, err := q.db.Query(ctx, getUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ci6ndexUser
+	for rows.Next() {
+		var i Ci6ndexUser
+		if err := rows.Scan(&i.ID, &i.DiscordName, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const submitDraftPick = `-- name: SubmitDraftPick :one
 INSERT INTO ci6ndex.draft_picks
 (
