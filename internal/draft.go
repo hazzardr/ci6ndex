@@ -16,6 +16,7 @@ var BannedLeaders = []string{
 	"HAMMURABI",
 }
 
+// TODO: apply min-tiers rule
 func OfferPicks(db *DatabaseOperations, draft domain.Ci6ndexDraft, numPlayers int) ([]DraftOffering, error) {
 	ds, err := db.queries.GetDraftStrategy(context.Background(), draft.DraftStrategy)
 	if err != nil {

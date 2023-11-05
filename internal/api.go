@@ -57,6 +57,10 @@ func Start(mode string) {
 	}
 
 	db, err = NewDBConnection(config.DatabaseUrl)
+	if err != nil {
+		panic(fmt.Errorf("failed to connect to database, error=%w", err))
+	}
+
 	slog.Info("initializing discord bot...")
 	disc, err = discordgo.New("Bot " + config.DiscordToken)
 	if err != nil {
@@ -87,6 +91,9 @@ func StartBot() {
 	disc.AddHandler(ready)
 
 	err := disc.Open()
+	// TODO: These need to be wiped + recreated on startup
+	//DeleteDiscordCommands(nil, nil)
+	//InitializeDiscordCommands(nil, nil)
 
 	if err != nil {
 		slog.Error("could not open connection to discord, exiting", "error", err)
