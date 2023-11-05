@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"ci6ndex/domain"
 	"context"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
@@ -67,6 +68,7 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) ([]*discordgo.
 		"ci6ndex":  basicCommand,
 		StartDraft: startDraft,
 		Players:    players,
+		RollCivs:   rollCivs,
 	}
 
 	var ccommands []*discordgo.ApplicationCommand
@@ -85,6 +87,73 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) ([]*discordgo.
 		}
 	})
 	return ccommands, nil
+}
+
+func rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
+	drafts, err := db.queries.GetActiveDrafts(context.Background())
+	if err != nil {
+		ReportError("error checking active drafts", err, s, i)
+	}
+
+	var activeDraft domain.Ci6ndexDraft
+
+	if len(drafts) == 0 {
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "There is no active draft. These results will not be attached to a game",
+			},
+		})
+		if err != nil {
+			slog.Error("error responding to user", "error", err)
+		}
+
+		// dummy draft as a default
+		activeDraft = domain.Ci6ndexDraft{
+			ID:            -1,
+			DraftStrategy: "RandomPickPool3Standard",
+			Active:        true,
+		}
+	}
+
+	if len(drafts) > 1 {
+		ReportError("there are multiple active drafts. This should not be possible", nil, s, i)
+		return
+	}
+
+	if len(drafts) == 1 {
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Rolled civs will be attached to the active draft",
+			},
+		})
+
+		if err != nil {
+			slog.Error("error responding to user", "error", err)
+		}
+
+		activeDraft = drafts[0]
+	}
+
+	picks, err := OfferPicks(db, activeDraft, 3)
+	if err != nil {
+		ReportError("error rolling civs", err, s, i)
+		return
+	}
+
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Rolled civs will be attached to the active draft",
+		},
+	})
+
+	if err != nil {
+		slog.Error("error responding to user", "error", err)
+	}
+
 }
 
 func players(s *discordgo.Session, i *discordgo.InteractionCreate) {

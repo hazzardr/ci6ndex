@@ -48,6 +48,9 @@ INSERT INTO ci6ndex.rankings
     $1, $2, $3
 );
 
+-- name: GetLeaders :many
+SELECT * FROM ci6ndex.leaders;
+
 -- name: GetLeader :one
 SELECT * FROM ci6ndex.leaders
          WHERE id = $1

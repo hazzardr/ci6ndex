@@ -228,6 +228,30 @@ func (q *Queries) GetLeaderByNameAndCiv(ctx context.Context, arg GetLeaderByName
 	return i, err
 }
 
+const getLeaders = `-- name: GetLeaders :many
+SELECT id, civ_name, leader_name FROM ci6ndex.leaders
+`
+
+func (q *Queries) GetLeaders(ctx context.Context) ([]Ci6ndexLeader, error) {
+	rows, err := q.db.Query(ctx, getLeaders)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ci6ndexLeader
+	for rows.Next() {
+		var i Ci6ndexLeader
+		if err := rows.Scan(&i.ID, &i.CivName, &i.LeaderName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUser = `-- name: GetUser :one
 SELECT id, discord_name, name FROM ci6ndex.users WHERE id = $1 LIMIT 1
 `
