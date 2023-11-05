@@ -89,11 +89,13 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) ([]*discordgo.
 	return ccommands, nil
 }
 
+// TODO: switch to followups so we can send multiple messages
 func rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
 	drafts, err := db.queries.GetActiveDrafts(context.Background())
 	if err != nil {
 		ReportError("error checking active drafts", err, s, i)
+		return
 	}
 
 	var activeDraft domain.Ci6ndexDraft
@@ -146,7 +148,7 @@ func rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Rolled civs will be attached to the active draft",
+			Content: fmt.Sprintf("Rolled civs: %v", picks),
 		},
 	})
 
