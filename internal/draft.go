@@ -63,7 +63,7 @@ func OfferPicks(db *DatabaseOperations, draft domain.Ci6ndexDraft, numPlayers in
 		if rules["pool_size"] == nil {
 			psize = 1
 		} else {
-			psize = rules["pool_size"].(int)
+			psize = int(rules["pool_size"].(float64))
 		}
 
 		i := 1

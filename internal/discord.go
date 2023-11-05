@@ -99,15 +99,15 @@ func rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var activeDraft domain.Ci6ndexDraft
 
 	if len(drafts) == 0 {
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "There is no active draft. These results will not be attached to a game",
-			},
-		})
-		if err != nil {
-			slog.Error("error responding to user", "error", err)
-		}
+		//err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		//	Type: discordgo.InteractionResponseChannelMessageWithSource,
+		//	Data: &discordgo.InteractionResponseData{
+		//		Content: "There is no active draft. These results will not be attached to a game",
+		//	},
+		//})
+		//if err != nil {
+		//	slog.Error("error responding to user", "error", err)
+		//}
 
 		// dummy draft as a default
 		activeDraft = domain.Ci6ndexDraft{
@@ -123,12 +123,12 @@ func rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	if len(drafts) == 1 {
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Rolled civs will be attached to the active draft",
-			},
-		})
+		//err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		//	Type: discordgo.InteractionResponseChannelMessageWithSource,
+		//	Data: &discordgo.InteractionResponseData{
+		//		Content: "Rolled civs will be attached to the active draft",
+		//	},
+		//})
 
 		if err != nil {
 			slog.Error("error responding to user", "error", err)
@@ -146,7 +146,7 @@ func rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Rolled civs will be attached to the active draft",
+			Content: fmt.Sprintf("The following picks were rolled: %v", picks),
 		},
 	})
 
