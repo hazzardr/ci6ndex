@@ -91,6 +91,9 @@ func StartBot() {
 	disc.AddHandler(ready)
 
 	err := disc.Open()
+	// TODO: These need to be wiped + recreated on startup
+	//DeleteDiscordCommands(nil, nil)
+	//InitializeDiscordCommands(nil, nil)
 
 	if err != nil {
 		slog.Error("could not open connection to discord, exiting", "error", err)
