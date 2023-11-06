@@ -155,7 +155,49 @@ func rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if err != nil {
 		slog.Error("error responding to user", "error", err)
 	}
+}
 
+func submitPicks(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Components: []discordgo.MessageComponent{
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.Button{
+							Emoji: discordgo.ComponentEmoji{
+								Name: "📜",
+							},
+							Label: "Documentation",
+							Style: discordgo.LinkButton,
+							URL:   "https://discord.com/developers/docs/interactions/message-components#buttons",
+						},
+						discordgo.Button{
+							Emoji: discordgo.ComponentEmoji{
+								Name: "🔧",
+							},
+							Label: "Discord developers",
+							Style: discordgo.LinkButton,
+							URL:   "https://discord.gg/discord-developers",
+						},
+						discordgo.Button{
+							Emoji: discordgo.ComponentEmoji{
+								Name: "🦫",
+							},
+							Label: "Discord Gophers",
+							Style: discordgo.LinkButton,
+							URL:   "https://discord.gg/7RuRrVHyXF",
+						},
+					},
+				},
+			},
+			Content: fmt.Sprintf("The following picks were rolled:"),
+		},
+	})
+
+	if err != nil {
+		ReportError("error picking civs", err, s, i)
+	}
 }
 
 func players(s *discordgo.Session, i *discordgo.InteractionCreate) {
