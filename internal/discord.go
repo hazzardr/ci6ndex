@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"log/slog"
+	"os"
 	"strings"
 )
 
@@ -13,10 +14,11 @@ const (
 	StartDraft = "start-draft"
 	Players    = "players"
 	RollCivs   = "roll-civs"
+	SubmitPick = "submit-pick"
 )
 
 // AttachSlashCommands attaches all slash commands to the bot. Database has to be initialized first.
-func AttachSlashCommands(s *discordgo.Session, config *AppConfig) ([]*discordgo.ApplicationCommand, error) {
+func AttachSlashCommands(s *discordgo.Session) ([]*discordgo.ApplicationCommand, error) {
 	err := db.Health()
 	if err != nil {
 		return nil, fmt.Errorf("can't attach commands prior to db being initialized: %w", err)
@@ -63,12 +65,17 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) ([]*discordgo.
 			Name:        "ci6ndex",
 			Description: "Get information about the bot",
 		},
+		{
+			Name:        SubmitPick,
+			Description: "Submit a pick for a draft",
+		},
 	}
 	handlers := map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"ci6ndex":  basicCommand,
 		StartDraft: startDraft,
 		Players:    players,
 		RollCivs:   rollCivs,
+		SubmitPick: submitPicks,
 	}
 
 	var ccommands []*discordgo.ApplicationCommand
@@ -87,6 +94,22 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) ([]*discordgo.
 		}
 	})
 	return ccommands, nil
+}
+
+func RemoveSlashCommands() error {
+	commands, err := disc.ApplicationCommands(config.BotApplicationID, "")
+	if err != nil {
+		return err
+	}
+	for _, c := range commands {
+		err = disc.ApplicationCommandDelete(config.BotApplicationID, "", c.ID)
+		if err != nil {
+			return err
+		}
+		slog.Info("removed command", "command", c.Name)
+	}
+
+	return nil
 }
 
 // TODO: switch to followups so we can send multiple messages
@@ -161,37 +184,21 @@ func submitPicks(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
+			Content: "this is a pick field",
 			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.Button{
-							Emoji: discordgo.ComponentEmoji{
-								Name: "📜",
-							},
-							Label: "Documentation",
-							Style: discordgo.LinkButton,
-							URL:   "https://discord.com/developers/docs/interactions/message-components#buttons",
-						},
-						discordgo.Button{
-							Emoji: discordgo.ComponentEmoji{
-								Name: "🔧",
-							},
-							Label: "Discord developers",
-							Style: discordgo.LinkButton,
-							URL:   "https://discord.gg/discord-developers",
-						},
-						discordgo.Button{
-							Emoji: discordgo.ComponentEmoji{
-								Name: "🦫",
-							},
-							Label: "Discord Gophers",
-							Style: discordgo.LinkButton,
-							URL:   "https://discord.gg/7RuRrVHyXF",
+				discordgo.SelectMenu{
+					MenuType:  discordgo.SelectMenuType(discordgo.SelectMenuComponent),
+					MaxValues: 1,
+					Disabled:  false,
+					Options: []discordgo.SelectMenuOption{
+						{
+							Label:       "test1",
+							Value:       "test1 val",
+							Description: "test1 desc",
 						},
 					},
 				},
 			},
-			Content: fmt.Sprintf("The following picks were rolled:"),
 		},
 	})
 
@@ -308,7 +315,18 @@ func basicCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 func ready(s *discordgo.Session, e *discordgo.Ready) {
-	err := s.UpdateGameStatus(0, "/ci6ndex")
+	err := RemoveSlashCommands()
+	if err != nil {
+		slog.Error("could not remove slash commands", "error", err)
+		os.Exit(1)
+	}
+	_, err = AttachSlashCommands(s)
+	if err != nil {
+		slog.Error("could not attach slash commands", "error", err)
+		os.Exit(1)
+	}
+
+	err = s.UpdateGameStatus(0, "/ci6ndex")
 	if err != nil {
 		slog.Warn("could not update discord status on startup")
 	}
