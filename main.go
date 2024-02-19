@@ -1,16 +1,11 @@
+/*
+Copyright © 2024 NAME HERE <EMAIL ADDRESS>
+
+*/
 package main
 
-import (
-	"ci6ndex/internal"
-	"os"
-)
+import "ci6ndex/cmd"
 
 func main() {
-	if os.Args[1] == "mode" {
-		mode := os.Args[2]
-		internal.Start(mode)
-		return
-	}
-	internal.Start("bot")
-	return
+	cmd.Execute()
 }

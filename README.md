@@ -10,7 +10,7 @@
 ### Bootstrapping / Config
 * CLI via Cobra
 * Config via Viper
-* TODO: GCPSM so i don't have to keep shuffling around secrets
+* Secrets in Bitwarden
 
 ### Storage
 * Postgres DB via pgx
@@ -34,3 +34,10 @@ atlas schema apply -u "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@:5432/
   * `POSTGRES_PASSWORD`
   * `POSTGRES_DB`
   * `POSTGRES_SCHEMA`
+
+# TODO:
+* Rip out http logic (becoming more of a burden)
+* Add cobra + crud operations there
+* Tests
+  * testcontainers
+  * table driven

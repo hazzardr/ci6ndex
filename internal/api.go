@@ -44,7 +44,7 @@ var route = mux.NewRouter()
 
 var disc *discordgo.Session
 
-func Start(mode string) {
+func Start() {
 	viper.SetConfigFile(".env")
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -56,41 +56,26 @@ func Start(mode string) {
 		panic(fmt.Errorf("failed to load configuration, error=%w", err))
 	}
 
-	db, err = NewDBConnection(config.DatabaseUrl)
+	db, err = newDBConnection(config.DatabaseUrl)
 	if err != nil {
 		panic(fmt.Errorf("failed to connect to database, error=%w", err))
 	}
-
-	slog.Info("initializing discord bot...")
-	disc, err = discordgo.New("Bot " + config.DiscordToken)
-	if err != nil {
-		slog.Error("could not start discord client, exiting", "error", err)
-		os.Exit(1)
-	}
-	if err != nil {
-		slog.Error("could not connect to database", "error", err)
-		os.Exit(1)
-	}
-
-	switch mode {
-	case Server:
-		slog.Info("starting in server mode only")
-		StartServer()
-	case Bot:
-		StartBot()
-		StartServer()
-	default:
-		slog.Error("unsupported mode passed. exiting", "mode", mode)
-		os.Exit(1)
-	}
+	//slog.Info("db start OK")
 }
 
 func StartBot() {
 
+	slog.Info("initializing discord bot...")
+	disc, err := discordgo.New("Bot " + config.DiscordToken)
+	if err != nil {
+		slog.Error("could not start discord client, exiting", "error", err)
+		os.Exit(1)
+	}
+
 	disc.Identify.Intents = discordgo.IntentsGuildMessages
 	disc.AddHandler(ready)
 
-	err := disc.Open()
+	err = disc.Open()
 	// TODO: These need to be wiped + recreated on startup
 	//DeleteDiscordCommands(nil, nil)
 	//InitializeDiscordCommands(nil, nil)
@@ -568,7 +553,7 @@ type DatabaseOperations struct {
 	queries *domain.Queries
 }
 
-func NewDBConnection(dbUrl string) (*DatabaseOperations, error) {
+func newDBConnection(dbUrl string) (*DatabaseOperations, error) {
 	conn, err := pgxpool.New(context.Background(), dbUrl)
 	if err != nil {
 		return nil, err
