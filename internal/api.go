@@ -123,7 +123,7 @@ func StartServer() {
 }
 
 func DeleteDiscordCommands(w http.ResponseWriter, req *http.Request) {
-	commands, err := disc.ApplicationCommands(config.BotApplicationID, "")
+	err := RemoveSlashCommands(&config)
 	if err != nil {
 		var derr *discordgo.RESTError
 		if errors.As(err, &derr) {
@@ -141,26 +141,8 @@ func DeleteDiscordCommands(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	for _, c := range commands {
-		err = disc.ApplicationCommandDelete(config.BotApplicationID, "", c.ID)
-		if err != nil {
-			var derr *discordgo.RESTError
-			if errors.As(err, &derr) {
-				if derr.Response.StatusCode == 404 {
-					w.WriteHeader(http.StatusNotFound)
-					_ = json.NewEncoder(w).Encode("could not find commands for guild")
-					return
-				}
-				w.WriteHeader(http.StatusInternalServerError)
-				_ = json.NewEncoder(w).Encode(derr)
-				return
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-				_ = json.NewEncoder(w).Encode(err)
-			}
-		}
-		slog.Info("removed command", "command", c.Name)
-	}
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode("successfully deleted commands")
 }
 
 func InitializeDiscordCommands(w http.ResponseWriter, req *http.Request) {

@@ -14,6 +14,7 @@ CREATE TABLE ci6ndex.leaders
     id BIGSERIAL NOT NULL,
     civ_name TEXT NOT NULL,
     leader_name TEXT NOT NULL,
+    icon_url TEXT DEFAULT ,
     PRIMARY KEY (id)
 );
 

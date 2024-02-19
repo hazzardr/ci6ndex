@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"log/slog"
+	"os"
 	"strings"
 )
 
@@ -13,10 +14,11 @@ const (
 	StartDraft = "start-draft"
 	Players    = "players"
 	RollCivs   = "roll-civs"
+	SubmitPick = "submit-pick"
 )
 
 // AttachSlashCommands attaches all slash commands to the bot. Database has to be initialized first.
-func AttachSlashCommands(s *discordgo.Session, config *AppConfig) ([]*discordgo.ApplicationCommand, error) {
+func AttachSlashCommands(s *discordgo.Session) ([]*discordgo.ApplicationCommand, error) {
 	err := db.Health()
 	if err != nil {
 		return nil, fmt.Errorf("can't attach commands prior to db being initialized: %w", err)
@@ -63,12 +65,17 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) ([]*discordgo.
 			Name:        "ci6ndex",
 			Description: "Get information about the bot",
 		},
+		{
+			Name:        SubmitPick,
+			Description: "Submit a pick for a draft",
+		},
 	}
 	handlers := map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"ci6ndex":  basicCommand,
 		StartDraft: startDraft,
 		Players:    players,
 		RollCivs:   rollCivs,
+		SubmitPick: submitPicks,
 	}
 
 	var ccommands []*discordgo.ApplicationCommand
@@ -89,6 +96,22 @@ func AttachSlashCommands(s *discordgo.Session, config *AppConfig) ([]*discordgo.
 	return ccommands, nil
 }
 
+func RemoveSlashCommands() error {
+	commands, err := disc.ApplicationCommands(config.BotApplicationID, "")
+	if err != nil {
+		return err
+	}
+	for _, c := range commands {
+		err = disc.ApplicationCommandDelete(config.BotApplicationID, "", c.ID)
+		if err != nil {
+			return err
+		}
+		slog.Info("removed command", "command", c.Name)
+	}
+
+	return nil
+}
+
 // TODO: switch to followups so we can send multiple messages
 func rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
@@ -101,15 +124,15 @@ func rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var activeDraft domain.Ci6ndexDraft
 
 	if len(drafts) == 0 {
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "There is no active draft. These results will not be attached to a game",
-			},
-		})
-		if err != nil {
-			slog.Error("error responding to user", "error", err)
-		}
+		//err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		//	Type: discordgo.InteractionResponseChannelMessageWithSource,
+		//	Data: &discordgo.InteractionResponseData{
+		//		Content: "There is no active draft. These results will not be attached to a game",
+		//	},
+		//})
+		//if err != nil {
+		//	slog.Error("error responding to user", "error", err)
+		//}
 
 		// dummy draft as a default
 		activeDraft = domain.Ci6ndexDraft{
@@ -125,12 +148,12 @@ func rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	if len(drafts) == 1 {
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Rolled civs will be attached to the active draft",
-			},
-		})
+		//err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		//	Type: discordgo.InteractionResponseChannelMessageWithSource,
+		//	Data: &discordgo.InteractionResponseData{
+		//		Content: "Rolled civs will be attached to the active draft",
+		//	},
+		//})
 
 		if err != nil {
 			slog.Error("error responding to user", "error", err)
@@ -148,14 +171,40 @@ func rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("Rolled civs: %v", picks),
+			Content: fmt.Sprintf("The following picks were rolled: %v", picks),
 		},
 	})
 
 	if err != nil {
 		slog.Error("error responding to user", "error", err)
 	}
+}
 
+func submitPicks(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "this is a pick field",
+			Components: []discordgo.MessageComponent{
+				discordgo.SelectMenu{
+					MenuType:  discordgo.SelectMenuType(discordgo.SelectMenuComponent),
+					MaxValues: 1,
+					Disabled:  false,
+					Options: []discordgo.SelectMenuOption{
+						{
+							Label:       "test1",
+							Value:       "test1 val",
+							Description: "test1 desc",
+						},
+					},
+				},
+			},
+		},
+	})
+
+	if err != nil {
+		ReportError("error picking civs", err, s, i)
+	}
 }
 
 func players(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -266,7 +315,18 @@ func basicCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 func ready(s *discordgo.Session, e *discordgo.Ready) {
-	err := s.UpdateGameStatus(0, "/ci6ndex")
+	err := RemoveSlashCommands()
+	if err != nil {
+		slog.Error("could not remove slash commands", "error", err)
+		os.Exit(1)
+	}
+	_, err = AttachSlashCommands(s)
+	if err != nil {
+		slog.Error("could not attach slash commands", "error", err)
+		os.Exit(1)
+	}
+
+	err = s.UpdateGameStatus(0, "/ci6ndex")
 	if err != nil {
 		slog.Warn("could not update discord status on startup")
 	}
