@@ -123,7 +123,7 @@ func StartServer() {
 }
 
 func DeleteDiscordCommands(w http.ResponseWriter, req *http.Request) {
-	err := RemoveSlashCommands(&config)
+	err := RemoveSlashCommands()
 	if err != nil {
 		var derr *discordgo.RESTError
 		if errors.As(err, &derr) {
@@ -146,7 +146,7 @@ func DeleteDiscordCommands(w http.ResponseWriter, req *http.Request) {
 }
 
 func InitializeDiscordCommands(w http.ResponseWriter, req *http.Request) {
-	ccmds, err := AttachSlashCommands(disc, &config)
+	ccmds, err := AttachSlashCommands(disc)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(errors.Join(errors.New("could not attach slash commands"), err))
@@ -466,39 +466,6 @@ func GetDraftStrategy(w http.ResponseWriter, r *http.Request) {
 }
 
 func RefreshRankings(w http.ResponseWriter, req *http.Request) {
-	ranks, err := getRankingsFromSheets(&config, req.Context())
-	if err != nil {
-		slog.Error("could not get rankings", "error", err)
-		w.WriteHeader(500)
-		_ = json.NewEncoder(w).Encode(err)
-		return
-	}
-
-	err = db.queries.DeleteRankings(req.Context())
-	if err != nil {
-		slog.Error("could not delete existing rankings", "error", err)
-		w.WriteHeader(500)
-		_ = json.NewEncoder(w).Encode(err)
-		return
-	}
-
-	for _, r := range ranks {
-		dbp, err := r.ToRankingDBParam(req.Context())
-		if err != nil {
-			slog.Error("could not convert gsheet ranking to db param", "error", err)
-			w.WriteHeader(500)
-			_ = json.NewEncoder(w).Encode(err)
-			return
-		}
-
-		_, err = db.queries.CreateRanking(req.Context(), dbp)
-		if err != nil {
-			slog.Error("could not create ranking", "error", err)
-			w.WriteHeader(500)
-			_ = json.NewEncoder(w).Encode(err)
-			return
-		}
-	}
 
 	w.WriteHeader(200)
 	success := "successfully refreshed rankings from google sheets"

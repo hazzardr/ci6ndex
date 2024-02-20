@@ -23,6 +23,10 @@ var addCmd = &cobra.Command{
 	Short: "ci6ndex USERS ADD",
 	Long:  `Command used to add a user.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if input == "" {
+			fmt.Println("Please provide an input file")
+			return
+		}
 		err := internal.AddUsersFromFile(input)
 		if err != nil {
 			fmt.Println("Failed to add user: ", err)
