@@ -27,7 +27,7 @@ var addCmd = &cobra.Command{
 			fmt.Println("Please provide an input file")
 			return
 		}
-		err := internal.AddUsersFromFile(input)
+		err := internal.AddUsersFromFile(input, db)
 		if err != nil {
 			fmt.Println("Failed to add user: ", err)
 		}

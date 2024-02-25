@@ -11,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/viper"
 	"log"
 	"log/slog"
@@ -32,19 +31,20 @@ type AppConfig struct {
 }
 
 var config AppConfig
-var db *DatabaseOperations
 
 const (
 	Bot    string = "bot"
 	Server string = "server"
 )
 
+var db *DatabaseOperations
+
 var server http.Server
 var route = mux.NewRouter()
 
 var disc *discordgo.Session
 
-func Start() {
+func Initialize() *DatabaseOperations {
 	viper.SetConfigFile(".env")
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -56,11 +56,11 @@ func Start() {
 		panic(fmt.Errorf("failed to load configuration, error=%w", err))
 	}
 
-	db, err = newDBConnection(config.DatabaseUrl)
+	db, err := newDBConnection(config.DatabaseUrl)
 	if err != nil {
 		panic(fmt.Errorf("failed to connect to database, error=%w", err))
 	}
-	//slog.Info("db start OK")
+	return db
 }
 
 func StartBot() {
@@ -76,9 +76,6 @@ func StartBot() {
 	disc.AddHandler(ready)
 
 	err = disc.Open()
-	// TODO: These need to be wiped + recreated on startup
-	//DeleteDiscordCommands(nil, nil)
-	//InitializeDiscordCommands(nil, nil)
 
 	if err != nil {
 		slog.Error("could not open connection to discord, exiting", "error", err)
@@ -99,7 +96,7 @@ func StartServer() {
 	route.HandleFunc("/drafts", CreateDraft).Methods("PUT")
 	route.HandleFunc("/drafts/{draftId}/picks", SubmitDraftPick).Methods("PUT")
 
-	route.HandleFunc("/rankings", RefreshRankings).Methods("POST")
+	//route.HandleFunc("/rankings", RefreshRankings).Methods("POST")
 
 	route.HandleFunc("/discord/commands", GetDiscordCommands).Methods("GET")
 	route.HandleFunc("/discord/commands", InitializeDiscordCommands).Methods("POST")
@@ -465,18 +462,19 @@ func GetDraftStrategy(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func RefreshRankings(w http.ResponseWriter, req *http.Request) {
-
-	w.WriteHeader(200)
-	success := "successfully refreshed rankings from google sheets"
-	slog.Info(success, "ranks_added", len(ranks))
-	err = json.NewEncoder(w).Encode(success)
-	if err != nil {
-		w.WriteHeader(500)
-		_ = json.NewEncoder(w).Encode(err)
-		return
-	}
-}
+//
+//func RefreshRankings(w http.ResponseWriter, req *http.Request) {
+//
+//	w.WriteHeader(200)
+//	success := "successfully refreshed rankings from google sheets"
+//	slog.Info(success, "ranks_added", len(ranks))
+//	err := json.NewEncoder(w).Encode(success)
+//	if err != nil {
+//		w.WriteHeader(500)
+//		_ = json.NewEncoder(w).Encode(err)
+//		return
+//	}
+//}
 
 func StopServer(code int) {
 	slog.Info("shutting down application")
@@ -495,39 +493,6 @@ func StopServer(code int) {
 	if err != nil {
 		slog.Warn("did not shut down application gracefully", "error", err)
 	}
-}
-
-type DatabaseOperations struct {
-	db      *pgxpool.Pool
-	queries *domain.Queries
-}
-
-func newDBConnection(dbUrl string) (*DatabaseOperations, error) {
-	conn, err := pgxpool.New(context.Background(), dbUrl)
-	if err != nil {
-		return nil, err
-	}
-
-	err = conn.Ping(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	q := domain.New(conn)
-
-	return &DatabaseOperations{db: conn, queries: q}, nil
-}
-
-func (s DatabaseOperations) Health() error {
-	err := s.db.Ping(context.Background())
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s DatabaseOperations) Close() {
-	s.db.Close()
 }
 
 func (r Ranking) ToRankingDBParam(ctx context.Context) (domain.CreateRankingParams, error) {

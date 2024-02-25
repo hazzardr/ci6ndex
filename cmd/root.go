@@ -28,6 +28,8 @@ func Execute() {
 	}
 }
 
+var db *internal.DatabaseOperations
+
 func init() {
-	internal.Start()
+	db = internal.Initialize()
 }

@@ -49,7 +49,7 @@ func AttachSlashCommands(s *discordgo.Session) ([]*discordgo.ApplicationCommand,
 	commands := []*discordgo.ApplicationCommand{
 		{
 			Name:        StartDraft,
-			Description: "Start a draft. You can then roll civs for players and they can submit their picks.",
+			Description: "Initialize a draft. You can then roll civs for players and they can submit their picks.",
 			Options:     draftStrategyOptions,
 		},
 		{

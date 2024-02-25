@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func AddUsersFromFile(path string) error {
+func AddUsersFromFile(path string, db *DatabaseOperations) error {
 	exists := fileExists(path)
 	if !exists {
 		return fmt.Errorf("file does not exist")
