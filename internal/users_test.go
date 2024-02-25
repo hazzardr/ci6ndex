@@ -54,12 +54,57 @@ func (suite *UsersSuite) TearDownTest() {
 	}
 }
 
-func (suite *UsersSuite) TestAddUsersFromFile() {
+func (suite *UsersSuite) TestAddUsersFromFile_Success() {
 	t := suite.T()
+	exists := fileExists("testhelper/testdata/single_user.json")
+	suite.True(exists)
 	err := AddUsersFromFile("testhelper/testdata/single_user.json", suite.db)
 	suite.NoError(err)
 	actual, err := suite.db.queries.GetUserByName(suite.ctx, "username")
 	suite.NoError(err)
 	assert.Equal(t, "username", actual.Name)
 	assert.Equal(t, "discord_name", actual.DiscordName)
+}
+
+func (suite *UsersSuite) TestAddUsersFromFile_MultipleUsers() {
+	t := suite.T()
+	exists := fileExists("testhelper/testdata/multiple_users.json")
+	suite.True(exists)
+	err := AddUsersFromFile("testhelper/testdata/multiple_users.json", suite.db)
+	suite.NoError(err)
+	users, err := suite.db.queries.GetUsers(suite.ctx)
+	suite.NoError(err)
+	assert.Equal(t, 2, len(users))
+}
+
+func (suite *UsersSuite) TestAddUsersFromFile_UserAlreadyExists() {
+	exists := fileExists("testhelper/testdata/single_user.json")
+	suite.True(exists)
+	err := AddUsersFromFile("testhelper/testdata/single_user.json", suite.db)
+	suite.NoError(err)
+
+	err = AddUsersFromFile("testhelper/testdata/single_user.json", suite.db)
+	suite.Error(err)
+}
+
+func (suite *UsersSuite) TestAddUsersFromFile_FailureCases() {
+	type test struct {
+		name string
+		path string
+	}
+
+	tests := []test{
+		{"EmptyFile", "testhelper/testdata/empty.json"},
+		{"FileDoesNotExist", "testhelper/testdata/nonexistent.json"},
+		{"InvalidFileType", "testhelper/testdata/invalid.yaml"},
+		{"MalformedJSON", "testhelper/testdata/malformed.json"},
+	}
+
+	for _, tc := range tests {
+		suite.T().Run(tc.name, func(t *testing.T) {
+			err := AddUsersFromFile(tc.path, suite.db)
+			suite.Error(err)
+		})
+
+	}
 }
