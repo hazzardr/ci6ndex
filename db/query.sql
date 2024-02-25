@@ -105,3 +105,16 @@ INSERT INTO ci6ndex.draft_picks
     $1, $2, $3, $4
 )
 RETURNING *;
+
+-- name: WipeTables :exec
+DO $$
+    DECLARE
+        r RECORD;
+    BEGIN
+        FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'ci6ndex')
+        LOOP
+            IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'ci6ndex' AND tablename = r.tablename) THEN
+                EXECUTE 'TRUNCATE TABLE ci6ndex.' || quote_ident(r.tablename) || ' CASCADE;';
+            END IF;
+        END LOOP;
+    END $$;

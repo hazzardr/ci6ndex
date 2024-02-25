@@ -44,7 +44,14 @@ func (suite *UsersSuite) TearDownSuite() {
 		suite.T().Fatal(err)
 	}
 	suite.db.Close()
+}
 
+func (suite *UsersSuite) TearDownTest() {
+	err := suite.db.queries.WipeTables(suite.ctx)
+	if err != nil {
+		log.Errorf(suite.ctx, "Error truncating tables, could not clean DB: %v", err)
+		suite.T().Fatal(err)
+	}
 }
 
 func (suite *UsersSuite) TestAddUsersFromFile() {
