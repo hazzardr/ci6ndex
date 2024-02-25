@@ -22,6 +22,10 @@ type Ranking struct {
 	Tier              float64
 }
 
+type SheetsService interface {
+	GetRankings(ctx context.Context) (*sheets.SpreadsheetsValuesGetCall, error)
+}
+
 func getRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, error) {
 	oauthConfigFile, err := os.ReadFile(config.GoogleCloudCredentialsLocation)
 	if err != nil {
