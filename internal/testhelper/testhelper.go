@@ -17,7 +17,7 @@ type TestDatabase struct {
 // CreateTestDatabase creates a database container that can be used  for testing
 func CreateTestDatabase(ctx context.Context) (*TestDatabase, error) {
 	pgContainer, err := postgres.RunContainer(ctx,
-		testcontainers.WithImage("postgres:15.3-alpine"),
+		testcontainers.WithImage("postgres:16-alpine"),
 		postgres.WithInitScripts(filepath.Join("..", "db", "schema.sql")),
 		postgres.WithDatabase("postgres"),
 		postgres.WithUsername("postgres"),

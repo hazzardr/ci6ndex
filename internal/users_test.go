@@ -25,14 +25,12 @@ func (suite *UsersSuite) SetupSuite() {
 	suite.ctx = context.Background()
 	testContainer, err := testhelper.CreateTestDatabase(suite.ctx)
 	if err != nil {
-		log.Errorf(suite.ctx, "Error creating database container: %v", err)
 		suite.T().Fatal(err)
 	}
 	suite.testContainer = testContainer
 	testURL := testContainer.ConnectionString
 	suite.db, err = newDBConnection(testURL)
 	if err != nil {
-		log.Errorf(suite.ctx, "Error creating database connection: %v", err)
 		suite.T().Fatal(err)
 	}
 }
