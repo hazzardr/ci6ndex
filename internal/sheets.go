@@ -22,11 +22,14 @@ type Ranking struct {
 	Tier              float64
 }
 
-type SheetsService interface {
-	GetRankings(ctx context.Context) (*sheets.SpreadsheetsValuesGetCall, error)
+type SheetsServiceProvider interface {
+	GetClient(ctx context.Context, credsLocation string) (*sheets.Service, error)
 }
 
-func getRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, error) {
+type SheetsService struct {
+}
+
+func (s *SheetsService) GetClient(ctx context.Context, credsLocation string) (*sheets.Service, error) {
 	oauthConfigFile, err := os.ReadFile(config.GoogleCloudCredentialsLocation)
 	if err != nil {
 		return nil, err
@@ -40,7 +43,14 @@ func getRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, e
 	if err != nil {
 		return nil, err
 	}
+
 	srv, err := sheets.NewService(ctx, option.WithHTTPClient(client))
+	return srv, err
+}
+
+func getRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, error) {
+	sheetService := &SheetsService{}
+	srv, err := sheetService.GetClient(ctx, config.GoogleCloudCredentialsLocation)
 	if err != nil {
 		return nil, err
 	}
