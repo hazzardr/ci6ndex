@@ -8,7 +8,7 @@ import (
 
 type DatabaseOperations struct {
 	db      *pgxpool.Pool
-	queries *domain.Queries
+	Queries *domain.Queries
 }
 
 func newDBConnection(dbUrl string) (*DatabaseOperations, error) {
@@ -24,7 +24,7 @@ func newDBConnection(dbUrl string) (*DatabaseOperations, error) {
 
 	q := domain.New(conn)
 
-	return &DatabaseOperations{db: conn, queries: q}, nil
+	return &DatabaseOperations{db: conn, Queries: q}, nil
 }
 
 func (db DatabaseOperations) Health() error {

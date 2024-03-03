@@ -267,6 +267,35 @@ func (q *Queries) GetLeaders(ctx context.Context) ([]Ci6ndexLeader, error) {
 	return items, nil
 }
 
+const getRankings = `-- name: GetRankings :many
+SELECT id, user_id, tier, leader_id FROM ci6ndex.rankings
+`
+
+func (q *Queries) GetRankings(ctx context.Context) ([]Ci6ndexRanking, error) {
+	rows, err := q.db.Query(ctx, getRankings)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ci6ndexRanking
+	for rows.Next() {
+		var i Ci6ndexRanking
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Tier,
+			&i.LeaderID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUser = `-- name: GetUser :one
 SELECT id, discord_name, name FROM ci6ndex.users WHERE id = $1 LIMIT 1
 `

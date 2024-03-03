@@ -32,11 +32,6 @@ type AppConfig struct {
 
 var config AppConfig
 
-const (
-	Bot    string = "bot"
-	Server string = "server"
-)
-
 var db *DatabaseOperations
 
 var server http.Server
@@ -61,6 +56,11 @@ func Initialize() *DatabaseOperations {
 		panic(fmt.Errorf("failed to connect to database, error=%w", err))
 	}
 	return db
+}
+
+func GetConfig() *AppConfig {
+	return &config
+
 }
 
 func StartBot() {
@@ -93,7 +93,7 @@ func StartServer() {
 	route.HandleFunc("/draft_strategies", GetDraftStrategies).Methods("GET")
 	route.HandleFunc("/draft_strategies/{name}", GetDraftStrategy).Methods("GET")
 
-	route.HandleFunc("/drafts", CreateDraft).Methods("PUT")
+	//route.HandleFunc("/drafts", CreateDraft).Methods("PUT")
 	route.HandleFunc("/drafts/{draftId}/picks", SubmitDraftPick).Methods("PUT")
 
 	//route.HandleFunc("/rankings", RefreshRankings).Methods("POST")
@@ -207,7 +207,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := db.queries.CreateUser(r.Context(), params)
+	user, err := db.Queries.CreateUser(r.Context(), params)
 	if err != nil {
 		var sqlErr *pgconn.PgError
 		if errors.As(err, &sqlErr) {
@@ -242,7 +242,7 @@ func CreateUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := db.queries.CreateUsers(r.Context(), users)
+	user, err := db.Queries.CreateUsers(r.Context(), users)
 	if err != nil {
 		var sqlErr *pgconn.PgError
 		if errors.As(err, &sqlErr) {
@@ -268,44 +268,45 @@ func CreateUsers(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type CreateDraftRequest struct {
-	DraftStrategy string `json:"draft_strategy"`
-}
-
-func CreateDraft(w http.ResponseWriter, req *http.Request) {
-	var cdr CreateDraftRequest
-	err := json.NewDecoder(req.Body).Decode(&cdr)
-	if err != nil {
-		w.WriteHeader(400)
-		_ = json.NewEncoder(w).Encode("could not parse strategy from request body")
-		return
-	}
-
-	strategy := cdr.DraftStrategy
-
-	_, err = db.queries.GetDraftStrategy(req.Context(), strategy)
-	if err != nil {
-		w.WriteHeader(422)
-		_ = json.NewEncoder(w).Encode(fmt.Sprintf("draft_strategy=%v does not exist", strategy))
-		return
-	}
-
-	draft, err := db.queries.CreateDraft(req.Context(), strategy)
-	if err != nil {
-		w.WriteHeader(500)
-		_ = json.NewEncoder(w).Encode(err)
-		return
-
-	}
-
-	w.WriteHeader(201)
-	err = json.NewEncoder(w).Encode(draft)
-	if err != nil {
-		w.WriteHeader(500)
-		_ = json.NewEncoder(w).Encode(err)
-		return
-	}
-}
+//
+//type CreateDraftRequest struct {
+//	DraftStrategy string `json:"draft_strategy"`
+//}
+//
+//func CreateDraft(w http.ResponseWriter, req *http.Request) {
+//	var cdr CreateDraftRequest
+//	err := json.NewDecoder(req.Body).Decode(&cdr)
+//	if err != nil {
+//		w.WriteHeader(400)
+//		_ = json.NewEncoder(w).Encode("could not parse strategy from request body")
+//		return
+//	}
+//
+//	strategy := cdr.DraftStrategy
+//
+//	_, err = db.Queries.GetDraftStrategy(req.Context(), strategy)
+//	if err != nil {
+//		w.WriteHeader(422)
+//		_ = json.NewEncoder(w).Encode(fmt.Sprintf("draft_strategy=%v does not exist", strategy))
+//		return
+//	}
+//
+//	draft, err := db.Queries.CreateDraft(req.Context(), strategy)
+//	if err != nil {
+//		w.WriteHeader(500)
+//		_ = json.NewEncoder(w).Encode(err)
+//		return
+//
+//	}
+//
+//	w.WriteHeader(201)
+//	err = json.NewEncoder(w).Encode(draft)
+//	if err != nil {
+//		w.WriteHeader(500)
+//		_ = json.NewEncoder(w).Encode(err)
+//		return
+//	}
+//}
 
 type Leader struct {
 	Name string `json:"name"`
@@ -336,7 +337,7 @@ func SubmitDraftPick(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.queries.GetDraft(r.Context(), draftId)
+	_, err = db.Queries.GetDraft(r.Context(), draftId)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(422)
@@ -348,7 +349,7 @@ func SubmitDraftPick(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := db.queries.GetUserByDiscordName(r.Context(), sdp.DiscordUser)
+	user, err := db.Queries.GetUserByDiscordName(r.Context(), sdp.DiscordUser)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(422)
@@ -360,7 +361,7 @@ func SubmitDraftPick(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	leader, err := db.queries.GetLeaderByNameAndCiv(r.Context(), domain.GetLeaderByNameAndCivParams{
+	leader, err := db.Queries.GetLeaderByNameAndCiv(r.Context(), domain.GetLeaderByNameAndCivParams{
 		LeaderName: strings.ToUpper(sdp.Leader.Name),
 		CivName:    strings.ToUpper(sdp.Leader.Civ),
 	})
@@ -383,7 +384,7 @@ func SubmitDraftPick(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pick, err := db.queries.SubmitDraftPick(r.Context(), domain.SubmitDraftPickParams{
+	pick, err := db.Queries.SubmitDraftPick(r.Context(), domain.SubmitDraftPickParams{
 		DraftID:  draftId,
 		LeaderID: pgtype.Int8{Int64: leader.ID},
 		UserID:   user.ID,
@@ -415,7 +416,7 @@ func SubmitDraftPick(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetDraftStrategies(w http.ResponseWriter, r *http.Request) {
-	strats, err := db.queries.GetDraftStrategies(r.Context())
+	strats, err := db.Queries.GetDraftStrategies(r.Context())
 	if err != nil {
 		w.WriteHeader(500)
 		_ = json.NewEncoder(w).Encode(err)
@@ -441,7 +442,7 @@ func GetDraftStrategy(w http.ResponseWriter, r *http.Request) {
 	// and our sqlc generated code "parameterizes our parameters" (i.e. it uses $1, $2, etc.)
 	// See more:
 	// * https://github.com/jackc/pgx/wiki/Automatic-Prepared-Statement-Caching#automatic-prepared-statement-caching
-	strat, err := db.queries.GetDraftStrategy(r.Context(), vars["name"])
+	strat, err := db.Queries.GetDraftStrategy(r.Context(), vars["name"])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(404)
@@ -495,15 +496,15 @@ func StopServer(code int) {
 	}
 }
 
-func (r Ranking) ToRankingDBParam(ctx context.Context) (domain.CreateRankingParams, error) {
-	user, err := db.queries.GetUserByName(ctx, r.Player)
+func (r Ranking) ToRankingDBParam(ctx context.Context) (domain.CreateRankingsParams, error) {
+	user, err := db.Queries.GetUserByName(ctx, r.Player)
 	if err != nil {
-		return domain.CreateRankingParams{}, errors.New(fmt.Sprintf("could not find user=%v from google sheets in local database", r.Player))
+		return domain.CreateRankingsParams{}, errors.New(fmt.Sprintf("could not find user=%v from google sheets in local database", r.Player))
 	}
 
 	re, err := regexp.Compile(`^(.*?) \((.*?)\)$`)
 	if err != nil {
-		return domain.CreateRankingParams{}, err
+		return domain.CreateRankingsParams{}, err
 	}
 	matches := re.FindStringSubmatch(r.CombinedLeaderCiv)
 
@@ -513,19 +514,19 @@ func (r Ranking) ToRankingDBParam(ctx context.Context) (domain.CreateRankingPara
 		civ = matches[1]
 		leader = matches[2]
 	} else {
-		return domain.CreateRankingParams{}, errors.New("could not parse civ and leader from google sheets cell")
+		return domain.CreateRankingsParams{}, errors.New("could not parse civ and leader from google sheets cell")
 	}
 
-	l, err := db.queries.GetLeaderByNameAndCiv(ctx, domain.GetLeaderByNameAndCivParams{
+	l, err := db.Queries.GetLeaderByNameAndCiv(ctx, domain.GetLeaderByNameAndCivParams{
 		LeaderName: strings.ToUpper(leader),
 		CivName:    strings.ToUpper(civ),
 	})
 
 	if err != nil {
-		return domain.CreateRankingParams{}, err
+		return domain.CreateRankingsParams{}, err
 	}
 
-	return domain.CreateRankingParams{
+	return domain.CreateRankingsParams{
 		UserID:   user.ID,
 		Tier:     r.Tier,
 		LeaderID: l.ID,

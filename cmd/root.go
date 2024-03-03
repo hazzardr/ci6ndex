@@ -29,7 +29,9 @@ func Execute() {
 }
 
 var db *internal.DatabaseOperations
+var config *internal.AppConfig
 
 func init() {
 	db = internal.Initialize()
+	config = internal.GetConfig()
 }

@@ -45,7 +45,7 @@ func (suite *UsersSuite) TearDownSuite() {
 }
 
 func (suite *UsersSuite) TearDownTest() {
-	err := suite.db.queries.WipeTables(suite.ctx)
+	err := suite.db.Queries.WipeTables(suite.ctx)
 	if err != nil {
 		log.Errorf(suite.ctx, "Error truncating tables, could not clean DB: %v", err)
 		suite.T().Fatal(err)
@@ -58,7 +58,7 @@ func (suite *UsersSuite) TestAddUsersFromFile_Success() {
 	suite.True(exists)
 	err := AddUsersFromFile("testhelper/testdata/single_user.json", suite.db)
 	suite.NoError(err)
-	actual, err := suite.db.queries.GetUserByName(suite.ctx, "username")
+	actual, err := suite.db.Queries.GetUserByName(suite.ctx, "username")
 	suite.NoError(err)
 	assert.Equal(t, "username", actual.Name)
 	assert.Equal(t, "discord_name", actual.DiscordName)
@@ -70,7 +70,7 @@ func (suite *UsersSuite) TestAddUsersFromFile_MultipleUsers() {
 	suite.True(exists)
 	err := AddUsersFromFile("testhelper/testdata/multiple_users.json", suite.db)
 	suite.NoError(err)
-	users, err := suite.db.queries.GetUsers(suite.ctx)
+	users, err := suite.db.Queries.GetUsers(suite.ctx)
 	suite.NoError(err)
 	assert.Equal(t, 2, len(users))
 }

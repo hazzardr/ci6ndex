@@ -23,7 +23,7 @@ func AttachSlashCommands(s *discordgo.Session) ([]*discordgo.ApplicationCommand,
 	if err != nil {
 		return nil, fmt.Errorf("can't attach commands prior to db being initialized: %w", err)
 	}
-	strategies, err := db.queries.GetDraftStrategies(context.Background())
+	strategies, err := db.Queries.GetDraftStrategies(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get required defaults: %w", err)
 	}
@@ -115,7 +115,7 @@ func RemoveSlashCommands() error {
 // TODO: switch to followups so we can send multiple messages
 func rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
-	drafts, err := db.queries.GetActiveDrafts(context.Background())
+	drafts, err := db.Queries.GetActiveDrafts(context.Background())
 	if err != nil {
 		ReportError("error checking active drafts", err, s, i)
 		return
@@ -209,7 +209,7 @@ func submitPicks(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 func players(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
-	users, err := db.queries.GetUsers(context.Background())
+	users, err := db.Queries.GetUsers(context.Background())
 	if err != nil {
 		slog.Error("error getting players", "error", err)
 		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -255,14 +255,14 @@ func startDraft(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	ds, err := db.queries.GetDraftStrategy(context.Background(), strat)
+	ds, err := db.Queries.GetDraftStrategy(context.Background(), strat)
 
 	if err != nil {
 		ReportError("error fetching draft strategy", err, s, i)
 		return
 	}
 
-	actives, err := db.queries.GetActiveDrafts(context.Background())
+	actives, err := db.Queries.GetActiveDrafts(context.Background())
 
 	if err != nil {
 		ReportError("error fetching active draft", err, s, i)
@@ -282,7 +282,7 @@ func startDraft(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	draft, err := db.queries.CreateDraft(context.Background(), ds.Name)
+	draft, err := db.Queries.CreateDraft(context.Background(), ds.Name)
 
 	if err != nil {
 		ReportError("error creating draft", err, s, i)

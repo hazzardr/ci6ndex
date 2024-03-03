@@ -30,7 +30,7 @@ type SheetsService struct {
 }
 
 func (s *SheetsService) GetClient(ctx context.Context, credsLocation string) (*sheets.Service, error) {
-	oauthConfigFile, err := os.ReadFile(config.GoogleCloudCredentialsLocation)
+	oauthConfigFile, err := os.ReadFile(credsLocation)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,27 @@ func (s *SheetsService) GetClient(ctx context.Context, credsLocation string) (*s
 	return srv, err
 }
 
-func getRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, error) {
+// Get token from file
+// if it's not in the file / file DNE then get from the web
+// create http client from that token
+// create sheets service from that client
+// get the spreadsheet
+// if there is auth error, refresh token from web + save to file
+// retry get spreadsheet
+// parse spreadsheet
+
+// OAuth2TokenProvider gets an OAuth2 token from file or web
+type OAuth2TokenProvider interface {
+	GetTokenFromFile(file string) (*oauth2.Token, error)
+	GetTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error)
+}
+
+type OAuth2TokenService struct {
+	GetTokenFromFile func(file string) (*oauth2.Token, error)
+	GetTokenFromWeb  func(config *oauth2.Config) (*oauth2.Token, error)
+}
+
+func GetRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, error) {
 	sheetService := &SheetsService{}
 	srv, err := sheetService.GetClient(ctx, config.GoogleCloudCredentialsLocation)
 	if err != nil {
@@ -58,6 +78,20 @@ func getRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, e
 	civLeaderCells := "A2:K80"
 	ss, err := srv.Spreadsheets.Values.Get(config.CivRankingSheetId, civLeaderCells).MajorDimension("ROWS").Do()
 	if err != nil {
+		var tokenErr *oauth2.RetrieveError
+		if errors.As(err, &tokenErr) {
+			if tokenErr.ErrorCode == "invalid_grant" {
+				slog.Warn("could not retrieve token from file, attempting to refresh...",
+					"error", tokenErr)
+				t, err := getTokenFromWeb(oauth2Config)
+				if err != nil {
+					slog.Error("could not refresh token", "error", err)
+					return nil, err
+				}
+			}
+			return nil, tokenErr
+
+		}
 		return nil, err
 	}
 	if ss.ServerResponse.HTTPStatusCode != 200 {

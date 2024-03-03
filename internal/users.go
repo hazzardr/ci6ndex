@@ -24,7 +24,7 @@ func AddUsersFromFile(path string, db *DatabaseOperations) error {
 		return err
 	}
 
-	dbUsers, err := db.queries.CreateUsers(context.Background(), users)
+	dbUsers, err := db.Queries.CreateUsers(context.Background(), users)
 
 	if err != nil {
 		return err

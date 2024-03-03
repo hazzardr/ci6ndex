@@ -27,6 +27,9 @@ INSERT INTO ci6ndex.users
     $1, $2
 );
 
+-- name: GetRankings :many
+SELECT * FROM ci6ndex.rankings;
+
 -- name: DeleteRankings :exec
 DELETE FROM ci6ndex.rankings
 RETURNING *;
