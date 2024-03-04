@@ -10,10 +10,9 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 	"log/slog"
-	"net/http"
 	"os"
-	"slices"
 	"strconv"
+	"time"
 )
 
 type Ranking struct {
@@ -27,49 +26,92 @@ type SheetsServiceProvider interface {
 }
 
 type SheetsService struct {
+	token *oauth2.Token
 }
 
-func (s *SheetsService) GetClient(ctx context.Context, credsLocation string) (*sheets.Service, error) {
-	oauthConfigFile, err := os.ReadFile(credsLocation)
-	if err != nil {
-		return nil, err
-	}
-	oauthConfig, err := google.ConfigFromJSON(oauthConfigFile, "https://www.googleapis.com/auth/spreadsheets.readonly")
+func (s *SheetsService) GetClient(ctx context.Context, oauthConfigLoc string) (*sheets.Service,
+	error) {
+
+	oauthConfig, err := getOAuthConfigFromFile(oauthConfigLoc)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := getClient(oauthConfig)
-	if err != nil {
-		return nil, err
-	}
-
+	client := oauthConfig.Client(ctx, s.token)
 	srv, err := sheets.NewService(ctx, option.WithHTTPClient(client))
 	return srv, err
 }
 
-// Get token from file
-// if it's not in the file / file DNE then get from the web
-// create http client from that token
-// create sheets service from that client
-// get the spreadsheet
-// if there is auth error, refresh token from web + save to file
-// retry get spreadsheet
-// parse spreadsheet
-
 // OAuth2TokenProvider gets an OAuth2 token from file or web
 type OAuth2TokenProvider interface {
-	GetTokenFromFile(file string) (*oauth2.Token, error)
-	GetTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error)
+	GetToken() (*oauth2.Token, error)
 }
 
 type OAuth2TokenService struct {
-	GetTokenFromFile func(file string) (*oauth2.Token, error)
-	GetTokenFromWeb  func(config *oauth2.Config) (*oauth2.Token, error)
+	oauthCredsLocation string
+	tokenFileLocation  string
+}
+
+// GetToken retrieves a valid OAuth2 token for interacting with Google Sheets.
+// It will try to:
+//  1. Get the token from a local file
+//  2. If the file does not exist, is malformed, or is expired,
+//     it will call out to the web for a new token.
+func (o *OAuth2TokenService) GetToken() (*oauth2.Token, error) {
+	t, err := getTokenFromFile(o.tokenFileLocation)
+	if err != nil {
+		slog.Warn("could not retrieve oauth2 token from local file, trying web")
+		t, webErr := getTokenFromWeb(o.oauthCredsLocation)
+		if webErr != nil {
+			slog.Error("could not retrieve oauth2 token from file or web",
+				"fileErr", err, "webErr", webErr)
+			return nil, errors.Join(err, webErr)
+		}
+
+		err = saveToken(o.tokenFileLocation, t)
+		if err != nil {
+			slog.Warn("retrieved token from web, but could not save token to file", "error", err)
+			return t, nil
+		}
+	}
+	if t.Expiry.Before(time.Now()) {
+		slog.Info("retrieved token has expired. refreshing...")
+		t, err = getTokenFromWeb(o.oauthCredsLocation)
+		if err != nil {
+			slog.Error("could not refresh token from web", "error", err)
+			return nil, err
+		}
+	}
+	return t, nil
+}
+
+func getTokenFromFile(file string) (*oauth2.Token, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+
+	defer f.Close()
+	t := &oauth2.Token{}
+	err = json.NewDecoder(f).Decode(t)
+	return t, err
 }
 
 func GetRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, error) {
-	sheetService := &SheetsService{}
+	ts := &OAuth2TokenService{
+		oauthCredsLocation: config.GoogleCloudCredentialsLocation,
+		tokenFileLocation:  "token.json",
+	}
+
+	t, err := ts.GetToken()
+	if err != nil {
+		return nil, err
+	}
+
+	sheetService := &SheetsService{
+		token: t,
+	}
+
 	srv, err := sheetService.GetClient(ctx, config.GoogleCloudCredentialsLocation)
 	if err != nil {
 		return nil, err
@@ -83,7 +125,7 @@ func GetRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, e
 			if tokenErr.ErrorCode == "invalid_grant" {
 				slog.Warn("could not retrieve token from file, attempting to refresh...",
 					"error", tokenErr)
-				t, err := getTokenFromWeb(oauth2Config)
+				t, err := ts.GetToken()
 				if err != nil {
 					slog.Error("could not refresh token", "error", err)
 					return nil, err
@@ -147,40 +189,17 @@ func GetRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, e
 
 }
 
-// Retrieve a token, save the token, return generated client.
-// From quickstart: https://developers.google.com/sheets/api/quickstart/go
-func getClient(config *oauth2.Config) (*http.Client, error) {
-	tFile := "token.json"
-	t, err := getTokenFromFile(tFile)
+// getTokenFromWeb requests a token from the web, then returns the retrieved token.
+// It uses oauth2 config stored at oauthConfigLocation as a readable file.
+func getTokenFromWeb(oauthConfigLocation string) (*oauth2.Token, error) {
+	oauthConfig, err := getOAuthConfigFromFile(oauthConfigLocation)
 	if err != nil {
-		slog.Warn("could not retrieve gcloud auth from local file, trying web")
-		t, err = getTokenFromWeb(config)
-		if err != nil {
-			return nil, err
-		}
-		err = saveToken(tFile, t)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return config.Client(context.Background(), t), nil
-}
-
-func getTokenFromFile(file string) (*oauth2.Token, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
+		return nil, errors.Join(errors.New("could not read oauth2 file config"), err)
 	}
 
-	defer f.Close()
-	t := &oauth2.Token{}
-	err = json.NewDecoder(f).Decode(t)
-	return t, err
-}
-
-func getTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
-	authUrl := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	slog.Info("go to the link and type authorization code from there", "authUrl", authUrl)
+	authUrl := oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	slog.Info("go to the following link and type authorization code from there in this terminal. "+
+		"Thanks!", "authUrl", authUrl)
 
 	var authCode string
 	if _, err := fmt.Scan(&authCode); err != nil {
@@ -188,7 +207,7 @@ func getTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 		return nil, err
 	}
 
-	t, err := config.Exchange(context.TODO(), authCode)
+	t, err := oauthConfig.Exchange(context.Background(), authCode)
 	if err != nil {
 		slog.Error("unable to retrieve google sheets access token", "error", err)
 		return nil, err
@@ -201,7 +220,6 @@ func saveToken(path string, token *oauth2.Token) error {
 	slog.Info("saving gcloud credential file", "path", path)
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		// TODO: put this behind rest and just give bad status instead of crash
 		slog.Error("unable to save google sheets access token to file", "error", err)
 		return err
 	}
@@ -211,4 +229,18 @@ func saveToken(path string, token *oauth2.Token) error {
 		return err
 	}
 	return nil
+}
+
+func getOAuthConfigFromFile(fileLocation string) (*oauth2.Config, error) {
+	f, err := os.ReadFile(fileLocation)
+	if err != nil {
+		return nil, err
+	}
+
+	oauthConfig, err := google.ConfigFromJSON(f,
+		"https://www.googleapis.com/auth/spreadsheets.readonly")
+	if err != nil {
+		return nil, err
+	}
+	return oauthConfig, nil
 }
