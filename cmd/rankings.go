@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"ci6ndex/domain"
 	"ci6ndex/internal"
 	"context"
 	"fmt"
@@ -32,7 +31,7 @@ var refreshRankingsCmd = &cobra.Command{
 	Run: refreshRanks,
 }
 
-// Refreshes the ranks from google sheets and updates the database
+// Refreshes the ranks from Google sheets and updates the database
 func refreshRanks(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 	newRanks, err := internal.GetRankingsFromSheets(config, ctx)
@@ -48,69 +47,12 @@ func refreshRanks(cmd *cobra.Command, args []string) {
 	}
 	slog.Info("Successfully got newRanks from google sheets", "count", len(newRanks))
 
-	// Get old ranks in case replacement fails
-	oldRankings, err := db.Queries.GetRankings(ctx)
+	err = internal.UpdateRankings(ctx, newRanks, db)
 	if err != nil {
-		slog.Error("Error getting old newRanks from db", "error", err)
+		slog.Error("Error updating internal rankings", "error", err)
 		return
 	}
-
-	err = db.Queries.DeleteRankings(ctx)
-	if err != nil {
-		slog.Error("Error deleting old newRanks from db", "error", err)
-		return
-	}
-
-	dbRanks := make([]domain.CreateRankingsParams, 0, len(newRanks))
-
-	for _, rank := range newRanks {
-		p, err := rank.ToRankingDBParam(ctx)
-		if err != nil {
-			slog.Error("error converting newRanks to db params. will try to reinsert old rankings.",
-				"rank", rank, "error", err)
-			err = insertRanks(ctx, oldRankings)
-			if err != nil {
-				slog.Error("error reinserting old rankings. database is empty", "error", err)
-				return
-			}
-			slog.Info("successfully reinserted old rankings", "count", len(oldRankings))
-			return
-		}
-		dbRanks = append(dbRanks, p)
-	}
-
-	_, err = db.Queries.CreateRankings(ctx, dbRanks)
-	if err != nil {
-		slog.Error("error inserting newRanks to db. will try to reinsert old rankings.",
-			"newRanks", dbRanks, "error", err)
-		err = insertRanks(ctx, oldRankings)
-		if err != nil {
-			slog.Error("error reinserting old rankings. database is empty", "error", err)
-			return
-		}
-		slog.Info("successfully reinserted old rankings", "count", len(oldRankings))
-		return
-	}
-	slog.Info("successfully inserted new ranks from google sheets", "count", len(dbRanks))
-}
-
-// insertRanks is a helper function to reinsert old rankings in case of failure
-func insertRanks(ctx context.Context, ranks []domain.Ci6ndexRanking) error {
-	toInsert := make([]domain.CreateRankingsParams, 0, len(ranks))
-	for _, rank := range ranks {
-		p := domain.CreateRankingsParams{
-			UserID:   rank.UserID,
-			Tier:     rank.Tier,
-			LeaderID: rank.LeaderID,
-		}
-		toInsert = append(toInsert, p)
-	}
-	_, err := db.Queries.CreateRankings(ctx, toInsert)
-	if err != nil {
-		return err
-	}
-	slog.Info("successfully reinserted old rankings", "count", len(toInsert))
-	return nil
+	slog.Info("Successfully updated internal rankings", "count", len(newRanks))
 }
 
 func init() {

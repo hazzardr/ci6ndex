@@ -367,7 +367,7 @@ type SubmitDraftPickParams struct {
 	DraftID  int64
 	LeaderID pgtype.Int8
 	UserID   int64
-	Offered  []byte
+	Offered  []int64
 }
 
 func (q *Queries) SubmitDraftPick(ctx context.Context, arg SubmitDraftPickParams) (Ci6ndexDraftPick, error) {

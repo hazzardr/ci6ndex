@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"ci6ndex/internal"
+	"fmt"
+	"github.com/spf13/viper"
+	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -32,6 +35,28 @@ var db *internal.DatabaseOperations
 var config *internal.AppConfig
 
 func init() {
-	db = internal.Initialize()
-	config = internal.GetConfig()
+	err := initializeConfig()
+	if err != nil {
+		slog.Error("Error initializing config", "error", err)
+		return
+	}
+	db, err = internal.NewDBConnection(config.DatabaseUrl)
+	if err != nil {
+		slog.Error("Error initializing db", "error", err)
+		return
+	}
+}
+
+func initializeConfig() error {
+	viper.SetConfigFile(".env")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(fmt.Errorf("failed to load configuration, error=%w", err))
+	}
+
+	err = viper.Unmarshal(&config)
+	if err != nil {
+		panic(fmt.Errorf("failed to load configuration, error=%w", err))
+	}
+	return nil
 }

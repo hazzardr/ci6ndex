@@ -11,15 +11,10 @@ import (
 	"google.golang.org/api/sheets/v4"
 	"log/slog"
 	"os"
+	"slices"
 	"strconv"
 	"time"
 )
-
-type Ranking struct {
-	Player            string
-	CombinedLeaderCiv string
-	Tier              float64
-}
 
 type SheetsServiceProvider interface {
 	GetClient(ctx context.Context, credsLocation string) (*sheets.Service, error)
@@ -97,6 +92,7 @@ func getTokenFromFile(file string) (*oauth2.Token, error) {
 	return t, err
 }
 
+// GetRankingsFromSheets retrieves the rankings from the Civ ranking sheet
 func GetRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, error) {
 	ts := &OAuth2TokenService{
 		oauthCredsLocation: config.GoogleCloudCredentialsLocation,
@@ -118,29 +114,18 @@ func GetRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, e
 	}
 
 	civLeaderCells := "A2:K80"
+
+	// non 2xx comes back as an error
 	ss, err := srv.Spreadsheets.Values.Get(config.CivRankingSheetId, civLeaderCells).MajorDimension("ROWS").Do()
 	if err != nil {
-		var tokenErr *oauth2.RetrieveError
-		if errors.As(err, &tokenErr) {
-			if tokenErr.ErrorCode == "invalid_grant" {
-				slog.Warn("could not retrieve token from file, attempting to refresh...",
-					"error", tokenErr)
-				t, err := ts.GetToken()
-				if err != nil {
-					slog.Error("could not refresh token", "error", err)
-					return nil, err
-				}
-			}
-			return nil, tokenErr
-
-		}
 		return nil, err
 	}
-	if ss.ServerResponse.HTTPStatusCode != 200 {
-		slog.Error("could not get spreadsheet", "status", ss.ServerResponse.HTTPStatusCode)
-		return nil, errors.New("could not get spreadsheet")
-	}
 
+	return parseLeadersFromSpreadsheet(ss)
+
+}
+
+func parseLeadersFromSpreadsheet(ss *sheets.ValueRange) ([]Ranking, error) {
 	var rankings []Ranking
 	ignoreNames := []string{"Civ", "Average", "Deviation"}
 
@@ -184,9 +169,7 @@ func GetRankingsFromSheets(config *AppConfig, ctx context.Context) ([]Ranking, e
 			rankings = append(rankings, r)
 		}
 	}
-
 	return rankings, nil
-
 }
 
 // getTokenFromWeb requests a token from the web, then returns the retrieved token.

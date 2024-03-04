@@ -11,7 +11,7 @@ type DatabaseOperations struct {
 	Queries *domain.Queries
 }
 
-func newDBConnection(dbUrl string) (*DatabaseOperations, error) {
+func NewDBConnection(dbUrl string) (*DatabaseOperations, error) {
 	conn, err := pgxpool.New(context.Background(), dbUrl)
 	if err != nil {
 		return nil, err

@@ -57,7 +57,7 @@ CREATE TABLE ci6ndex.draft_picks
     draft_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
     leader_id BIGINT,
-    offered JSONB,
+    offered BIGINT[],
     PRIMARY KEY (id),
     CONSTRAINT drafts_fk FOREIGN KEY (draft_id) REFERENCES ci6ndex.drafts (id),
     CONSTRAINT users_fk FOREIGN KEY (user_id) REFERENCES ci6ndex.users (id),
