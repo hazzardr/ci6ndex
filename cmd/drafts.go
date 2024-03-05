@@ -68,24 +68,16 @@ func getDrafts(cmd *cobra.Command, args []string) {
 		slog.Error("unable to parse active flag", "error", err)
 		return
 	}
-	if active {
-		draft, err := internal.GetActiveDraft(ctx, db)
-		if err != nil {
-			slog.Error("Error fetching active draft", "error", err)
-			return
-		}
-		if draft == nil {
-			fmt.Println("No active draft")
-			return
-		}
-		fmt.Println(draft)
-		return
-	}
-	drafts, err := internal.GetDrafts(ctx, db)
+	drafts, err := internal.GetDrafts(ctx, db, active)
 	if err != nil {
 		slog.Error("Error fetching drafts", "error", err)
 		return
 	}
+	if drafts == nil {
+		fmt.Println("Nil drafts returned")
+		return
+	}
+
 	for _, draft := range drafts {
 		fmt.Println(draft)
 	}

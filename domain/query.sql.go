@@ -196,6 +196,30 @@ func (q *Queries) GetDraftStrategy(ctx context.Context, name string) (Ci6ndexDra
 	return i, err
 }
 
+const getDrafts = `-- name: GetDrafts :many
+SELECT id, draft_strategy, active FROM ci6ndex.drafts
+`
+
+func (q *Queries) GetDrafts(ctx context.Context) ([]Ci6ndexDraft, error) {
+	rows, err := q.db.Query(ctx, getDrafts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ci6ndexDraft
+	for rows.Next() {
+		var i Ci6ndexDraft
+		if err := rows.Scan(&i.ID, &i.DraftStrategy, &i.Active); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLeader = `-- name: GetLeader :one
 SELECT id, civ_name, leader_name, icon_url FROM ci6ndex.leaders
          WHERE id = $1

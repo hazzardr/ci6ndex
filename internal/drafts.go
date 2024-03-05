@@ -45,6 +45,32 @@ func CreateDraft(ctx context.Context, cdr CreateDraftRequest, db *DatabaseOperat
 	return &draft, nil
 }
 
+func GetDrafts(ctx context.Context, db *DatabaseOperations, active bool) ([]domain.Ci6ndexDraft, error) {
+	var drafts []domain.Ci6ndexDraft
+	var err error
+	if active {
+		drafts, err = db.Queries.GetActiveDrafts(ctx)
+	} else {
+		drafts, err = db.Queries.GetDrafts(ctx)
+	}
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Join(errors.New("error fetching active draft"), err)
+	}
+	if len(drafts) == 0 {
+		return []domain.Ci6ndexDraft{}, nil
+	}
+	if len(drafts) > 1 {
+		return nil, errors.New("more than one active draft exists! not sure which to chose")
+	}
+	if drafts == nil {
+		return []domain.Ci6ndexDraft{}, nil
+	}
+	return drafts, nil
+}
+
 // GetActiveDraft returns the active draft, if one exists. only one draft can be active at a time.
 func GetActiveDraft(ctx context.Context, db *DatabaseOperations) (*domain.Ci6ndexDraft, error) {
 	drafts, err := db.Queries.GetActiveDrafts(ctx)
