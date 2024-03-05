@@ -45,6 +45,28 @@ func CreateDraft(ctx context.Context, cdr CreateDraftRequest, db *DatabaseOperat
 	return &draft, nil
 }
 
+// GetActiveDraft returns the active draft, if one exists. only one draft can be active at a time.
+func GetActiveDraft(ctx context.Context, db *DatabaseOperations) (*domain.Ci6ndexDraft, error) {
+	drafts, err := db.Queries.GetActiveDrafts(ctx)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Join(errors.New("error fetching active draft"), err)
+	}
+	if len(drafts) == 0 {
+		return nil, nil
+	}
+	if len(drafts) > 1 {
+		return nil, errors.New("more than one active draft exists! not sure which to chose")
+	}
+	return &drafts[0], nil
+}
+
+func CloseDraft(ctx context.Context, db *DatabaseOperations, draftId int64) (int64, error) {
+	return 0, nil
+}
+
 // TODO: apply min-tiers rule
 func OfferPicks(db *DatabaseOperations, draft domain.Ci6ndexDraft, numPlayers int) ([]DraftOffering, error) {
 	ds, err := db.Queries.GetDraftStrategy(context.Background(), draft.DraftStrategy)

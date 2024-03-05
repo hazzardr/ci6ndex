@@ -52,11 +52,71 @@ func startDraft(cmd *cobra.Command, args []string) {
 		"draft_id", draft.ID, "draft_strategy", draft.DraftStrategy)
 }
 
+var getDraftsCommand = &cobra.Command{
+	Use:   "get",
+	Short: "command to get drafts",
+	Long: `Allows for getting drafts from the database.
+You can either get all drafts, or you can get the active draft via the --active flag.
+`,
+	Run: getDrafts,
+}
+
+func getDrafts(cmd *cobra.Command, args []string) {
+	ctx := cmd.Context()
+	active, err := cmd.Flags().GetBool("active")
+	if err != nil {
+		slog.Error("unable to parse active flag", "error", err)
+		return
+	}
+	if active {
+		draft, err := internal.GetActiveDraft(ctx, db)
+		if err != nil {
+			slog.Error("Error fetching active draft", "error", err)
+			return
+		}
+		if draft == nil {
+			fmt.Println("No active draft")
+			return
+		}
+		fmt.Println(draft)
+		return
+	}
+	drafts, err := internal.GetDrafts(ctx, db)
+	if err != nil {
+		slog.Error("Error fetching drafts", "error", err)
+		return
+	}
+	for _, draft := range drafts {
+		fmt.Println(draft)
+	}
+}
+
+var strategiesCommand = &cobra.Command{
+	Use:   "draft-strategies",
+	Short: "list all draft strategies",
+	Long:  "Lists all draft strategies available in the database.",
+	Run:   listDraftStrategies,
+}
+
+func listDraftStrategies(cmd *cobra.Command, args []string) {
+	ctx := cmd.Context()
+	strategies, err := internal.GetDraftStrategies(ctx, db)
+	if err != nil {
+		slog.Error("Error fetching draft strategies", "error", err)
+		return
+	}
+	for _, strategy := range strategies {
+		fmt.Println(strategy)
+	}
+}
+
 func init() {
 	rootCmd.AddCommand(draftsCmd)
+	rootCmd.AddCommand(strategiesCommand)
 	draftsCmd.AddCommand(startDraftCommand)
+	draftsCmd.AddCommand(getDraftsCommand)
 
 	startDraftCommand.Flags().StringVarP(&draftStrategy, "draft-strategy", "s", "",
 		"The strategy to use for the draft")
-
+	getDraftsCommand.Flags().Bool("active", false, "Get the active draft")
 }
