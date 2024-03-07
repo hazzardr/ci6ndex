@@ -170,15 +170,17 @@ type SubmitDraftPickRequest struct {
 	Leader      Leader   `json:"leader"`
 	DiscordUser string   `json:"discord_user"`
 	Offered     []Leader `json:"offered"`
+	DraftId     int64    `json:"draft_id"`
 }
 
-func SubmitDraftPick(ctx context.Context, db *DatabaseOperations, sdp SubmitDraftPickRequest, draftId int64) (*domain.Ci6ndexDraftPick, error) {
-	_, err := db.Queries.GetDraft(ctx, draftId)
+func SubmitDraftPick(ctx context.Context, db *DatabaseOperations, sdp *SubmitDraftPickRequest) (*domain.Ci6ndexDraftPick, error) {
+	_, err := db.Queries.GetDraft(ctx, sdp.DraftId)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.Join(fmt.Errorf("draft_id=%v does not exist", draftId), err)
+			return nil, errors.Join(fmt.Errorf("draft_id=%v does not exist", sdp.DraftId), err)
 		}
-		return nil, errors.Join(fmt.Errorf("error fetching draft with draft_id=%v", draftId), err)
+		return nil, errors.Join(fmt.Errorf("error fetching draft with draft_id=%v", sdp.DraftId),
+			err)
 	}
 
 	user, err := db.Queries.GetUserByDiscordName(ctx, strings.ToLower(sdp.DiscordUser))
@@ -214,7 +216,7 @@ func SubmitDraftPick(ctx context.Context, db *DatabaseOperations, sdp SubmitDraf
 	}
 
 	pick, err := db.Queries.SubmitDraftPick(ctx, domain.SubmitDraftPickParams{
-		DraftID:  draftId,
+		DraftID:  sdp.DraftId,
 		LeaderID: pgtype.Int8{Int64: leader.ID},
 		UserID:   user.ID,
 		Offered:  leaderIDs,
@@ -230,13 +232,7 @@ func SubmitDraftPick(ctx context.Context, db *DatabaseOperations, sdp SubmitDraf
 		return nil, errors.Join(fmt.Errorf("error submitting draft pick for user=%v draft=%v", sdp.DiscordUser, draftId), err)
 
 	}
-
-	w.WriteHeader(201)
-	err = json.NewEncoder(w).Encode(pick)
-	if err != nil {
-		w.WriteHeader(500)
-		_ = json.NewEncoder(w).Encode(fmt.Sprint("failed to encode draft pick, but it was submitted successfully"))
-	}
+	return &pick, nil
 
 }
 

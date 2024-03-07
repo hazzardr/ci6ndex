@@ -102,6 +102,18 @@ func listDraftStrategies(cmd *cobra.Command, args []string) {
 	}
 }
 
+func submitDraftPickCommand(cmd *cobra.Command, args []string) {
+	ctx := cmd.Context()
+	sdp := &internal.SubmitDraftPickRequest{}
+	pick, err := internal.SubmitDraftPick(ctx, db, sdp)
+	if err != nil {
+		slog.Error("Error submitting draft pick", "error", err)
+		return
+	}
+	slog.Info("Draft pick submitted successfully", "draft_pick", pick)
+	return
+}
+
 func init() {
 	rootCmd.AddCommand(draftsCmd)
 	rootCmd.AddCommand(strategiesCommand)
