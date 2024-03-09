@@ -18,23 +18,36 @@ type CivShuffler struct {
 	Leaders       []domain.Ci6ndexLeader
 	Players       []string
 	DraftStrategy domain.Ci6ndexDraftStrategy
-	Functions     map[string]shuffleFunction
+	Functions     map[string]*shuffleFunction
 	DB            *DatabaseOperations
 }
 
-// shuffleFunction is a function that takes in a slice of leaders to be assigned,
+type shuffleFunction struct {
+	shuffle  shuffleFunc
+	validate validationFunction
+}
+
+// validationFunction is a function that takes in a slice of leaders to be assigned,
 // and a string representing the user it's being assigned to.
 // It returns true if the proposed pool is valid for the user.
-type shuffleFunction func([]domain.Ci6ndexLeader, string, *DatabaseOperations) bool
+type validationFunction func([]domain.Ci6ndexLeader, string, *DatabaseOperations) bool
+
+// validationFunction is a function that takes in a slice of leaders to be assigned,
+// and a string representing the user it's being assigned to.
+// It returns true if the proposed pool is valid for the user.
+type shuffleFunc func([]domain.Ci6ndexLeader, string,
+	*DatabaseOperations) ([]domain.Ci6ndexLeader, error)
 
 func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string, strategy domain.Ci6ndexDraftStrategy) CivShuffler {
 	return CivShuffler{
 		Leaders:       leaders,
 		Players:       players,
 		DraftStrategy: strategy,
-		Functions: map[string]shuffleFunction{
-			"allPick":   allPick,
-			"allRandom": randomPick,
+		Functions: map[string]*shuffleFunction{
+			"AllPick": {
+				shuffle:  allPick,
+				validate: allPickValidate,
+			},
 		},
 	}
 }
@@ -80,8 +93,12 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 	return allRolls, nil
 }
 
-func allPick(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOperations) bool {
+func allPickValidate(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOperations) bool {
 	return true
+}
+
+func allPick(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOperations) ([]domain.Ci6ndexLeader, error) {
+	return leaders, nil
 }
 
 func randomPick(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOperations) bool {
