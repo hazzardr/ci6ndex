@@ -7,7 +7,7 @@ import (
 	"log/slog"
 )
 
-var BannedLeaders = []string{
+var PermaBannedLeaders = []string{
 	"ABE",
 	"TOMYRIS",
 	"GILGAMESH",
@@ -40,14 +40,41 @@ func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string, strategy d
 }
 
 func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
-	allRolls := make([]DraftOffering, 0)
 	slog.Info("rolling civs for players", "players", c.Players, "strategy", c.DraftStrategy)
+	slog.Info("banned leaders", "permaBanned", PermaBannedLeaders)
 
+	eligibleLeaders := make([]domain.Ci6ndexLeader, 0)
+	for _, banned := range PermaBannedLeaders {
+		for _, leader := range c.Leaders {
+			if leader.LeaderName != banned {
+				eligibleLeaders = append(eligibleLeaders, leader)
+			}
+		}
+	}
+
+	allRolls := make([]DraftOffering, len(c.Players))
+
+	// All pick
+	// No rules in all pick strategies for now
+	if c.DraftStrategy.Randomize == false {
+		for _, player := range c.Players {
+			roll := DraftOffering{
+				User:    player,
+				Leaders: eligibleLeaders,
+			}
+			allRolls = append(allRolls, roll)
+		}
+		return allRolls, nil
+	}
+
+	// Random pick
 	var rules map[string]interface{}
 
-	err := json.Unmarshal(c.DraftStrategy.Rules, &rules)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal draft strategy rules")
+	if hasRules(c.DraftStrategy) {
+		err := json.Unmarshal(c.DraftStrategy.Rules, &rules)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to unmarshal draft strategy rules")
+		}
 	}
 
 	return allRolls, nil
@@ -73,4 +100,8 @@ func areElementsUnique(slice []domain.Ci6ndexLeader) bool {
 	}
 	// All elements are unique
 	return true
+}
+
+func hasRules(strategy domain.Ci6ndexDraftStrategy) bool {
+	return strategy.Rules != nil && len(strategy.Rules) > 0
 }
