@@ -3,7 +3,6 @@ package internal
 import (
 	"ci6ndex/domain"
 	"context"
-	"encoding/json"
 	"github.com/pkg/errors"
 	"log/slog"
 )
@@ -61,39 +60,79 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 	slog.Info("rolling civs for players", "players", c.Players, "strategy", c.DraftStrategy)
 	slog.Info("banned leaders", "permaBanned", PermaBannedLeaders)
 
-	eligibleLeaders := make([]domain.Ci6ndexLeader, 0)
+	fullPool := make([]domain.Ci6ndexLeader, 0)
 	for _, banned := range PermaBannedLeaders {
 		for _, leader := range c.Leaders {
 			if leader.LeaderName != banned {
-				eligibleLeaders = append(eligibleLeaders, leader)
+				fullPool = append(fullPool, leader)
 			}
 		}
 	}
 
-	allRolls := make([]DraftOffering, len(c.Players))
+	var allRolls []DraftOffering
 
-	// All pick
-	// No rules in all pick strategies for now
-	if c.DraftStrategy.Randomize == false {
+	totalNumTries := 50
+	attempt := 0
+	for attempt < totalNumTries && len(allRolls) < len(c.Players) {
+		slog.Info("attempting to shuffle leaders", "attempt", attempt, "strategy", c.DraftStrategy.Name, "players", c.Players)
+		eligibleLeaders := fullPool
+		allRolls = make([]DraftOffering, len(c.Players))
+
 		for _, player := range c.Players {
-			roll := DraftOffering{
-				User:    player,
-				Leaders: eligibleLeaders,
+			attemptPerPlayer := 0
+			numTriesPerPlayer := 10
+			valid := false
+			for attemptPerPlayer < numTriesPerPlayer && !valid {
+				slog.Info("rolling civs for player", "player", player, "strategy", c.DraftStrategy.Name)
+				shuffle := c.Functions[c.DraftStrategy.Name].shuffle
+				validate := c.Functions[c.DraftStrategy.Name].validate
+
+				offered, err := shuffle(eligibleLeaders, player, int(c.DraftStrategy.PoolSize.Int32), c.DB)
+				if err != nil {
+					slog.Error("failed to shuffle leaders", "error", err, "player", player, "strategy", c.DraftStrategy.Name)
+					return nil, errors.Wrap(err, "failed to shuffle leaders")
+				}
+				if validate(offered, player, c.DB) {
+					roll := DraftOffering{
+						User:    player,
+						Leaders: offered,
+					}
+					allRolls = append(allRolls, roll)
+					eligibleLeaders = RemoveOffered(eligibleLeaders, offered)
+					valid = true
+
+				}
+				else {
+
+				}
 			}
-			allRolls = append(allRolls, roll)
-		}
-		return allRolls, nil
-	}
 
-	// Random pick
-	var rules map[string]interface{}
-
-	if hasRules(c.DraftStrategy) {
-		err := json.Unmarshal(c.DraftStrategy.Rules, &rules)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to unmarshal draft strategy rules")
 		}
 	}
+
+	//
+	//// All pick
+	//// No rules in all pick strategies for now
+	//if c.DraftStrategy.Randomize == false {
+	//	for _, player := range c.Players {
+	//		roll := DraftOffering{
+	//			User:    player,
+	//			Leaders: eligibleLeaders,
+	//		}
+	//		allRolls = append(allRolls, roll)
+	//	}
+	//	return allRolls, nil
+	//}
+	//
+	//// Random pick
+	//var rules map[string]interface{}
+	//
+	//if hasRules(c.DraftStrategy) {
+	//	err := json.Unmarshal(c.DraftStrategy.Rules, &rules)
+	//	if err != nil {
+	//		return nil, errors.Wrap(err, "failed to unmarshal draft strategy rules")
+	//	}
+	//}
 
 	return allRolls, nil
 }
@@ -143,10 +182,36 @@ func hasNoRecentPick(leader domain.Ci6ndexLeader, user string, db *DatabaseOpera
 		Limit:       3,
 	}
 
-	games, err := db.Queries.GetDraftPicksForUserFromLastNGames(context.Background(), params)
+	picks, err := db.Queries.GetDraftPicksForUserFromLastNGames(context.Background(), params)
+
 	if err != nil {
 		slog.Error("failed to query draft picks for user while validating recent picks",
-			"user", user, "error", err)
-		return false
+			"params", params, "error", err)
+		return true
 	}
+	for _, pick := range picks {
+		if pick.LeaderID.Int64 == leader.ID {
+			return false
+		}
+	}
+	return true
+}
+
+func RemoveOffered(leaders []domain.Ci6ndexLeader, offered []domain.Ci6ndexLeader) []domain.Ci6ndexLeader {
+	for _, off := range offered {
+		for i, l := range leaders {
+			if l.ID == off.ID {
+				leaders = removeIndex(leaders, i)
+				break
+			}
+		}
+	}
+	return leaders
+
+}
+
+func removeIndex(s []domain.Ci6ndexLeader, index int) []domain.Ci6ndexLeader {
+	ret := make([]domain.Ci6ndexLeader, 0)
+	ret = append(ret, s[:index]...)
+	return append(ret, s[index+1:]...)
 }
