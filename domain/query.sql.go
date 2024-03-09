@@ -11,6 +11,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearOffered = `-- name: ClearOffered :exec
+TRUNCATE TABLE ci6ndex.offered
+`
+
+func (q *Queries) ClearOffered(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, clearOffered)
+	return err
+}
+
 const createDraft = `-- name: CreateDraft :one
 INSERT INTO ci6ndex.drafts
 (
@@ -109,6 +118,22 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (Ci6ndex
 type CreateUsersParams struct {
 	Name        string
 	DiscordName string
+}
+
+const deleteOffered = `-- name: DeleteOffered :exec
+DELETE FROM ci6ndex.offered
+WHERE draft_id = $1
+  AND user_id = $2
+`
+
+type DeleteOfferedParams struct {
+	DraftID int64
+	UserID  int64
+}
+
+func (q *Queries) DeleteOffered(ctx context.Context, arg DeleteOfferedParams) error {
+	_, err := q.db.Exec(ctx, deleteOffered, arg.DraftID, arg.UserID)
+	return err
 }
 
 const deleteRankings = `-- name: DeleteRankings :exec
@@ -221,7 +246,7 @@ func (q *Queries) GetDrafts(ctx context.Context) ([]Ci6ndexDraft, error) {
 }
 
 const getLeader = `-- name: GetLeader :one
-SELECT id, civ_name, leader_name, icon_url FROM ci6ndex.leaders
+SELECT id, civ_name, leader_name, icon_url, banned FROM ci6ndex.leaders
          WHERE id = $1
          LIMIT 1
 `
@@ -234,12 +259,13 @@ func (q *Queries) GetLeader(ctx context.Context, id int64) (Ci6ndexLeader, error
 		&i.CivName,
 		&i.LeaderName,
 		&i.IconUrl,
+		&i.Banned,
 	)
 	return i, err
 }
 
 const getLeaderByNameAndCiv = `-- name: GetLeaderByNameAndCiv :one
-SELECT id, civ_name, leader_name, icon_url FROM ci6ndex.leaders
+SELECT id, civ_name, leader_name, icon_url, banned FROM ci6ndex.leaders
 WHERE leader_name = $1
 AND civ_name = $2
 LIMIT 1
@@ -258,12 +284,13 @@ func (q *Queries) GetLeaderByNameAndCiv(ctx context.Context, arg GetLeaderByName
 		&i.CivName,
 		&i.LeaderName,
 		&i.IconUrl,
+		&i.Banned,
 	)
 	return i, err
 }
 
 const getLeaders = `-- name: GetLeaders :many
-SELECT id, civ_name, leader_name, icon_url FROM ci6ndex.leaders
+SELECT id, civ_name, leader_name, icon_url, banned FROM ci6ndex.leaders
 `
 
 func (q *Queries) GetLeaders(ctx context.Context) ([]Ci6ndexLeader, error) {
@@ -280,6 +307,7 @@ func (q *Queries) GetLeaders(ctx context.Context) ([]Ci6ndexLeader, error) {
 			&i.CivName,
 			&i.LeaderName,
 			&i.IconUrl,
+			&i.Banned,
 		); err != nil {
 			return nil, err
 		}
@@ -377,6 +405,24 @@ func (q *Queries) GetUsers(ctx context.Context) ([]Ci6ndexUser, error) {
 	return items, nil
 }
 
+const readOffered = `-- name: ReadOffered :one
+SELECT user_id, draft_id, offered FROM ci6ndex.offered
+WHERE draft_id = $1
+  AND user_id = $2
+`
+
+type ReadOfferedParams struct {
+	DraftID int64
+	UserID  int64
+}
+
+func (q *Queries) ReadOffered(ctx context.Context, arg ReadOfferedParams) (Ci6ndexOffered, error) {
+	row := q.db.QueryRow(ctx, readOffered, arg.DraftID, arg.UserID)
+	var i Ci6ndexOffered
+	err := row.Scan(&i.UserID, &i.DraftID, &i.Offered)
+	return i, err
+}
+
 const submitDraftPick = `-- name: SubmitDraftPick :one
 INSERT INTO ci6ndex.draft_picks
 (
@@ -429,4 +475,28 @@ DO $$
 func (q *Queries) WipeTables(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, wipeTables)
 	return err
+}
+
+const writeOffered = `-- name: WriteOffered :one
+INSERT INTO ci6ndex.offered
+(
+    draft_id, user_id, offered
+) VALUES (
+    $1, $2, $3
+) ON CONFLICT (draft_id, user_id)
+DO UPDATE SET offered = $3
+RETURNING user_id, draft_id, offered
+`
+
+type WriteOfferedParams struct {
+	DraftID int64
+	UserID  int64
+	Offered []byte
+}
+
+func (q *Queries) WriteOffered(ctx context.Context, arg WriteOfferedParams) (Ci6ndexOffered, error) {
+	row := q.db.QueryRow(ctx, writeOffered, arg.DraftID, arg.UserID, arg.Offered)
+	var i Ci6ndexOffered
+	err := row.Scan(&i.UserID, &i.DraftID, &i.Offered)
+	return i, err
 }

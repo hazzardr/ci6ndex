@@ -112,6 +112,29 @@ INSERT INTO ci6ndex.draft_picks
 )
 RETURNING *;
 
+-- name: WriteOffered :one
+INSERT INTO ci6ndex.offered
+(
+    draft_id, user_id, offered
+) VALUES (
+    $1, $2, $3
+) ON CONFLICT (draft_id, user_id)
+DO UPDATE SET offered = $3
+RETURNING *;
+
+-- name: ReadOffered :one
+SELECT * FROM ci6ndex.offered
+WHERE draft_id = $1
+  AND user_id = $2;
+
+-- name: DeleteOffered :exec
+DELETE FROM ci6ndex.offered
+WHERE draft_id = $1
+  AND user_id = $2;
+
+-- name: ClearOffered :exec
+TRUNCATE TABLE ci6ndex.offered;
+
 -- name: WipeTables :exec
 DO $$
     DECLARE

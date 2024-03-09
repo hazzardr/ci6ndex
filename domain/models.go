@@ -44,6 +44,13 @@ type Ci6ndexLeader struct {
 	CivName    string
 	LeaderName string
 	IconUrl    pgtype.Text
+	Banned     bool
+}
+
+type Ci6ndexOffered struct {
+	UserID  int64
+	DraftID int64
+	Offered []byte
 }
 
 type Ci6ndexRanking struct {

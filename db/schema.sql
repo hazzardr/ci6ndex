@@ -15,6 +15,7 @@ CREATE TABLE ci6ndex.leaders
     civ_name TEXT NOT NULL,
     leader_name TEXT NOT NULL,
     icon_url TEXT,
+    banned BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (id)
 );
 
@@ -88,3 +89,12 @@ CREATE TABLE ci6ndex.stats
     CONSTRAINT games_fk FOREIGN KEY (game_id) REFERENCES ci6ndex.games (id),
     PRIMARY KEY (id)
 );
+
+CREATE TABLE ci6ndex.offered
+(
+    user_id BIGINT NOT NULL,
+    draft_id BIGINT NOT NULL,
+    offered JSONB,
+    PRIMARY KEY (user_id, draft_id)
+);
+
