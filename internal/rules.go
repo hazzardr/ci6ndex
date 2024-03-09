@@ -2,6 +2,7 @@ package internal
 
 import (
 	"ci6ndex/domain"
+	"context"
 	"encoding/json"
 	"github.com/pkg/errors"
 	"log/slog"
@@ -32,10 +33,10 @@ type shuffleFunction struct {
 // It returns true if the proposed pool is valid for the user.
 type validationFunction func([]domain.Ci6ndexLeader, string, *DatabaseOperations) bool
 
-// validationFunction is a function that takes in a slice of leaders to be assigned,
+// shuffleFunc is a function that takes in a slice of leaders to be assigned,
 // and a string representing the user it's being assigned to.
-// It returns true if the proposed pool is valid for the user.
-type shuffleFunc func([]domain.Ci6ndexLeader, string,
+// It returns the output offering based on rules defined in the function.
+type shuffleFunc func([]domain.Ci6ndexLeader, string, int,
 	*DatabaseOperations) ([]domain.Ci6ndexLeader, error)
 
 func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string, strategy domain.Ci6ndexDraftStrategy) CivShuffler {
@@ -47,6 +48,10 @@ func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string, strategy d
 			"AllPick": {
 				shuffle:  allPick,
 				validate: allPickValidate,
+			},
+			"RandomPick": {
+				shuffle:  randomPick,
+				validate: randomPickValidate,
 			},
 		},
 	}
@@ -97,11 +102,20 @@ func allPickValidate(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOp
 	return true
 }
 
-func allPick(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOperations) ([]domain.Ci6ndexLeader, error) {
+func allPick(leaders []domain.Ci6ndexLeader, user string, poolSize int, db *DatabaseOperations) ([]domain.Ci6ndexLeader, error) {
 	return leaders, nil
 }
 
-func randomPick(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOperations) bool {
+func randomPick(leaders []domain.Ci6ndexLeader, user string, poolSize int, db *DatabaseOperations) ([]domain.Ci6ndexLeader, error) {
+	offering := make([]domain.Ci6ndexLeader, poolSize)
+	for i := 0; i < poolSize; i++ {
+
+	}
+
+	return leaders, nil
+}
+
+func randomPickValidate(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOperations) bool {
 	return areElementsUnique(leaders)
 }
 
@@ -121,4 +135,18 @@ func areElementsUnique(slice []domain.Ci6ndexLeader) bool {
 
 func hasRules(strategy domain.Ci6ndexDraftStrategy) bool {
 	return strategy.Rules != nil && len(strategy.Rules) > 0
+}
+
+func hasNoRecentPick(leader domain.Ci6ndexLeader, user string, db *DatabaseOperations) bool {
+	params := domain.GetDraftPicksForUserFromLastNGamesParams{
+		DiscordName: user,
+		Limit:       3,
+	}
+
+	games, err := db.Queries.GetDraftPicksForUserFromLastNGames(context.Background(), params)
+	if err != nil {
+		slog.Error("failed to query draft picks for user while validating recent picks",
+			"user", user, "error", err)
+		return false
+	}
 }

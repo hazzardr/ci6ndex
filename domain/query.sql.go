@@ -192,7 +192,10 @@ func (q *Queries) GetDraft(ctx context.Context, id int64) (Ci6ndexDraft, error) 
 
 const getDraftPicksForUserFromLastNGames = `-- name: GetDraftPicksForUserFromLastNGames :many
 SELECT id, draft_id, user_id, leader_id, offered FROM ci6ndex.draft_picks
-WHERE user_id = $1
+WHERE user_id = (
+    SELECT id FROM ci6ndex.users
+    WHERE discord_name = $1
+)
 AND ci6ndex.draft_picks.draft_id IN (
    SELECT ci6ndex.games.draft_id FROM ci6ndex.games
     ORDER BY ci6ndex.games.start_date DESC LIMIT $2
@@ -200,12 +203,12 @@ AND ci6ndex.draft_picks.draft_id IN (
 `
 
 type GetDraftPicksForUserFromLastNGamesParams struct {
-	UserID int64
-	Limit  int32
+	DiscordName string
+	Limit       int32
 }
 
 func (q *Queries) GetDraftPicksForUserFromLastNGames(ctx context.Context, arg GetDraftPicksForUserFromLastNGamesParams) ([]Ci6ndexDraftPick, error) {
-	rows, err := q.db.Query(ctx, getDraftPicksForUserFromLastNGames, arg.UserID, arg.Limit)
+	rows, err := q.db.Query(ctx, getDraftPicksForUserFromLastNGames, arg.DiscordName, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

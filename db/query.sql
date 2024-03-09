@@ -137,7 +137,10 @@ TRUNCATE TABLE ci6ndex.offered;
 
 -- name: GetDraftPicksForUserFromLastNGames :many
 SELECT * FROM ci6ndex.draft_picks
-WHERE user_id = $1
+WHERE user_id = (
+    SELECT id FROM ci6ndex.users
+    WHERE discord_name = $1
+)
 AND ci6ndex.draft_picks.draft_id IN (
    SELECT ci6ndex.games.draft_id FROM ci6ndex.games
     ORDER BY ci6ndex.games.start_date DESC LIMIT $2
