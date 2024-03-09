@@ -44,7 +44,7 @@ INSERT INTO ci6ndex.draft_strategies
 ) VALUES (
     $1, $2
 )
-RETURNING name, description, rules
+RETURNING name, description, pool_size, randomize, rules
 `
 
 type CreateDraftStrategyParams struct {
@@ -55,7 +55,13 @@ type CreateDraftStrategyParams struct {
 func (q *Queries) CreateDraftStrategy(ctx context.Context, arg CreateDraftStrategyParams) (Ci6ndexDraftStrategy, error) {
 	row := q.db.QueryRow(ctx, createDraftStrategy, arg.Name, arg.Description)
 	var i Ci6ndexDraftStrategy
-	err := row.Scan(&i.Name, &i.Description, &i.Rules)
+	err := row.Scan(
+		&i.Name,
+		&i.Description,
+		&i.PoolSize,
+		&i.Randomize,
+		&i.Rules,
+	)
 	return i, err
 }
 
@@ -184,8 +190,48 @@ func (q *Queries) GetDraft(ctx context.Context, id int64) (Ci6ndexDraft, error) 
 	return i, err
 }
 
+const getDraftPicksForUserFromLastNGames = `-- name: GetDraftPicksForUserFromLastNGames :many
+SELECT id, draft_id, user_id, leader_id, offered FROM ci6ndex.draft_picks
+WHERE user_id = $1
+AND ci6ndex.draft_picks.draft_id IN (
+   SELECT ci6ndex.games.draft_id FROM ci6ndex.games
+    ORDER BY ci6ndex.games.start_date DESC LIMIT $2
+)
+`
+
+type GetDraftPicksForUserFromLastNGamesParams struct {
+	UserID int64
+	Limit  int32
+}
+
+func (q *Queries) GetDraftPicksForUserFromLastNGames(ctx context.Context, arg GetDraftPicksForUserFromLastNGamesParams) ([]Ci6ndexDraftPick, error) {
+	rows, err := q.db.Query(ctx, getDraftPicksForUserFromLastNGames, arg.UserID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ci6ndexDraftPick
+	for rows.Next() {
+		var i Ci6ndexDraftPick
+		if err := rows.Scan(
+			&i.ID,
+			&i.DraftID,
+			&i.UserID,
+			&i.LeaderID,
+			&i.Offered,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getDraftStrategies = `-- name: GetDraftStrategies :many
-SELECT name, description, rules FROM ci6ndex.draft_strategies
+SELECT name, description, pool_size, randomize, rules FROM ci6ndex.draft_strategies
 `
 
 func (q *Queries) GetDraftStrategies(ctx context.Context) ([]Ci6ndexDraftStrategy, error) {
@@ -197,7 +243,13 @@ func (q *Queries) GetDraftStrategies(ctx context.Context) ([]Ci6ndexDraftStrateg
 	var items []Ci6ndexDraftStrategy
 	for rows.Next() {
 		var i Ci6ndexDraftStrategy
-		if err := rows.Scan(&i.Name, &i.Description, &i.Rules); err != nil {
+		if err := rows.Scan(
+			&i.Name,
+			&i.Description,
+			&i.PoolSize,
+			&i.Randomize,
+			&i.Rules,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -209,7 +261,7 @@ func (q *Queries) GetDraftStrategies(ctx context.Context) ([]Ci6ndexDraftStrateg
 }
 
 const getDraftStrategy = `-- name: GetDraftStrategy :one
-SELECT name, description, rules FROM ci6ndex.draft_strategies
+SELECT name, description, pool_size, randomize, rules FROM ci6ndex.draft_strategies
 WHERE name = $1
 LIMIT 1
 `
@@ -217,7 +269,13 @@ LIMIT 1
 func (q *Queries) GetDraftStrategy(ctx context.Context, name string) (Ci6ndexDraftStrategy, error) {
 	row := q.db.QueryRow(ctx, getDraftStrategy, name)
 	var i Ci6ndexDraftStrategy
-	err := row.Scan(&i.Name, &i.Description, &i.Rules)
+	err := row.Scan(
+		&i.Name,
+		&i.Description,
+		&i.PoolSize,
+		&i.Randomize,
+		&i.Rules,
+	)
 	return i, err
 }
 

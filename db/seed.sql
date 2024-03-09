@@ -84,27 +84,33 @@ VALUES
     ('ZULU', 'SHAKA')
 ;
 
-INSERT INTO ci6ndex.draft_strategies (name, description, rules)
+INSERT INTO ci6ndex.draft_strategies (name, description, randomize, pool_size, rules)
 VALUES
 (
  'AllPick',
  'Everyone can freely pick a leader, no restrictions.',
+ false,
+ null,
  null
 ),
 (
  'RandomPick',
- 'Everyone gets a randomized leader.',
- '{ "randomize": true }'
+ 'Everyone gets a single randomized leader.',
+ true,
+ 1,
+ null
 ),
 (
  'RandomPickPool3',
  'Everyone gets assigned a pool of 3 random leaders to pick from.',
- '{ "randomize": true, "pool_size": 3 }'
-),
---     Potentially in the future add attr. like monger, culture etc?
-(
- 'RandomPickPool3Standard',
- 'Everyone gets assigned a pool of 3 random leaders to pick from. Includes the discord \"Standard\" rules.',
- '{ "randomize": true, "pool_size": 3, "tiers_offered_min": {"1": 1}}'
+ true,
+ 3,
+ null
 )
+--     Potentially in the future add attr. like monger, culture etc?
+-- (
+--  'RandomPickPool3',
+--  'Everyone gets assigned a pool of 3 random leaders to pick from. Includes the discord \"Standard\" rules.',
+--  '{ "randomize": true, "pool_size": 3, "tiers_offered_min": {"1": 1}}'
+-- )
 ;

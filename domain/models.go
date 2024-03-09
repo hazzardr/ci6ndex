@@ -27,6 +27,8 @@ type Ci6ndexDraftPick struct {
 type Ci6ndexDraftStrategy struct {
 	Name        string
 	Description string
+	PoolSize    pgtype.Int4
+	Randomize   bool
 	// Specific rules that this draft has to follow.
 	Rules []byte
 }

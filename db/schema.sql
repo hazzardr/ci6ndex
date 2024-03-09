@@ -36,6 +36,8 @@ CREATE TABLE ci6ndex.draft_strategies
 (
   name TEXT UNIQUE NOT NULL,
   description TEXT NOT NULL,
+  pool_size INT,
+  randomize BOOLEAN NOT NULL DEFAULT FALSE,
   rules JSONB,
   PRIMARY KEY (name)
 );

@@ -135,6 +135,14 @@ WHERE draft_id = $1
 -- name: ClearOffered :exec
 TRUNCATE TABLE ci6ndex.offered;
 
+-- name: GetDraftPicksForUserFromLastNGames :many
+SELECT * FROM ci6ndex.draft_picks
+WHERE user_id = $1
+AND ci6ndex.draft_picks.draft_id IN (
+   SELECT ci6ndex.games.draft_id FROM ci6ndex.games
+    ORDER BY ci6ndex.games.start_date DESC LIMIT $2
+);
+
 -- name: WipeTables :exec
 DO $$
     DECLARE

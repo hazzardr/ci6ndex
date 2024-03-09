@@ -8,13 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-var BannedLeaders = []string{
-	"ABE",
-	"TOMYRIS",
-	"GILGAMESH",
-	"HAMMURABI",
-}
-
 type DraftOffering struct {
 	Leaders []domain.Ci6ndexLeader
 	User    string
