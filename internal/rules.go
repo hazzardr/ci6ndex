@@ -73,6 +73,8 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 
 	totalNumTries := 50
 	attempt := 0
+
+draft:
 	for attempt < totalNumTries && len(allRolls) < len(c.Players) {
 		slog.Info("attempting to shuffle leaders", "attempt", attempt, "strategy", c.DraftStrategy.Name, "players", c.Players)
 		eligibleLeaders := fullPool
@@ -83,7 +85,8 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 			numTriesPerPlayer := 10
 			valid := false
 			for attemptPerPlayer < numTriesPerPlayer && !valid {
-				slog.Info("rolling civs for player", "player", player, "strategy", c.DraftStrategy.Name)
+				slog.Info("rolling civs for player", "player", player,
+					"strategy", c.DraftStrategy.Name, "attempt", attemptPerPlayer)
 				shuffle := c.Functions[c.DraftStrategy.Name].shuffle
 				validate := c.Functions[c.DraftStrategy.Name].validate
 
@@ -101,38 +104,17 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 					eligibleLeaders = RemoveOffered(eligibleLeaders, offered)
 					valid = true
 
-				}
-				else {
-
+				} else {
+					slog.Warn("failed to validate roll", "player", player, "strategy", c.DraftStrategy.Name)
+					attemptPerPlayer = attemptPerPlayer + 1
 				}
 			}
-
+			if valid == false {
+				slog.Warn("failed to roll civs for player", "player", player, "strategy", c.DraftStrategy.Name)
+				break draft
+			}
 		}
 	}
-
-	//
-	//// All pick
-	//// No rules in all pick strategies for now
-	//if c.DraftStrategy.Randomize == false {
-	//	for _, player := range c.Players {
-	//		roll := DraftOffering{
-	//			User:    player,
-	//			Leaders: eligibleLeaders,
-	//		}
-	//		allRolls = append(allRolls, roll)
-	//	}
-	//	return allRolls, nil
-	//}
-	//
-	//// Random pick
-	//var rules map[string]interface{}
-	//
-	//if hasRules(c.DraftStrategy) {
-	//	err := json.Unmarshal(c.DraftStrategy.Rules, &rules)
-	//	if err != nil {
-	//		return nil, errors.Wrap(err, "failed to unmarshal draft strategy rules")
-	//	}
-	//}
 
 	return allRolls, nil
 }
@@ -158,15 +140,16 @@ func randomPickValidate(leaders []domain.Ci6ndexLeader, user string, db *Databas
 	return areElementsUnique(leaders)
 }
 
-func areElementsUnique(slice []domain.Ci6ndexLeader) bool {
+func areElementsUnique(leaders []domain.Ci6ndexLeader) bool {
 	elements := make(map[domain.Ci6ndexLeader]bool)
-	for _, item := range slice {
-		if _, exists := elements[item]; exists {
+	for _, leader := range leaders {
+		if _, exists := elements[leader]; exists {
+			slog.Warn("duplicate leader found in pool", "leader", leader)
 			// Element already encountered, so elements are not unique
 			return false
 		}
 		// Add element to map
-		elements[item] = true
+		elements[leader] = true
 	}
 	// All elements are unique
 	return true
@@ -191,6 +174,7 @@ func hasNoRecentPick(leader domain.Ci6ndexLeader, user string, db *DatabaseOpera
 	}
 	for _, pick := range picks {
 		if pick.LeaderID.Int64 == leader.ID {
+			slog.Warn("leader has been picked recently", "leader", leader, "user", user)
 			return false
 		}
 	}
