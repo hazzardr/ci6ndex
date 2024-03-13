@@ -5,6 +5,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"log/slog"
+	"math/rand/v2"
 )
 
 var PermaBannedLeaders = []string{
@@ -38,11 +39,12 @@ type validationFunction func([]domain.Ci6ndexLeader, string, *DatabaseOperations
 type shuffleFunc func([]domain.Ci6ndexLeader, string, int,
 	*DatabaseOperations) ([]domain.Ci6ndexLeader, error)
 
-func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string, strategy domain.Ci6ndexDraftStrategy) CivShuffler {
+func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string, strategy domain.Ci6ndexDraftStrategy, db *DatabaseOperations) CivShuffler {
 	return CivShuffler{
 		Leaders:       leaders,
 		Players:       players,
 		DraftStrategy: strategy,
+		DB:            db,
 		Functions: map[string]*shuffleFunction{
 			"AllPick": {
 				shuffle:  allPick,
@@ -61,12 +63,11 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 	slog.Info("banned leaders", "permaBanned", PermaBannedLeaders)
 
 	fullPool := make([]domain.Ci6ndexLeader, 0)
-	for _, banned := range PermaBannedLeaders {
-		for _, leader := range c.Leaders {
-			if leader.LeaderName != banned {
-				fullPool = append(fullPool, leader)
-			}
+	for _, leader := range c.Leaders {
+		if !contains(PermaBannedLeaders, leader.LeaderName) {
+			fullPool = append(fullPool, leader)
 		}
+
 	}
 
 	var allRolls []DraftOffering
@@ -80,7 +81,10 @@ draft:
 		eligibleLeaders := fullPool
 		allRolls = make([]DraftOffering, len(c.Players))
 
-		for _, player := range c.Players {
+		playerIndex := 0
+		exhaustedRolls := false
+		for playerIndex < len(c.Players) && !exhaustedRolls {
+			player := c.Players[playerIndex]
 			attemptPerPlayer := 0
 			numTriesPerPlayer := 10
 			valid := false
@@ -90,7 +94,7 @@ draft:
 				shuffle := c.Functions[c.DraftStrategy.Name].shuffle
 				validate := c.Functions[c.DraftStrategy.Name].validate
 
-				offered, err := shuffle(eligibleLeaders, player, int(c.DraftStrategy.PoolSize.Int32), c.DB)
+				offered, err := shuffle(eligibleLeaders, player, int(c.DraftStrategy.PoolSize), c.DB)
 				if err != nil {
 					slog.Error("failed to shuffle leaders", "error", err, "player", player, "strategy", c.DraftStrategy.Name)
 					return nil, errors.Wrap(err, "failed to shuffle leaders")
@@ -101,19 +105,28 @@ draft:
 						Leaders: offered,
 					}
 					allRolls = append(allRolls, roll)
-					eligibleLeaders = RemoveOffered(eligibleLeaders, offered)
+					if c.DraftStrategy.Name != "AllPick" {
+						eligibleLeaders = RemoveOffered(eligibleLeaders, offered)
+					}
 					valid = true
-
 				} else {
-					slog.Warn("failed to validate roll", "player", player, "strategy", c.DraftStrategy.Name)
-					attemptPerPlayer = attemptPerPlayer + 1
+					slog.Debug("invalid roll, retrying", "player", player, "strategy", c.DraftStrategy.Name, "offered", offered)
+					attemptPerPlayer++
 				}
 			}
-			if valid == false {
-				slog.Warn("failed to roll civs for player", "player", player, "strategy", c.DraftStrategy.Name)
-				break draft
+			if valid {
+				slog.Debug("valid roll for player", "player", player, "strategy", c.DraftStrategy.Name, "rolls", allRolls)
+			} else {
+				slog.Warn("failed to roll valid offering for player", "player", player, "strategy", c.DraftStrategy.Name)
+				exhaustedRolls = true
 			}
+			playerIndex++
 		}
+		attempt++
+	}
+	if len(allRolls) < len(c.Players) {
+		slog.Warn("failed to roll valid offerings for all players", "strategy", c.DraftStrategy.Name, "players", c.Players, "totalTries", totalNumTries)
+		return nil, errors.New("failed to roll valid offerings for all players")
 	}
 
 	return allRolls, nil
@@ -129,15 +142,24 @@ func allPick(leaders []domain.Ci6ndexLeader, user string, poolSize int, db *Data
 
 func randomPick(leaders []domain.Ci6ndexLeader, user string, poolSize int, db *DatabaseOperations) ([]domain.Ci6ndexLeader, error) {
 	offering := make([]domain.Ci6ndexLeader, poolSize)
+	localLeaders := leaders
 	for i := 0; i < poolSize; i++ {
-
+		randIndex := rand.N(len(localLeaders))
+		offering[i] = localLeaders[randIndex]
+		localLeaders = removeIndex(localLeaders, randIndex)
 	}
-
 	return leaders, nil
 }
 
 func randomPickValidate(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOperations) bool {
-	return areElementsUnique(leaders)
+	if !areElementsUnique(leaders) {
+		return false
+	}
+	noRecentPick := true
+	for _, leader := range leaders {
+		noRecentPick = noRecentPick && hasNoRecentPick(leader, user, db)
+	}
+	return noRecentPick
 }
 
 func areElementsUnique(leaders []domain.Ci6ndexLeader) bool {
@@ -170,7 +192,7 @@ func hasNoRecentPick(leader domain.Ci6ndexLeader, user string, db *DatabaseOpera
 	if err != nil {
 		slog.Error("failed to query draft picks for user while validating recent picks",
 			"params", params, "error", err)
-		return true
+		return false
 	}
 	for _, pick := range picks {
 		if pick.LeaderID.Int64 == leader.ID {
@@ -198,4 +220,13 @@ func removeIndex(s []domain.Ci6ndexLeader, index int) []domain.Ci6ndexLeader {
 	ret := make([]domain.Ci6ndexLeader, 0)
 	ret = append(ret, s[:index]...)
 	return append(ret, s[index+1:]...)
+}
+
+func contains(leaders []string, leaderName string) bool {
+	for _, leader := range leaders {
+		if leader == leaderName {
+			return true
+		}
+	}
+	return false
 }

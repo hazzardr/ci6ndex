@@ -29,7 +29,7 @@ func (suite *UsersSuite) SetupSuite() {
 	}
 	suite.testContainer = testContainer
 	testURL := testContainer.ConnectionString
-	suite.db, err = newDBConnection(testURL)
+	suite.db, err = NewDBConnection(testURL)
 	if err != nil {
 		suite.T().Fatal(err)
 	}

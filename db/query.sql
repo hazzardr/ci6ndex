@@ -65,12 +65,21 @@ WHERE leader_name = $1
 AND civ_name = $2
 LIMIT 1;
 
+-- name: CreateLeaders :copyfrom
+INSERT INTO ci6ndex.leaders
+(
+    leader_name, civ_name
+) VALUES (
+    $1, $2
+);
+
+
 -- name: CreateDraftStrategy :one
 INSERT INTO ci6ndex.draft_strategies
 (
-    name, description
+    name, description, pool_size, randomize
 ) VALUES (
-    $1, $2
+    $1, $2, $3, $4
 )
 RETURNING *;
 

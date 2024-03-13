@@ -40,9 +40,9 @@ func (q *Queries) CreateDraft(ctx context.Context, draftStrategy string) (Ci6nde
 const createDraftStrategy = `-- name: CreateDraftStrategy :one
 INSERT INTO ci6ndex.draft_strategies
 (
-    name, description
+    name, description, pool_size, randomize
 ) VALUES (
-    $1, $2
+    $1, $2, $3, $4
 )
 RETURNING name, description, pool_size, randomize, rules
 `
@@ -50,10 +50,17 @@ RETURNING name, description, pool_size, randomize, rules
 type CreateDraftStrategyParams struct {
 	Name        string
 	Description string
+	PoolSize    int32
+	Randomize   bool
 }
 
 func (q *Queries) CreateDraftStrategy(ctx context.Context, arg CreateDraftStrategyParams) (Ci6ndexDraftStrategy, error) {
-	row := q.db.QueryRow(ctx, createDraftStrategy, arg.Name, arg.Description)
+	row := q.db.QueryRow(ctx, createDraftStrategy,
+		arg.Name,
+		arg.Description,
+		arg.PoolSize,
+		arg.Randomize,
+	)
 	var i Ci6ndexDraftStrategy
 	err := row.Scan(
 		&i.Name,
@@ -63,6 +70,11 @@ func (q *Queries) CreateDraftStrategy(ctx context.Context, arg CreateDraftStrate
 		&i.Rules,
 	)
 	return i, err
+}
+
+type CreateLeadersParams struct {
+	LeaderName string
+	CivName    string
 }
 
 const createRanking = `-- name: CreateRanking :one

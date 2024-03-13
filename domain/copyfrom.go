@@ -9,6 +9,39 @@ import (
 	"context"
 )
 
+// iteratorForCreateLeaders implements pgx.CopyFromSource.
+type iteratorForCreateLeaders struct {
+	rows                 []CreateLeadersParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateLeaders) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateLeaders) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].LeaderName,
+		r.rows[0].CivName,
+	}, nil
+}
+
+func (r iteratorForCreateLeaders) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateLeaders(ctx context.Context, arg []CreateLeadersParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"ci6ndex", "leaders"}, []string{"leader_name", "civ_name"}, &iteratorForCreateLeaders{rows: arg})
+}
+
 // iteratorForCreateRankings implements pgx.CopyFromSource.
 type iteratorForCreateRankings struct {
 	rows                 []CreateRankingsParams
