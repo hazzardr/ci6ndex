@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/appengine/log"
+	"slices"
 	"testing"
 )
 
@@ -95,8 +96,14 @@ func (suite *RulesSuite) TestAllPick() {
 				suite.FailNow("number of picks did not match number of players")
 			}
 
-			for _, l := range TestLeaders {
-				assert.Contains(t, picks, l)
+			// Each player should be offered every leader
+			for _, tl := range TestLeaders {
+				for _, offer := range picks {
+					assert.Truef(suite.T(), slices.ContainsFunc(offer.Leaders,
+						func(l domain.Ci6ndexLeader) bool {
+							return l.LeaderName == tl.LeaderName && l.CivName == tl.CivName
+						}), "leader not found in offering")
+				}
 			}
 		})
 

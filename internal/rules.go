@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"log/slog"
 	"math/rand/v2"
+	"slices"
 )
 
 var PermaBannedLeaders = []string{
@@ -64,7 +65,7 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 
 	fullPool := make([]domain.Ci6ndexLeader, 0)
 	for _, leader := range c.Leaders {
-		if !contains(PermaBannedLeaders, leader.LeaderName) {
+		if !slices.Contains(PermaBannedLeaders, leader.LeaderName) {
 			fullPool = append(fullPool, leader)
 		}
 
@@ -75,7 +76,6 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 	totalNumTries := 50
 	attempt := 0
 
-draft:
 	for attempt < totalNumTries && len(allRolls) < len(c.Players) {
 		slog.Info("attempting to shuffle leaders", "attempt", attempt, "strategy", c.DraftStrategy.Name, "players", c.Players)
 		eligibleLeaders := fullPool
@@ -104,7 +104,7 @@ draft:
 						User:    player,
 						Leaders: offered,
 					}
-					allRolls = append(allRolls, roll)
+					allRolls[playerIndex] = roll
 					if c.DraftStrategy.Name != "AllPick" {
 						eligibleLeaders = RemoveOffered(eligibleLeaders, offered)
 					}
@@ -124,7 +124,7 @@ draft:
 		}
 		attempt++
 	}
-	if len(allRolls) < len(c.Players) {
+	if countNonNil(allRolls) < len(c.Players) {
 		slog.Warn("failed to roll valid offerings for all players", "strategy", c.DraftStrategy.Name, "players", c.Players, "totalTries", totalNumTries)
 		return nil, errors.New("failed to roll valid offerings for all players")
 	}
@@ -222,11 +222,12 @@ func removeIndex(s []domain.Ci6ndexLeader, index int) []domain.Ci6ndexLeader {
 	return append(ret, s[index+1:]...)
 }
 
-func contains(leaders []string, leaderName string) bool {
-	for _, leader := range leaders {
-		if leader == leaderName {
-			return true
+func countNonNil(slice []DraftOffering) int {
+	count := 0
+	for _, element := range slice {
+		if element.User != "" && element.Leaders != nil {
+			count++
 		}
 	}
-	return false
+	return count
 }
