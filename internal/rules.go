@@ -39,11 +39,12 @@ type validationFunction func([]domain.Ci6ndexLeader, string, *DatabaseOperations
 type shuffleFunc func([]domain.Ci6ndexLeader, string, int,
 	*DatabaseOperations) ([]domain.Ci6ndexLeader, error)
 
-func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string, strategy domain.Ci6ndexDraftStrategy) CivShuffler {
+func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string, strategy domain.Ci6ndexDraftStrategy, db *DatabaseOperations) CivShuffler {
 	return CivShuffler{
 		Leaders:       leaders,
 		Players:       players,
 		DraftStrategy: strategy,
+		DB:            db,
 		Functions: map[string]*shuffleFunction{
 			"AllPick": {
 				shuffle:  allPick,
@@ -62,12 +63,11 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 	slog.Info("banned leaders", "permaBanned", PermaBannedLeaders)
 
 	fullPool := make([]domain.Ci6ndexLeader, 0)
-	for _, banned := range PermaBannedLeaders {
-		for _, leader := range c.Leaders {
-			if leader.LeaderName != banned {
-				fullPool = append(fullPool, leader)
-			}
+	for _, leader := range c.Leaders {
+		if !contains(PermaBannedLeaders, leader.LeaderName) {
+			fullPool = append(fullPool, leader)
 		}
+
 	}
 
 	var allRolls []DraftOffering
@@ -91,7 +91,7 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 				shuffle := c.Functions[c.DraftStrategy.Name].shuffle
 				validate := c.Functions[c.DraftStrategy.Name].validate
 
-				offered, err := shuffle(eligibleLeaders, player, int(c.DraftStrategy.PoolSize.Int32), c.DB)
+				offered, err := shuffle(eligibleLeaders, player, int(c.DraftStrategy.PoolSize), c.DB)
 				if err != nil {
 					slog.Error("failed to shuffle leaders", "error", err, "player", player, "strategy", c.DraftStrategy.Name)
 					return nil, errors.Wrap(err, "failed to shuffle leaders")
@@ -102,7 +102,9 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 						Leaders: offered,
 					}
 					allRolls = append(allRolls, roll)
-					eligibleLeaders = RemoveOffered(eligibleLeaders, offered)
+					if c.DraftStrategy.Name != "AllPick" {
+						eligibleLeaders = RemoveOffered(eligibleLeaders, offered)
+					}
 					valid = true
 				} else {
 					slog.Debug("invalid roll, retrying", "player", player, "strategy", c.DraftStrategy.Name, "offered", offered)
@@ -213,4 +215,13 @@ func removeIndex(s []domain.Ci6ndexLeader, index int) []domain.Ci6ndexLeader {
 	ret := make([]domain.Ci6ndexLeader, 0)
 	ret = append(ret, s[:index]...)
 	return append(ret, s[index+1:]...)
+}
+
+func contains(leaders []string, leaderName string) bool {
+	for _, leader := range leaders {
+		if leader == leaderName {
+			return true
+		}
+	}
+	return false
 }

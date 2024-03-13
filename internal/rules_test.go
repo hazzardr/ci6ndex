@@ -1,8 +1,11 @@
 package internal
 
 import (
+	"ci6ndex/domain"
 	"ci6ndex/internal/testhelper"
 	"context"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/appengine/log"
 	"testing"
@@ -51,24 +54,86 @@ func (suite *RulesSuite) TearDownTest() {
 	}
 }
 
-func (suite *RulesSuite) TestAddUsersFromFile_FailureCases() {
+func (suite *RulesSuite) TestAllPick() {
 	type test struct {
-		name string
-		path string
+		name     string
+		leaders  []domain.Ci6ndexLeader
+		players  []string
+		strategy domain.Ci6ndexDraftStrategy
 	}
 
+	allPick, err := suite.db.Queries.CreateDraftStrategy(
+		suite.ctx, domain.CreateDraftStrategyParams{
+			Name: "AllPick", Description: "test", Randomize: false,
+		})
+	if err != nil {
+		suite.T().Fatal(errors.Wrap(err, "failed to setup test"))
+	}
+
+	err = seedTestLeaders(suite.ctx, suite.db)
+	if err != nil {
+		suite.T().Fatal(errors.Wrap(err, "failed to seed test leaders"))
+	}
+
+	leaders, err := suite.db.Queries.GetLeaders(suite.ctx)
+	if err != nil {
+		suite.T().Fatal(errors.Wrap(err, "failed to get test leaders"))
+	}
 	tests := []test{
-		{"EmptyFile", "testhelper/testdata/empty.json"},
-		{"FileDoesNotExist", "testhelper/testdata/nonexistent.json"},
-		{"InvalidFileType", "testhelper/testdata/invalid.yaml"},
-		{"MalformedJSON", "testhelper/testdata/malformed.json"},
+		{"AllPick", leaders, TestPlayers, allPick},
 	}
 
 	for _, tc := range tests {
 		suite.T().Run(tc.name, func(t *testing.T) {
-			err := AddUsersFromFile(tc.path, suite.db)
-			suite.Error(err)
+			shuffler := NewCivShuffler(tc.leaders, tc.players, tc.strategy, suite.db)
+			picks, err := shuffler.Shuffle()
+			if err != nil {
+				return
+			}
+
+			if len(picks) != len(tc.players) {
+				suite.FailNow("number of picks did not match number of players")
+			}
+
+			for _, l := range TestLeaders {
+				assert.Contains(t, picks, l)
+			}
 		})
 
 	}
 }
+
+func seedTestLeaders(ctx context.Context, db *DatabaseOperations) error {
+	var lp []domain.CreateLeadersParams
+	for _, leader := range TestLeaders {
+		lp = append(lp, domain.CreateLeadersParams{
+			LeaderName: leader.LeaderName,
+			CivName:    leader.CivName,
+		})
+	}
+
+	_, err := db.Queries.CreateLeaders(ctx, lp)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type testLeader struct {
+	LeaderName string
+	CivName    string
+}
+
+var (
+	TestLeaders = []testLeader{
+		{"AMERICA", "ABE"},
+		{"AMERICA", "BULLMOOSE TEDDY"},
+		{"AMERICA", "ROUGH RIDER TEDDY"},
+		{"AMERICA", "TEDDY"},
+		{"ARABIA", "SALADIN SULTAN"},
+		{"ARABIA", "SALADIN VIZIR"},
+		{"AUSTRALIA", "JOHN CURTIN"},
+	}
+
+	TestPlayers = []string{"Player1", "Player2", "Player3", "Player4", "Player5"}
+)
