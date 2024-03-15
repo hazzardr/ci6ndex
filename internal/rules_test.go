@@ -110,6 +110,62 @@ func (suite *RulesSuite) TestAllPick() {
 	}
 }
 
+func (suite *RulesSuite) TestRandomPick() {
+	type test struct {
+		name     string
+		leaders  []domain.Ci6ndexLeader
+		players  []string
+		strategy domain.Ci6ndexDraftStrategy
+	}
+
+	poolSize := 3
+	allRand, err := suite.db.Queries.CreateDraftStrategy(
+		suite.ctx, domain.CreateDraftStrategyParams{
+			Name: "RandomPick", Description: "test", Randomize: true, PoolSize: int32(poolSize),
+		})
+	if err != nil {
+		suite.T().Fatal(errors.Wrap(err, "failed to setup test"))
+	}
+
+	err = seedTestLeaders(suite.ctx, suite.db)
+	if err != nil {
+		suite.T().Fatal(errors.Wrap(err, "failed to seed test leaders"))
+	}
+
+	leaders, err := suite.db.Queries.GetLeaders(suite.ctx)
+	if err != nil {
+		suite.T().Fatal(errors.Wrap(err, "failed to get test leaders"))
+	}
+	tests := []test{
+		{"RandomPick", leaders, TestPlayers, allRand},
+	}
+
+	for _, tc := range tests {
+		suite.T().Run(tc.name, func(t *testing.T) {
+			shuffler := NewCivShuffler(tc.leaders, tc.players, tc.strategy, suite.db)
+			picks, err := shuffler.Shuffle()
+			if err != nil {
+				return
+			}
+
+			if len(picks) != len(tc.players) {
+				suite.FailNow("number of picks did not match number of players")
+			}
+
+			// Each player should be offered every leader
+			for _, tl := range TestLeaders {
+				for _, offer := range picks {
+					assert.Truef(suite.T(), slices.ContainsFunc(offer.Leaders,
+						func(l domain.Ci6ndexLeader) bool {
+							return l.LeaderName == tl.LeaderName && l.CivName == tl.CivName
+						}), "leader not found in offering")
+				}
+			}
+		})
+
+	}
+}
+
 func seedTestLeaders(ctx context.Context, db *DatabaseOperations) error {
 	var lp []domain.CreateLeadersParams
 	for _, leader := range TestLeaders {
