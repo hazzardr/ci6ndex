@@ -3,6 +3,7 @@ package internal
 import (
 	"ci6ndex/domain"
 	"context"
+	"encoding/json"
 	"github.com/pkg/errors"
 	"log/slog"
 	"math/rand/v2"
@@ -32,7 +33,8 @@ type shuffleFunction struct {
 // validationFunction is a function that takes in a slice of leaders to be assigned,
 // and a string representing the user it's being assigned to.
 // It returns true if the proposed pool is valid for the user.
-type validationFunction func([]domain.Ci6ndexLeader, string, *DatabaseOperations) bool
+type validationFunction func([]domain.Ci6ndexLeader, string, domain.Ci6ndexDraftStrategy,
+	*DatabaseOperations) bool
 
 // shuffleFunc is a function that takes in a slice of leaders to be assigned,
 // and a string representing the user it's being assigned to.
@@ -55,6 +57,10 @@ func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string, strategy d
 				shuffle:  randomPick,
 				validate: randomPickValidate,
 			},
+			"RandomPickNoRepeats": {
+				shuffle:  randomPick,
+				validate: randomPickValidate,
+			},
 		},
 	}
 }
@@ -68,12 +74,10 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 		if !slices.Contains(PermaBannedLeaders, leader.LeaderName) {
 			fullPool = append(fullPool, leader)
 		}
-
 	}
-
 	var allRolls []DraftOffering
 
-	totalNumTries := 10
+	totalNumTries := 20
 	attempt := 0
 
 	for attempt < totalNumTries && len(allRolls) < len(c.Players) {
@@ -99,7 +103,7 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 					slog.Error("failed to shuffle leaders", "error", err, "player", player, "strategy", c.DraftStrategy.Name)
 					return nil, errors.Wrap(err, "failed to shuffle leaders")
 				}
-				if validate(offered, player, c.DB) {
+				if validate(offered, player, c.DraftStrategy, c.DB) {
 					roll := DraftOffering{
 						User:    player,
 						Leaders: offered,
@@ -110,6 +114,7 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 					}
 					valid = true
 				} else {
+					// TODO: don't include for player? would have to know the offending leader
 					slog.Debug("invalid roll, retrying", "player", player, "strategy", c.DraftStrategy.Name, "offered", offered)
 					attemptPerPlayer++
 				}
@@ -136,7 +141,8 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 	return allRolls, nil
 }
 
-func allPickValidate(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOperations) bool {
+func allPickValidate(leaders []domain.Ci6ndexLeader, user string,
+	strat domain.Ci6ndexDraftStrategy, db *DatabaseOperations) bool {
 	return true
 }
 
@@ -149,6 +155,7 @@ func randomPick(leaders []domain.Ci6ndexLeader, user string, strat domain.Ci6nde
 	db *DatabaseOperations) ([]domain.Ci6ndexLeader, error) {
 	offering := make([]domain.Ci6ndexLeader, strat.PoolSize)
 	localLeaders := leaders
+
 	for i := 0; i < int(strat.PoolSize); i++ {
 		randIndex := rand.N(len(localLeaders))
 		offering[i] = localLeaders[randIndex]
@@ -157,15 +164,27 @@ func randomPick(leaders []domain.Ci6ndexLeader, user string, strat domain.Ci6nde
 	return offering, nil
 }
 
-func randomPickValidate(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOperations) bool {
+func randomPickValidate(leaders []domain.Ci6ndexLeader, user string,
+	strat domain.Ci6ndexDraftStrategy, db *DatabaseOperations) bool {
+
 	if !areElementsUnique(leaders) {
 		return false
 	}
-	noRecentPick := true
-	for _, leader := range leaders {
-		noRecentPick = noRecentPick && hasNoRecentPick(leader, user, db)
+	valid := true
+	if hasRules(strat) {
+		var rules map[string]interface{}
+		err := json.Unmarshal(strat.Rules, &rules)
+		if err != nil {
+			slog.Error("failed to unmarshal rules", "error", err, "strat", strat.Name)
+			return false
+		}
+		numGames, checkNumRepeats := rules["no_repeats"]
+		if checkNumRepeats {
+			noRecentPick := hasNoRecentPick(leaders, user, numGames.(int32), db)
+			valid = valid && noRecentPick
+		}
 	}
-	return noRecentPick
+	return valid
 }
 
 func areElementsUnique(leaders []domain.Ci6ndexLeader) bool {
@@ -187,10 +206,11 @@ func hasRules(strategy domain.Ci6ndexDraftStrategy) bool {
 	return strategy.Rules != nil && len(strategy.Rules) > 0
 }
 
-func hasNoRecentPick(leader domain.Ci6ndexLeader, user string, db *DatabaseOperations) bool {
+func hasNoRecentPick(leaders []domain.Ci6ndexLeader, user string,
+	numGames int32, db *DatabaseOperations) bool {
 	params := domain.GetDraftPicksForUserFromLastNGamesParams{
 		DiscordName: user,
-		Limit:       3,
+		Limit:       numGames,
 	}
 
 	picks, err := db.Queries.GetDraftPicksForUserFromLastNGames(context.Background(), params)
@@ -201,9 +221,11 @@ func hasNoRecentPick(leader domain.Ci6ndexLeader, user string, db *DatabaseOpera
 		return false
 	}
 	for _, pick := range picks {
-		if pick.LeaderID.Int64 == leader.ID {
-			slog.Warn("leader has been picked recently", "leader", leader, "user", user)
-			return false
+		for _, leader := range leaders {
+			if pick.LeaderID.Int64 == leader.ID {
+				slog.Warn("leader has been picked recently", "leader", leader, "user", user)
+				return false
+			}
 		}
 	}
 	return true

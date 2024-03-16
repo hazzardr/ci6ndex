@@ -101,16 +101,9 @@ VALUES
  null
 ),
 (
- 'RandomPickPool3',
- 'Everyone gets assigned a pool of 3 random leaders to pick from.',
+ 'RandomPickNoRepeats',
+ 'Everyone gets a pool of randomized leaders to pick from. They will not be offered any leaders they have picked in the past 3 games',
  true,
  3,
- null
+ '{"no_repeats": 3}'
 )
---     Potentially in the future add attr. like monger, culture etc?
--- (
---  'RandomPickPool3',
---  'Everyone gets assigned a pool of 3 random leaders to pick from. Includes the discord \"Standard\" rules.',
---  '{ "randomize": true, "pool_size": 3, "tiers_offered_min": {"1": 1}}'
--- )
-;
