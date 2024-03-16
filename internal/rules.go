@@ -37,7 +37,7 @@ type validationFunction func([]domain.Ci6ndexLeader, string, *DatabaseOperations
 // shuffleFunc is a function that takes in a slice of leaders to be assigned,
 // and a string representing the user it's being assigned to.
 // It returns the output offering based on rules defined in the function.
-type shuffleFunc func([]domain.Ci6ndexLeader, string, int,
+type shuffleFunc func([]domain.Ci6ndexLeader, string, domain.Ci6ndexDraftStrategy,
 	*DatabaseOperations) ([]domain.Ci6ndexLeader, error)
 
 func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string, strategy domain.Ci6ndexDraftStrategy, db *DatabaseOperations) CivShuffler {
@@ -73,7 +73,7 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 
 	var allRolls []DraftOffering
 
-	totalNumTries := 50
+	totalNumTries := 10
 	attempt := 0
 
 	for attempt < totalNumTries && len(allRolls) < len(c.Players) {
@@ -94,7 +94,7 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 				shuffle := c.Functions[c.DraftStrategy.Name].shuffle
 				validate := c.Functions[c.DraftStrategy.Name].validate
 
-				offered, err := shuffle(eligibleLeaders, player, int(c.DraftStrategy.PoolSize), c.DB)
+				offered, err := shuffle(eligibleLeaders, player, c.DraftStrategy, c.DB)
 				if err != nil {
 					slog.Error("failed to shuffle leaders", "error", err, "player", player, "strategy", c.DraftStrategy.Name)
 					return nil, errors.Wrap(err, "failed to shuffle leaders")
@@ -120,6 +120,10 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 				slog.Warn("failed to roll valid offering for player", "player", player, "strategy", c.DraftStrategy.Name)
 				exhaustedRolls = true
 			}
+			if len(eligibleLeaders) < int(c.DraftStrategy.PoolSize) {
+				slog.Warn("exhausted leader pool", "poolSize", c.DraftStrategy.PoolSize, "eligibleLeaders", len(eligibleLeaders))
+				exhaustedRolls = true
+			}
 			playerIndex++
 		}
 		attempt++
@@ -136,19 +140,21 @@ func allPickValidate(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOp
 	return true
 }
 
-func allPick(leaders []domain.Ci6ndexLeader, user string, poolSize int, db *DatabaseOperations) ([]domain.Ci6ndexLeader, error) {
+func allPick(leaders []domain.Ci6ndexLeader, user string, strat domain.Ci6ndexDraftStrategy,
+	db *DatabaseOperations) ([]domain.Ci6ndexLeader, error) {
 	return leaders, nil
 }
 
-func randomPick(leaders []domain.Ci6ndexLeader, user string, poolSize int, db *DatabaseOperations) ([]domain.Ci6ndexLeader, error) {
-	offering := make([]domain.Ci6ndexLeader, poolSize)
+func randomPick(leaders []domain.Ci6ndexLeader, user string, strat domain.Ci6ndexDraftStrategy,
+	db *DatabaseOperations) ([]domain.Ci6ndexLeader, error) {
+	offering := make([]domain.Ci6ndexLeader, strat.PoolSize)
 	localLeaders := leaders
-	for i := 0; i < poolSize; i++ {
+	for i := 0; i < int(strat.PoolSize); i++ {
 		randIndex := rand.N(len(localLeaders))
 		offering[i] = localLeaders[randIndex]
 		localLeaders = removeIndex(localLeaders, randIndex)
 	}
-	return leaders, nil
+	return offering, nil
 }
 
 func randomPickValidate(leaders []domain.Ci6ndexLeader, user string, db *DatabaseOperations) bool {

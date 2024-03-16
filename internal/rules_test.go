@@ -145,21 +145,31 @@ func (suite *RulesSuite) TestRandomPick() {
 			shuffler := NewCivShuffler(tc.leaders, tc.players, tc.strategy, suite.db)
 			picks, err := shuffler.Shuffle()
 			if err != nil {
-				return
+				suite.FailNow(err.Error())
 			}
 
 			if len(picks) != len(tc.players) {
 				suite.FailNow("number of picks did not match number of players")
 			}
 
-			// Each player should be offered every leader
-			for _, tl := range TestLeaders {
-				for _, offer := range picks {
-					assert.Truef(suite.T(), slices.ContainsFunc(offer.Leaders,
-						func(l domain.Ci6ndexLeader) bool {
-							return l.LeaderName == tl.LeaderName && l.CivName == tl.CivName
-						}), "leader not found in offering")
+			// Each offered leader should be globally unique
+			seen := make(map[string]bool)
+			for _, offer := range picks {
+				assert.Len(suite.T(), offer.Leaders, poolSize)
+				for _, l := range offer.Leaders {
+					assert.Falsef(suite.T(), seen[l.LeaderName], "leader was offered twice!")
+					seen[l.LeaderName] = true
 				}
+			}
+			for name := range seen {
+				nameExists := false
+				for _, tl := range TestLeaders {
+					if tl.LeaderName == name {
+						nameExists = true
+						break
+					}
+				}
+				assert.Truef(suite.T(), nameExists, "offered leader is not from original pool")
 			}
 		})
 
@@ -189,14 +199,13 @@ type testLeader struct {
 
 var (
 	TestLeaders = []testLeader{
-		{"AMERICA", "ABE"},
-		{"AMERICA", "BULLMOOSE TEDDY"},
-		{"AMERICA", "ROUGH RIDER TEDDY"},
-		{"AMERICA", "TEDDY"},
-		{"ARABIA", "SALADIN SULTAN"},
-		{"ARABIA", "SALADIN VIZIR"},
-		{"AUSTRALIA", "JOHN CURTIN"},
+		{"BULLMOOSE TEDDY", "AMERICA"},
+		{"ROUGH RIDER TEDDY", "AMERICA"},
+		{"TEDDY", "AMERICA"},
+		{"SALADIN SULTAN", "ARABIA"},
+		{"SALADIN VIZIR", "ARABIA"},
+		{"JOHN CURTIN", "AUSTRALIA"},
 	}
 
-	TestPlayers = []string{"Player1", "Player2", "Player3", "Player4", "Player5"}
+	TestPlayers = []string{"Player1", "Player2"}
 )
