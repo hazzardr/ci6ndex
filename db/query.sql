@@ -155,6 +155,11 @@ AND ci6ndex.draft_picks.draft_id IN (
     ORDER BY ci6ndex.games.start_date DESC LIMIT $2
 );
 
+-- name: GetPlayersForDraft :many
+SELECT * FROM ci6ndex.users where discord_name in (
+    SELECT players FROM ci6ndex.games where draft_id = $1
+);
+
 -- name: WipeTables :exec
 DO $$
     DECLARE

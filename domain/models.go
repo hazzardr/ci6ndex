@@ -39,6 +39,7 @@ type Ci6ndexGame struct {
 	StartDate pgtype.Date
 	EndDate   pgtype.Date
 	GameStats []byte
+	Players   []int64
 }
 
 type Ci6ndexLeader struct {

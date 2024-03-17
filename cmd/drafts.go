@@ -3,9 +3,9 @@ package cmd
 import (
 	"ci6ndex/internal"
 	"fmt"
-	"log/slog"
-
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"log/slog"
 )
 
 // draftsCmd represents the drafts command
@@ -102,28 +102,124 @@ func listDraftStrategies(cmd *cobra.Command, args []string) {
 	}
 }
 
+var (
+	rollCivsCmd = &cobra.Command{
+		Use:   "roll",
+		Short: "rolls civs, optionally for a draft",
+		Long: `Rolls civs based on the input draft strategy, draft, players,
+and leaders in the database. If you attempt to roll for a draft,
+all other parameters will be ignored. If you do not specify a draft, 
+you must specify both a draft strategy as well as players to roll for. 
+Leaders will be selected from the database, and cannot be provided by the CLI.`,
+		Run: rollCivs,
+	}
+	draft   bool
+	players []string
+)
+
 func rollCivs(cmd *cobra.Command, args []string) {
 	ctx := cmd.Context()
+	anyFlags := false
+	cmd.Flags().Visit(func(f *pflag.Flag) {
+		if f.Changed {
+			anyFlags = true
+		}
+	})
+
+	if !anyFlags {
+		err := cmd.Help()
+		if err != nil {
+			fmt.Println("Error: ", err)
+		}
+		return
+	}
+
 	ls, err := db.Queries.GetLeaders(ctx)
 	if err != nil {
 		slog.Error("Error fetching leaders", "error", err)
 		return
 	}
-	err = internal.NewCivShuffler(ls, ctx, db)
+	var shuffler *internal.CivShuffler
+	if draft {
+		drafts, err := db.Queries.GetActiveDrafts(ctx)
+		if err != nil {
+			slog.Error("Error fetching active drafts", "error", err)
+			return
+		}
+		if nil == drafts || len(drafts) == 0 {
+			slog.Error("Asked to roll for draft, but no active draft found")
+			return
+		}
+		d := drafts[0]
+		if len(drafts) > 1 {
+			slog.Error("More than one active draft found", "drafts", d)
+			return
+		}
+		ds, err := db.Queries.GetDraftStrategy(ctx, d.DraftStrategy)
+		if err != nil {
+			slog.Error("Error fetching draft strategy", "draftId", d.ID, "error", err)
+			return
+		}
+		players, err := db.Queries.GetPlayersForDraft(ctx, d.ID)
+		if err != nil {
+			slog.Error("Error fetching players for draft", "draftId", d.ID, "error", err)
+			return
+		}
+		pNames := make([]string, len(players))
+		for i, p := range players {
+			pNames[i] = p.DiscordName
+		}
+		shuffler = internal.NewCivShuffler(ls, pNames, ds, db)
+	} else {
+		if draftStrategy == "" {
+			slog.Error("No draft strategy provided")
+			return
+		}
+		if len(players) == 0 {
+			slog.Error("No players provided")
+			return
+		}
+		ds, err := db.Queries.GetDraftStrategy(ctx, draftStrategy)
+		if err != nil {
+			slog.Error("Error fetching draft strategy", "strategy", draftStrategy, "error", err)
+			return
+		}
+		shuffler = internal.NewCivShuffler(ls, players, ds, db)
+	}
+	offers, err := shuffler.Shuffle()
 	if err != nil {
-		slog.Error("Error initializing rolls", "error", err)
+		slog.Error("Error shuffling civs", "error", err)
 		return
 	}
-	slog.Info("Civs rolled successfully", "rolls", draftID)
+
+	finalRolls := map[string][]string{}
+	for _, offer := range offers {
+		user := offer.User
+		leaders := make([]string, len(offer.Leaders))
+		for i, l := range offer.Leaders {
+			leaders[i] = l.LeaderName
+		}
+		finalRolls[user] = leaders
+	}
+	fmt.Print("Offers are as follows:\n")
+	for user := range finalRolls {
+		fmt.Printf("user: %s leaders: %s\n", user, finalRolls[user])
+	}
+
 }
 
 func init() {
 	rootCmd.AddCommand(draftsCmd)
 	rootCmd.AddCommand(strategiesCommand)
+	rootCmd.AddCommand(rollCivsCmd)
 	draftsCmd.AddCommand(startDraftCommand)
 	draftsCmd.AddCommand(getDraftsCommand)
 
 	startDraftCommand.Flags().StringVarP(&draftStrategy, "draft-strategy", "s", "",
 		"The strategy to use for the draft")
 	getDraftsCommand.Flags().Bool("active", false, "Get the active draft")
+	rollCivsCmd.Flags().BoolVarP(&draft, "draft", "d", false, "Roll for the active draft")
+	rollCivsCmd.Flags().StringVarP(&draftStrategy, "draft-strategy", "s", "RandomPick",
+		"Roll using a specific draft strategy")
+	rollCivsCmd.Flags().StringSliceVarP(&players, "players", "p", nil, "The players to roll for")
 }

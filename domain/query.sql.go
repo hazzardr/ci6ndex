@@ -392,6 +392,32 @@ func (q *Queries) GetLeaders(ctx context.Context) ([]Ci6ndexLeader, error) {
 	return items, nil
 }
 
+const getPlayersForDraft = `-- name: GetPlayersForDraft :many
+SELECT id, discord_name, name FROM ci6ndex.users where discord_name in (
+    SELECT players FROM ci6ndex.games where draft_id = $1
+)
+`
+
+func (q *Queries) GetPlayersForDraft(ctx context.Context, draftID int64) ([]Ci6ndexUser, error) {
+	rows, err := q.db.Query(ctx, getPlayersForDraft, draftID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ci6ndexUser
+	for rows.Next() {
+		var i Ci6ndexUser
+		if err := rows.Scan(&i.ID, &i.DiscordName, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getRankings = `-- name: GetRankings :many
 SELECT id, user_id, tier, leader_id FROM ci6ndex.rankings
 `

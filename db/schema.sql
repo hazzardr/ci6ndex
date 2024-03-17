@@ -77,6 +77,7 @@ CREATE TABLE ci6ndex.games
     start_date DATE NOT NULL,
     end_date DATE,
     game_stats JSONB,
+    players BIGINT[],
     PRIMARY KEY (id),
     CONSTRAINT drafts_fk FOREIGN KEY (draft_id) REFERENCES ci6ndex.drafts (id)
 );

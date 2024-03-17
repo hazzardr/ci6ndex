@@ -42,8 +42,9 @@ type validationFunction func([]domain.Ci6ndexLeader, string, domain.Ci6ndexDraft
 type shuffleFunc func([]domain.Ci6ndexLeader, string, domain.Ci6ndexDraftStrategy,
 	*DatabaseOperations) ([]domain.Ci6ndexLeader, error)
 
-func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string, strategy domain.Ci6ndexDraftStrategy, db *DatabaseOperations) CivShuffler {
-	return CivShuffler{
+func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string,
+	strategy domain.Ci6ndexDraftStrategy, db *DatabaseOperations) *CivShuffler {
+	return &CivShuffler{
 		Leaders:       leaders,
 		Players:       players,
 		DraftStrategy: strategy,
