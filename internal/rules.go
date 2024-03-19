@@ -67,7 +67,7 @@ func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string,
 }
 
 func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
-	slog.Info("rolling civs for players", "players", c.Players, "strategy", c.DraftStrategy)
+	slog.Info("rolling civs for players", "players", c.Players, "strategy", c.DraftStrategy.Name)
 	slog.Info("banned leaders", "permaBanned", PermaBannedLeaders)
 
 	fullPool := make([]domain.Ci6ndexLeader, 0)
@@ -95,7 +95,7 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 			valid := false
 			for attemptPerPlayer < numTriesPerPlayer && !valid {
 				slog.Info("rolling civs for player", "player", player,
-					"strategy", c.DraftStrategy.Name, "attempt", attemptPerPlayer)
+					"strategy", c.DraftStrategy.Name, "attempt", attemptPerPlayer+1)
 				shuffle := c.Functions[c.DraftStrategy.Name].shuffle
 				validate := c.Functions[c.DraftStrategy.Name].validate
 
@@ -180,6 +180,12 @@ func randomPickValidate(leaders []domain.Ci6ndexLeader, user string,
 			return false
 		}
 		numGames, checkNumRepeats := rules["no_repeats"]
+		numGames, ok := numGames.(float64) // default serializing here no idea why
+		if !ok {
+			slog.Error("failed to convert no_repeats to int", "numGames", numGames)
+			return false
+		}
+		numGames = int32(numGames.(float64))
 		if checkNumRepeats {
 			noRecentPick := hasNoRecentPick(leaders, user, numGames.(int32), db)
 			valid = valid && noRecentPick

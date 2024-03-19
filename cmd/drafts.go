@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"ci6ndex/internal"
+	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -97,8 +98,21 @@ func listDraftStrategies(cmd *cobra.Command, args []string) {
 		slog.Error("Error fetching draft strategies", "error", err)
 		return
 	}
+
 	for _, strategy := range strategies {
-		fmt.Println(strategy)
+		var rules interface{}
+		if strategy.Rules == nil {
+			rules = "none"
+		} else {
+			err := json.Unmarshal(strategy.Rules, &rules)
+			if err != nil {
+				slog.Error("Error decoding rules", "error", err)
+				continue
+			}
+		}
+
+		fmt.Printf("Name: %s, Description: %s, PoolSize: %d, Randomize: %t, Rules: %v\n",
+			strategy.Name, strategy.Description, strategy.PoolSize, strategy.Randomize, rules)
 	}
 }
 
