@@ -1,28 +1,16 @@
 package internal
 
-//
-//import (
-//	"ci6ndex/domain"
-//	"context"
-//	"fmt"
-//	"github.com/bwmarrin/discordgo"
-//	"log/slog"
-//	"os"
-//	"strings"
-//)
-//
-//const (
-//	StartDraft = "start-draft"
-//	Players    = "players"
-//	RollCivs   = "roll-civs"
-//	SubmitPick = "submit-pick"
-//)
-//
-//type DiscordBot struct {
-//	session *discordgo.Session
-//	db *DatabaseOperations
-//}
-//
+import "github.com/bwmarrin/discordgo"
+
+const (
+	RollCivs = "roll-civs"
+)
+
+type DiscordBot struct {
+	session *discordgo.Session
+	db      *DatabaseOperations
+}
+
 //// AttachSlashCommands attaches all slash commands to the bot. Database has to be initialized first.
 //func AttachSlashCommands(s *discordgo.Session, db *DatabaseOperations) ([]*discordgo.ApplicationCommand, error) {
 //	err := db.Health()
