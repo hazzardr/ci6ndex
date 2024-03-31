@@ -43,7 +43,9 @@ type shuffleFunc func([]domain.Ci6ndexLeader, string, domain.Ci6ndexDraftStrateg
 	*DatabaseOperations) ([]domain.Ci6ndexLeader, error)
 
 func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string,
-	strategy domain.Ci6ndexDraftStrategy, db *DatabaseOperations) *CivShuffler {
+	strategy domain.Ci6ndexDraftStrategy,
+	db *DatabaseOperations) *CivShuffler {
+
 	return &CivShuffler{
 		Leaders:       leaders,
 		Players:       players,

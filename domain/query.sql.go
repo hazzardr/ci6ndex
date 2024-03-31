@@ -27,13 +27,18 @@ INSERT INTO ci6ndex.drafts
 ) VALUES (
     $1
 )
-RETURNING id, draft_strategy, active
+RETURNING id, draft_strategy, active, players
 `
 
 func (q *Queries) CreateDraft(ctx context.Context, draftStrategy string) (Ci6ndexDraft, error) {
 	row := q.db.QueryRow(ctx, createDraft, draftStrategy)
 	var i Ci6ndexDraft
-	err := row.Scan(&i.ID, &i.DraftStrategy, &i.Active)
+	err := row.Scan(
+		&i.ID,
+		&i.DraftStrategy,
+		&i.Active,
+		&i.Players,
+	)
 	return i, err
 }
 
@@ -165,7 +170,7 @@ func (q *Queries) DeleteRankings(ctx context.Context) error {
 }
 
 const getActiveDrafts = `-- name: GetActiveDrafts :many
-SELECT id, draft_strategy, active FROM ci6ndex.drafts
+SELECT id, draft_strategy, active, players FROM ci6ndex.drafts
 WHERE active = true
 `
 
@@ -178,7 +183,12 @@ func (q *Queries) GetActiveDrafts(ctx context.Context) ([]Ci6ndexDraft, error) {
 	var items []Ci6ndexDraft
 	for rows.Next() {
 		var i Ci6ndexDraft
-		if err := rows.Scan(&i.ID, &i.DraftStrategy, &i.Active); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.DraftStrategy,
+			&i.Active,
+			&i.Players,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -190,7 +200,7 @@ func (q *Queries) GetActiveDrafts(ctx context.Context) ([]Ci6ndexDraft, error) {
 }
 
 const getDraft = `-- name: GetDraft :one
-SELECT id, draft_strategy, active FROM ci6ndex.drafts
+SELECT id, draft_strategy, active, players FROM ci6ndex.drafts
 WHERE id = $1
 LIMIT 1
 `
@@ -198,7 +208,12 @@ LIMIT 1
 func (q *Queries) GetDraft(ctx context.Context, id int64) (Ci6ndexDraft, error) {
 	row := q.db.QueryRow(ctx, getDraft, id)
 	var i Ci6ndexDraft
-	err := row.Scan(&i.ID, &i.DraftStrategy, &i.Active)
+	err := row.Scan(
+		&i.ID,
+		&i.DraftStrategy,
+		&i.Active,
+		&i.Players,
+	)
 	return i, err
 }
 
@@ -295,7 +310,7 @@ func (q *Queries) GetDraftStrategy(ctx context.Context, name string) (Ci6ndexDra
 }
 
 const getDrafts = `-- name: GetDrafts :many
-SELECT id, draft_strategy, active FROM ci6ndex.drafts
+SELECT id, draft_strategy, active, players FROM ci6ndex.drafts
 `
 
 func (q *Queries) GetDrafts(ctx context.Context) ([]Ci6ndexDraft, error) {
@@ -307,7 +322,12 @@ func (q *Queries) GetDrafts(ctx context.Context) ([]Ci6ndexDraft, error) {
 	var items []Ci6ndexDraft
 	for rows.Next() {
 		var i Ci6ndexDraft
-		if err := rows.Scan(&i.ID, &i.DraftStrategy, &i.Active); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.DraftStrategy,
+			&i.Active,
+			&i.Players,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

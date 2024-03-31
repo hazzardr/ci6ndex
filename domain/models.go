@@ -12,6 +12,7 @@ type Ci6ndexDraft struct {
 	ID            int64
 	DraftStrategy string
 	Active        bool
+	Players       []string
 }
 
 type Ci6ndexDraftPick struct {
@@ -39,7 +40,6 @@ type Ci6ndexGame struct {
 	StartDate pgtype.Date
 	EndDate   pgtype.Date
 	GameStats []byte
-	Players   []int64
 }
 
 type Ci6ndexLeader struct {

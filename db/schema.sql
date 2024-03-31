@@ -50,6 +50,7 @@ CREATE TABLE ci6ndex.drafts
     id BIGSERIAL NOT NULL,
     draft_strategy TEXT NOT NULL,
     active BOOLEAN NOT NULL DEFAULT TRUE,
+    players TEXT[],
     PRIMARY KEY (id),
     CONSTRAINT draft_strategies_fk FOREIGN KEY (draft_strategy) REFERENCES ci6ndex.draft_strategies (name)
 );
@@ -77,7 +78,6 @@ CREATE TABLE ci6ndex.games
     start_date DATE NOT NULL,
     end_date DATE,
     game_stats JSONB,
-    players BIGINT[],
     PRIMARY KEY (id),
     CONSTRAINT drafts_fk FOREIGN KEY (draft_id) REFERENCES ci6ndex.drafts (id)
 );
