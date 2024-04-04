@@ -97,21 +97,21 @@ func (bot *DiscordBot) AttachSlashCommands(ctx context.Context) ([]*discordgo.Ap
 	return ccommands, nil
 }
 
-//	func RemoveSlashCommands(disc *discordgo.Session, config AppConfig) error {
-//		commands, err := disc.ApplicationCommands(config.BotApplicationID, "")
-//		if err != nil {
-//			return err
-//		}
-//		for _, c := range commands {
-//			err = disc.ApplicationCommandDelete(config.BotApplicationID, "", c.ID)
-//			if err != nil {
-//				return err
-//			}
-//			slog.Info("removed command", "command", c.Name)
-//		}
-//
-//		return nil
-//	}
+func (bot *DiscordBot) RemoveSlashCommands() error {
+	commands, err := bot.s.ApplicationCommands(bot.config.BotApplicationID, "")
+	if err != nil {
+		return err
+	}
+	for _, c := range commands {
+		err = bot.s.ApplicationCommandDelete(bot.config.BotApplicationID, "", c.ID)
+		if err != nil {
+			return err
+		}
+		slog.Info("removed command", "command", c.Name)
+	}
+
+	return nil
+}
 
 func (bot *DiscordBot) rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
@@ -160,8 +160,10 @@ func (bot *DiscordBot) rollCivs(s *discordgo.Session, i *discordgo.InteractionCr
 	leaders, err := bot.db.Queries.GetLeaders(ctx)
 	if err != nil {
 		bot.reportError("error fetching leaders", err, i)
+		return
 	}
 
+<<<<<<< HEAD
 	ds, err := bot.db.Queries.GetDraftStrategy(ctx, activeDraft.DraftStrategy)
 	if err != nil {
 		bot.reportError("error fetching draft strategy", err, i)
@@ -171,13 +173,20 @@ func (bot *DiscordBot) rollCivs(s *discordgo.Session, i *discordgo.InteractionCr
 	picks, err := shuffler.Shuffle()
 	if err != nil {
 		bot.reportError("error rolling civs", err, i)
+=======
+	strat, err := bot.db.Queries.GetDraftStrategy(ctx, activeDraft.DraftStrategy)
+	shuffler := NewCivShuffler(leaders, activeDraft.Players, strat, bot.db)
+	offers, err := shuffler.Shuffle()
+	if err != nil {
+		bot.reportError("error shuffling civs", err, i)
+>>>>>>> origin/main
 		return
 	}
 
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("The following picks were rolled: %v", picks),
+			Content: fmt.Sprintf("The following picks were rolled: %v", offers),
 		},
 	})
 
