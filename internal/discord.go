@@ -162,10 +162,15 @@ func (bot *DiscordBot) rollCivs(s *discordgo.Session, i *discordgo.InteractionCr
 		bot.reportError("error fetching leaders", err, i)
 	}
 
-	shuffler := NewCivShuffler(leaders, activeDraft.Players, activeDraft.DraftStrategy, bot.db)
-	picks, err := OfferPicks(bot.db, activeDraft, 3)
+	ds, err := bot.db.Queries.GetDraftStrategy(ctx, activeDraft.DraftStrategy)
 	if err != nil {
-		ReportError("error rolling civs", err, s, i)
+		bot.reportError("error fetching draft strategy", err, i)
+	}
+
+	shuffler := NewCivShuffler(leaders, activeDraft.Players, ds, bot.db)
+	picks, err := shuffler.Shuffle()
+	if err != nil {
+		bot.reportError("error rolling civs", err, i)
 		return
 	}
 
