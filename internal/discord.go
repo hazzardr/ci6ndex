@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"log/slog"
+	"os"
+	"os/signal"
 )
 
 const (
@@ -16,6 +18,43 @@ type DiscordBot struct {
 	s      *discordgo.Session
 	db     *DatabaseOperations
 	config *AppConfig
+}
+
+func NewDiscordBot(db *DatabaseOperations, config *AppConfig) (*DiscordBot, error) {
+	s, err := discordgo.New("Bot " + config.DiscordToken)
+	if err != nil {
+		return nil, fmt.Errorf("could not start discord client: %w", err)
+	}
+
+	s.Identify.Intents = discordgo.IntentsGuildMessages
+	err = s.Open()
+	if err != nil {
+		return nil, fmt.Errorf("could not open connection to discord: %w", err)
+	}
+
+	return &DiscordBot{
+		s:      s,
+		db:     db,
+		config: config,
+	}, nil
+}
+
+func (bot *DiscordBot) Start() error {
+	bot.s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		slog.Info(fmt.Sprintf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator))
+	})
+	err := bot.s.Open()
+	if err != nil {
+		return fmt.Errorf("cannot open the session: %v", err)
+	}
+
+	defer bot.s.Close()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	slog.Info("bot initialized and ready to receive events")
+	<-stop
+	return nil
 }
 
 // AttachSlashCommands attaches all slash commands to the bot. Database has to be initialized first.

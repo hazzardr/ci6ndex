@@ -55,7 +55,7 @@ doctor:
 build:
 	$(MAKE) generate
 	@echo "Building..."
-	@go build -o $(EXEC_NAME) ./cmd/main.go
+	@go build -o $(EXEC_NAME) ./main.go
 	@echo "Done!"
 
 .PHONY: clean ## delete generated code
