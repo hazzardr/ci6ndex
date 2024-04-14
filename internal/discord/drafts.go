@@ -36,6 +36,7 @@ func getActiveDraftHandler(db *internal.DatabaseOperations) CommandHandler {
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content: "An error occurred while trying to get the active draft",
+					Flags:   discordgo.MessageFlagsEphemeral,
 				},
 			})
 			if err != nil {
@@ -48,6 +49,7 @@ func getActiveDraftHandler(db *internal.DatabaseOperations) CommandHandler {
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content: "There is no active draft.",
+					Flags:   discordgo.MessageFlagsEphemeral,
 				},
 			})
 			if err != nil {
@@ -59,6 +61,7 @@ func getActiveDraftHandler(db *internal.DatabaseOperations) CommandHandler {
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: fmt.Sprintf("The active draft id is %d", drafts[0].ID),
+				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
 		if err != nil {
