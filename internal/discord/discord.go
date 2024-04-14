@@ -51,7 +51,7 @@ func (bot *Bot) Start() error {
 	for name, h := range getDraftHandlers(bot.db) {
 		handlers[name] = h
 	}
-	for name, h := range getRollCivsHandlers(bot.db) {
+	for name, h := range getRollCivsHandlers(bot.db, bot.mb) {
 		handlers[name] = h
 	}
 	bot.s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {

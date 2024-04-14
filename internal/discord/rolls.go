@@ -23,14 +23,14 @@ func getRollCivCommands() []*discordgo.ApplicationCommand {
 	return cmds
 }
 
-func getRollCivsHandlers(db *internal.DatabaseOperations) map[string]CommandHandler {
+func getRollCivsHandlers(db *internal.DatabaseOperations, mb *MessageBuilder) map[string]CommandHandler {
 	handlers := make(map[string]CommandHandler)
 
-	handlers[RollCivs.Name] = getRollCivsHandler(db)
+	handlers[RollCivs.Name] = getRollCivsHandler(db, mb)
 	return handlers
 }
 
-func getRollCivsHandler(db *internal.DatabaseOperations) CommandHandler {
+func getRollCivsHandler(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
 		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
