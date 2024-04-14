@@ -1,7 +1,8 @@
-package internal
+package discord
 
 import (
 	"ci6ndex/domain"
+	"ci6ndex/internal"
 	"context"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
@@ -14,32 +15,29 @@ const (
 	RollCivs = "roll-civs"
 )
 
-type DiscordBot struct {
+type Bot struct {
 	s      *discordgo.Session
-	db     *DatabaseOperations
-	config *AppConfig
+	db     *internal.DatabaseOperations
+	config *internal.AppConfig
 }
 
-func NewDiscordBot(db *DatabaseOperations, config *AppConfig) (*DiscordBot, error) {
+type CommandHandler func(s *discordgo.Session, i *discordgo.InteractionCreate)
+
+func NewBot(db *internal.DatabaseOperations, config *internal.AppConfig) (*Bot, error) {
 	s, err := discordgo.New("Bot " + config.DiscordToken)
 	if err != nil {
 		return nil, fmt.Errorf("could not start discord client: %w", err)
 	}
 
 	s.Identify.Intents = discordgo.IntentsGuildMessages
-	err = s.Open()
-	if err != nil {
-		return nil, fmt.Errorf("could not open connection to discord: %w", err)
-	}
-
-	return &DiscordBot{
+	return &Bot{
 		s:      s,
 		db:     db,
 		config: config,
 	}, nil
 }
 
-func (bot *DiscordBot) Start() error {
+func (bot *Bot) Start() error {
 	bot.s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		slog.Info(fmt.Sprintf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator))
 	})
@@ -54,105 +52,58 @@ func (bot *DiscordBot) Start() error {
 	signal.Notify(stop, os.Interrupt)
 	slog.Info("bot initialized and ready to receive events")
 	<-stop
+	slog.Info("received interrupt signal, shutting down")
 	return nil
 }
 
-// AttachSlashCommands attaches all slash commands to the bot. Database has to be initialized first.
-func (bot *DiscordBot) AttachSlashCommands(ctx context.Context) ([]*discordgo.ApplicationCommand, error) {
+// RegisterSlashCommands attaches all slash commands to the bot. Database has to be initialized first.
+func (bot *Bot) RegisterSlashCommands(guild string) ([]*discordgo.ApplicationCommand, error) {
 	err := bot.db.Health()
 	if err != nil {
 		return nil, fmt.Errorf("can't attach commands prior to db being initialized: %w", err)
 	}
-	strategies, err := bot.db.Queries.GetDraftStrategies(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't get required defaults: %w", err)
-	}
 
-	var stratOptions []*discordgo.ApplicationCommandOptionChoice
-	for _, strategy := range strategies {
-		stratOptions = append(stratOptions, &discordgo.ApplicationCommandOptionChoice{
-			Name:  strategy.Name,
-			Value: strategy.Name,
-		})
-	}
+	commands := getDraftCommands()
+	handlers := getDraftHandlers(bot.db, bot.config)
 
-	draftStrategyOptions := []*discordgo.ApplicationCommandOption{
-		{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "draft-strategy",
-			Description: "How to decide which civs to roll",
-			Choices:     stratOptions,
-			Required:    true,
-		},
-	}
-
-	commands := []*discordgo.ApplicationCommand{
-		//{
-		//	Name:        StartDraft,
-		//	Description: "Initialize a draft. You can then roll civs for players and they can submit their picks.",
-		//	Options:     draftStrategyOptions,
-		//},
-		{
-			Name:        RollCivs,
-			Description: "Roll civs for all players",
-			Options:     draftStrategyOptions,
-		},
-		//{
-		//	Name:        Players,
-		//	Description: "Get a list of players eligible for a draft",
-		//},
-		//{
-		//	Name:        "ci6ndex",
-		//	Description: "Get information about the bot",
-		//},
-		//{
-		//	Name:        SubmitPick,
-		//	Description: "Submit a pick for a draft",
-		//},
-	}
-	handlers := map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"ci6ndex": basicCommand,
-		//StartDraft: startDraft,
-		//Players:    players,
-		RollCivs: bot.rollCivs,
-		//SubmitPick: submitPicks,
-	}
-
-	var ccommands []*discordgo.ApplicationCommand
 	for _, c := range commands {
-		ccmd, err := bot.s.ApplicationCommandCreate(bot.config.BotApplicationID, "", c)
+		_, err := bot.s.ApplicationCommandCreate(bot.config.BotApplicationID, guild, c)
 		if err != nil {
-			slog.Error("could not create slash command", "command", c.Name, "error", err)
+			slog.Error("could not create (/) command", "command", c.Name, "error", err)
+			return nil, err
 		}
 		slog.Info("registered", "command", c.Name)
-		ccommands = append(ccommands, ccmd)
 	}
-	slog.Info("slash commands attached")
+	slog.Info("all (/) commands attached")
 	bot.s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if h, ok := handlers[i.ApplicationCommandData().Name]; ok {
 			h(s, i)
 		}
 	})
-	return ccommands, nil
+	return commands, nil
 }
 
-func (bot *DiscordBot) RemoveSlashCommands() error {
-	commands, err := bot.s.ApplicationCommands(bot.config.BotApplicationID, "")
+func (bot *Bot) RemoveSlashCommands(guild string) error {
+	commands, err := bot.s.ApplicationCommands(bot.config.BotApplicationID, guild)
 	if err != nil {
 		return err
 	}
+	if nil == commands || len(commands) == 0 {
+		slog.Info("no commands to remove", "guildId", guild)
+		return nil
+	}
 	for _, c := range commands {
-		err = bot.s.ApplicationCommandDelete(bot.config.BotApplicationID, "", c.ID)
+		err = bot.s.ApplicationCommandDelete(bot.config.BotApplicationID, guild, c.ID)
 		if err != nil {
 			return err
 		}
-		slog.Info("removed command", "command", c.Name)
+		slog.Info("removed command", "command", c.Name, "guildId", guild)
 	}
 
 	return nil
 }
 
-func (bot *DiscordBot) rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (bot *Bot) rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
 	ctx := context.Background()
 	drafts, err := bot.db.Queries.GetActiveDrafts(ctx)
@@ -203,7 +154,7 @@ func (bot *DiscordBot) rollCivs(s *discordgo.Session, i *discordgo.InteractionCr
 	}
 
 	strat, err := bot.db.Queries.GetDraftStrategy(ctx, activeDraft.DraftStrategy)
-	shuffler := NewCivShuffler(leaders, activeDraft.Players, strat, bot.db)
+	shuffler := internal.NewCivShuffler(leaders, activeDraft.Players, strat, bot.db)
 	offers, err := shuffler.Shuffle()
 	if err != nil {
 		bot.reportError("error shuffling civs", err, i)
@@ -361,7 +312,7 @@ func basicCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 //			slog.Error("could not remove slash commands", "error", err)
 //			os.Exit(1)
 //		}
-//		_, err = AttachSlashCommands(s)
+//		_, err = RegisterSlashCommands(s)
 //		if err != nil {
 //			slog.Error("could not attach slash commands", "error", err)
 //			os.Exit(1)
@@ -373,7 +324,7 @@ func basicCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 //		}
 //		slog.Info("bot initialized and ready to receive events")
 //	}
-func (bot *DiscordBot) reportError(msg string, err error, i *discordgo.InteractionCreate) {
+func (bot *Bot) reportError(msg string, err error, i *discordgo.InteractionCreate) {
 	slog.Error(msg, "error", err)
 	_, err = bot.s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content: "Something went wrong",
@@ -429,7 +380,7 @@ func (bot *DiscordBot) reportError(msg string, err error, i *discordgo.Interacti
 ////}
 ////
 ////func InitializeDiscordCommands(w http.ResponseWriter, req *http.Request) {
-////	ccmds, err := AttachSlashCommands(disc)
+////	ccmds, err := RegisterSlashCommands(disc)
 ////	if err != nil {
 ////		w.WriteHeader(http.StatusInternalServerError)
 ////		_ = json.NewEncoder(w).Encode(errors.Join(errors.New("could not attach slash commands"), err))
