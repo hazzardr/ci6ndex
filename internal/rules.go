@@ -96,7 +96,7 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 			numTriesPerPlayer := 10
 			valid := false
 			for attemptPerPlayer < numTriesPerPlayer && !valid {
-				slog.Info("rolling civs for player", "player", player,
+				slog.Debug("rolling civs for player", "player", player,
 					"strategy", c.DraftStrategy.Name, "attempt", attemptPerPlayer+1)
 				shuffle := c.Functions[c.DraftStrategy.Name].shuffle
 				validate := c.Functions[c.DraftStrategy.Name].validate

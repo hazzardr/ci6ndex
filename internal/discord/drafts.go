@@ -21,7 +21,7 @@ func getDraftCommands() []*discordgo.ApplicationCommand {
 	return cmds
 }
 
-func getDraftHandlers(db *internal.DatabaseOperations, config *internal.AppConfig) map[string]CommandHandler {
+func getDraftHandlers(db *internal.DatabaseOperations) map[string]CommandHandler {
 	handlers := make(map[string]CommandHandler)
 	handlers[GetActiveDraftCommand.Name] = getActiveDraftHandler(db)
 	return handlers
@@ -32,16 +32,7 @@ func getActiveDraftHandler(db *internal.DatabaseOperations) CommandHandler {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name)
 		drafts, err := db.Queries.GetActiveDrafts(context.Background())
 		if err != nil {
-			err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "An error occurred while trying to get the active draft",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
-			})
-			if err != nil {
-				slog.Error("failed to respond to interaction", "i", i.Interaction, "error", err)
-			}
+			reportError("An error occured while trying to get the active draft.", err, s, i, false)
 			return
 		}
 		if drafts == nil || len(drafts) == 0 {

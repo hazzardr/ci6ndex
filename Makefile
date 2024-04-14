@@ -74,3 +74,14 @@ generate:
 test:
 	@go test ./internal/
 
+.PHONY: refresh ## refreshes slash commands for the bot
+refresh:
+	@echo "Refreshing slash commands..."
+	@./$(EXEC_NAME) discord commands refresh
+	@echo "Done!"
+
+.PHONY: bot ## run the project as a discord bot
+bot:
+	@echo "Running discord bot..."
+	@./$(EXEC_NAME) discord start
+	@echo "Done!"

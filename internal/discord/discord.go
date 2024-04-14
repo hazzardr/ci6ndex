@@ -1,9 +1,7 @@
 package discord
 
 import (
-	"ci6ndex/domain"
 	"ci6ndex/internal"
-	"context"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"log/slog"
@@ -47,7 +45,10 @@ func (bot *Bot) Start() error {
 
 	handlers := make(map[string]CommandHandler)
 	handlers[Ci6ndexCommand.Name] = basicCommand
-	for name, h := range getDraftHandlers(bot.db, bot.config) {
+	for name, h := range getDraftHandlers(bot.db) {
+		handlers[name] = h
+	}
+	for name, h := range getRollCivsHandlers(bot.db) {
 		handlers[name] = h
 	}
 	bot.s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -79,6 +80,7 @@ func (bot *Bot) RegisterSlashCommands(guild string) ([]*discordgo.ApplicationCom
 	commands := make([]*discordgo.ApplicationCommand, 0)
 	commands = append(commands, Ci6ndexCommand)
 	commands = append(commands, getDraftCommands()...)
+	commands = append(commands, getRollCivCommands()...)
 
 	for _, c := range commands {
 		_, err := bot.s.ApplicationCommandCreate(bot.config.BotApplicationID, guild, c)
@@ -111,82 +113,13 @@ func (bot *Bot) RemoveSlashCommands(guild string) error {
 	return nil
 }
 
-func (bot *Bot) rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name)
-	ctx := context.Background()
-	drafts, err := bot.db.Queries.GetActiveDrafts(ctx)
-	if err != nil {
-		bot.reportError("error checking active drafts", err, i)
-		return
-	}
-
-	var activeDraft domain.Ci6ndexDraft
-
-	if len(drafts) == 0 {
-		_, err = bot.s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "There is no active draft. Roll will not be attached to a game.",
-		})
-		if err != nil {
-			slog.Error("error responding to user", "error", err)
-		}
-
-		// dummy draft as a default
-		activeDraft, err = bot.db.Queries.GetDraft(ctx, -1)
-		if err != nil {
-			bot.reportError("error fetching dummy draft", err, i)
-			return
-		}
-
-	}
-
-	if len(drafts) > 1 {
-		bot.reportError("There are multiple active drafts. This should not be possible", nil, i)
-		return
-	}
-
-	if len(drafts) == 1 {
-		_, err = bot.s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "Rolled civs will be attached to the active draft.",
-		})
-
-		if err != nil {
-			slog.Error("error responding to user", "error", err)
-		}
-
-		activeDraft = drafts[0]
-	}
-	leaders, err := bot.db.Queries.GetLeaders(ctx)
-	if err != nil {
-		bot.reportError("error fetching leaders", err, i)
-		return
-	}
-
-	strat, err := bot.db.Queries.GetDraftStrategy(ctx, activeDraft.DraftStrategy)
-	shuffler := internal.NewCivShuffler(leaders, activeDraft.Players, strat, bot.db)
-	offers, err := shuffler.Shuffle()
-	if err != nil {
-		bot.reportError("error shuffling civs", err, i)
-		return
-	}
-
-	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("The following picks were rolled: %v", offers),
-		},
-	})
-
-	if err != nil {
-		slog.Error("error responding to user", "error", err)
-	}
-}
-
 func basicCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name)
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: "Ci6ndex (Civ VI Index) is a bot for managing civ 6 draft and game information.",
+			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
 	if err != nil {
@@ -194,12 +127,26 @@ func basicCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 }
 
-func (bot *Bot) reportError(msg string, err error, i *discordgo.InteractionCreate) {
-	slog.Error(msg, "error", err)
-	_, err = bot.s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Something went wrong",
-	})
-	if err != nil {
-		slog.Error("error responding to user", "error", err)
+func reportError(msg string, err error, s *discordgo.Session, i *discordgo.InteractionCreate, followup bool) {
+	slog.Error(msg, "interactionId", i.ID, "error", err)
+	if followup {
+		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "Something went wrong when executing the command. Interaction ID:" + i.ID,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		})
+		if err != nil {
+			slog.Error("failed to respond to interaction", "i", i.Interaction.ID, "error", err)
+		}
+	} else {
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Something went wrong when executing the command. Interaction ID:" + i.ID,
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		if err != nil {
+			slog.Error("failed to respond to interaction", "i", i.Interaction.ID, "error", err)
+		}
 	}
 }
