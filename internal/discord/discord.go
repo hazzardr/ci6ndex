@@ -11,8 +11,11 @@ import (
 	"os/signal"
 )
 
-const (
-	RollCivs = "roll-civs"
+var (
+	Ci6ndexCommand = &discordgo.ApplicationCommand{
+		Name:        "ci6ndex",
+		Description: "Provides information about the bot",
+	}
 )
 
 type Bot struct {
@@ -39,7 +42,18 @@ func NewBot(db *internal.DatabaseOperations, config *internal.AppConfig) (*Bot, 
 
 func (bot *Bot) Start() error {
 	bot.s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		slog.Info(fmt.Sprintf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator))
+		slog.Info(fmt.Sprintf("logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator))
+	})
+
+	handlers := make(map[string]CommandHandler)
+	handlers[Ci6ndexCommand.Name] = basicCommand
+	for name, h := range getDraftHandlers(bot.db, bot.config) {
+		handlers[name] = h
+	}
+	bot.s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		if h, ok := handlers[i.ApplicationCommandData().Name]; ok {
+			h(s, i)
+		}
 	})
 	err := bot.s.Open()
 	if err != nil {
@@ -62,24 +76,18 @@ func (bot *Bot) RegisterSlashCommands(guild string) ([]*discordgo.ApplicationCom
 	if err != nil {
 		return nil, fmt.Errorf("can't attach commands prior to db being initialized: %w", err)
 	}
-
-	commands := getDraftCommands()
-	handlers := getDraftHandlers(bot.db, bot.config)
+	commands := make([]*discordgo.ApplicationCommand, 0)
+	commands = append(commands, Ci6ndexCommand)
+	commands = append(commands, getDraftCommands()...)
 
 	for _, c := range commands {
 		_, err := bot.s.ApplicationCommandCreate(bot.config.BotApplicationID, guild, c)
 		if err != nil {
-			slog.Error("could not create (/) command", "command", c.Name, "error", err)
+			slog.Error("could not create slash (/) command", "command", c.Name, "error", err)
 			return nil, err
 		}
-		slog.Info("registered", "command", c.Name)
+		slog.Info("registered", "command", c.Name, "guildId", guild)
 	}
-	slog.Info("all (/) commands attached")
-	bot.s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		if h, ok := handlers[i.ApplicationCommandData().Name]; ok {
-			h(s, i)
-		}
-	})
 	return commands, nil
 }
 
@@ -104,7 +112,7 @@ func (bot *Bot) RemoveSlashCommands(guild string) error {
 }
 
 func (bot *Bot) rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
+	slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name)
 	ctx := context.Background()
 	drafts, err := bot.db.Queries.GetActiveDrafts(ctx)
 	if err != nil {
@@ -173,132 +181,12 @@ func (bot *Bot) rollCivs(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 }
 
-//	func submitPicks(s *discordgo.Session, i *discordgo.InteractionCreate) {
-//		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-//			Type: discordgo.InteractionResponseChannelMessageWithSource,
-//			Data: &discordgo.InteractionResponseData{
-//				Content: "this is a pick field",
-//				Components: []discordgo.MessageComponent{
-//					discordgo.SelectMenu{
-//						MenuType:  discordgo.SelectMenuType(discordgo.SelectMenuComponent),
-//						MaxValues: 1,
-//						Disabled:  false,
-//						Options: []discordgo.SelectMenuOption{
-//							{
-//								Label:       "test1",
-//								Value:       "test1 val",
-//								Description: "test1 desc",
-//							},
-//						},
-//					},
-//				},
-//			},
-//		})
-//
-//		if err != nil {
-//			ReportError("error picking civs", err, s, i)
-//		}
-//	}
-//
-//	func players(s *discordgo.Session, i *discordgo.InteractionCreate) {
-//		slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
-//		users, err := db.Queries.GetUsers(context.Background())
-//		if err != nil {
-//			slog.Error("error getting players", "error", err)
-//			err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-//				Type: discordgo.InteractionResponseChannelMessageWithSource,
-//				Data: &discordgo.InteractionResponseData{
-//					Content: fmt.Sprintf("Error getting players: %s", err.Error()),
-//				},
-//			})
-//			if err != nil {
-//				slog.Error("error responding to user", "error", err)
-//			}
-//			return
-//		}
-//		var playerNames []string
-//		for _, p := range users {
-//			playerNames = append(playerNames, p.Name)
-//		}
-//		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-//			Type: discordgo.InteractionResponseChannelMessageWithSource,
-//			Data: &discordgo.InteractionResponseData{
-//				Content: fmt.Sprintf("Players eligible for draft: %s", strings.Join(playerNames, ", ")),
-//			},
-//		})
-//		if err != nil {
-//			slog.Error(err.Error())
-//		}
-//	}
-//
-//	func startDraft(s *discordgo.Session, i *discordgo.InteractionCreate) {
-//		slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
-//
-//		options := i.ApplicationCommandData().Options
-//		optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-//
-//		for _, opt := range options {
-//			optionMap[opt.Name] = opt
-//		}
-//
-//		strat := optionMap["draft-strategy"].StringValue()
-//
-//		if strat == "" {
-//			slog.Error("no strategy provided for draft - this should not be possible")
-//			return
-//		}
-//
-//		ds, err := db.Queries.GetDraftStrategy(context.Background(), strat)
-//
-//		if err != nil {
-//			ReportError("error fetching draft strategy", err, s, i)
-//			return
-//		}
-//
-//		actives, err := db.Queries.GetActiveDrafts(context.Background())
-//
-//		if err != nil {
-//			ReportError("error fetching active draft", err, s, i)
-//			return
-//		}
-//
-//		if len(actives) > 0 {
-//			err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-//				Type: discordgo.InteractionResponseChannelMessageWithSource,
-//				Data: &discordgo.InteractionResponseData{
-//					Content: "There is already an active draft. Please end it before starting a new one.",
-//				},
-//			})
-//			if err != nil {
-//				slog.Error("error responding to user", "error", err)
-//			}
-//			return
-//		}
-//
-//		draft, err := db.Queries.CreateDraft(context.Background(), ds.Name)
-//
-//		if err != nil {
-//			ReportError("error creating draft", err, s, i)
-//			return
-//		}
-//
-//		slog.Info("draft created", "draft", draft.ID, "strategy", ds.Name, "startedBy", i.Interaction.Member.User.Username)
-//		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-//			Type: discordgo.InteractionResponseChannelMessageWithSource,
-//			Data: &discordgo.InteractionResponseData{
-//				Content: fmt.Sprintf("Draft #%v %s started by user %s. %s", draft.ID, ds.Name, i.Interaction.Member.User.Username, ds.Description),
-//			},
-//		})
-//		if err != nil {
-//			slog.Error(err.Error())
-//		}
-//	}
 func basicCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	slog.Info("command received", "command", i.Interaction.ApplicationCommandData().Name)
+	slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name)
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Ci6ndex (Civ VI Index) is a bot for managing civ 6 drafts. Use /start-draft to start a draft, or /roll-civs to assign civs to players",
+			Content: "Ci6ndex (Civ VI Index) is a bot for managing civ 6 draft and game information.",
 		},
 	})
 	if err != nil {
@@ -306,24 +194,6 @@ func basicCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 }
 
-//	func ready(s *discordgo.Session, e *discordgo.Ready) {
-//		err := RemoveSlashCommands()
-//		if err != nil {
-//			slog.Error("could not remove slash commands", "error", err)
-//			os.Exit(1)
-//		}
-//		_, err = RegisterSlashCommands(s)
-//		if err != nil {
-//			slog.Error("could not attach slash commands", "error", err)
-//			os.Exit(1)
-//		}
-//
-//		err = s.UpdateGameStatus(0, "/ci6ndex")
-//		if err != nil {
-//			slog.Warn("could not update discord status on startup")
-//		}
-//		slog.Info("bot initialized and ready to receive events")
-//	}
 func (bot *Bot) reportError(msg string, err error, i *discordgo.InteractionCreate) {
 	slog.Error(msg, "error", err)
 	_, err = bot.s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
@@ -333,91 +203,3 @@ func (bot *Bot) reportError(msg string, err error, i *discordgo.InteractionCreat
 		slog.Error("error responding to user", "error", err)
 	}
 }
-
-//
-////
-////func StartBot() {
-////
-////	slog.Info("initializing discord bot...")
-////	disc, err := discordgo.New("Bot " + config.DiscordToken)
-////	if err != nil {
-////		slog.Error("could not start discord client, exiting", "error", err)
-////		os.Exit(1)
-////	}
-////
-////	disc.Identify.Intents = discordgo.IntentsGuildMessages
-////	disc.AddHandler(ready)
-////
-////	err = disc.Open()
-////
-////	if err != nil {
-////		slog.Error("could not open connection to discord, exiting", "error", err)
-////		os.Exit(1)
-////	}
-////}
-////
-////func DeleteDiscordCommands(w http.ResponseWriter, req *http.Request) {
-////	err := RemoveSlashCommands()
-////	if err != nil {
-////		var derr *discordgo.RESTError
-////		if errors.As(err, &derr) {
-////			if derr.Response.StatusCode == 404 {
-////				w.WriteHeader(http.StatusNotFound)
-////				_ = json.NewEncoder(w).Encode("could not find commands for guild")
-////				return
-////			}
-////			w.WriteHeader(http.StatusInternalServerError)
-////			_ = json.NewEncoder(w).Encode(derr)
-////		} else {
-////			w.WriteHeader(http.StatusInternalServerError)
-////			_ = json.NewEncoder(w).Encode(err)
-////		}
-////		return
-////	}
-////
-////	w.WriteHeader(http.StatusOK)
-////	err = json.NewEncoder(w).Encode("successfully deleted commands")
-////}
-////
-////func InitializeDiscordCommands(w http.ResponseWriter, req *http.Request) {
-////	ccmds, err := RegisterSlashCommands(disc)
-////	if err != nil {
-////		w.WriteHeader(http.StatusInternalServerError)
-////		_ = json.NewEncoder(w).Encode(errors.Join(errors.New("could not attach slash commands"), err))
-////	}
-////	w.WriteHeader(http.StatusOK)
-////	err = json.NewEncoder(w).Encode(ccmds)
-////	if err != nil {
-////		w.WriteHeader(http.StatusInternalServerError)
-////	}
-////
-////}
-////
-////func GetDiscordCommands(w http.ResponseWriter, req *http.Request) {
-////	commands, err := disc.ApplicationCommands(config.BotApplicationID, "")
-////	if err != nil {
-////		var derr *discordgo.RESTError
-////		if errors.As(err, &derr) {
-////			if derr.Response.StatusCode == 404 {
-////				w.WriteHeader(http.StatusNotFound)
-////				_ = json.NewEncoder(w).Encode("could not find commands for guild")
-////				return
-////			}
-////			w.WriteHeader(http.StatusInternalServerError)
-////			_ = json.NewEncoder(w).Encode(derr)
-////		} else {
-////			w.WriteHeader(http.StatusInternalServerError)
-////			_ = json.NewEncoder(w).Encode(err)
-////		}
-////		return
-////	}
-////
-////	err = json.NewEncoder(w).Encode(commands)
-////	w.WriteHeader(http.StatusOK)
-////	if err != nil {
-////		w.WriteHeader(http.StatusInternalServerError)
-////		_ = json.NewEncoder(w).Encode(err)
-////		return
-////	}
-////
-////}

@@ -29,6 +29,7 @@ func getDraftHandlers(db *internal.DatabaseOperations, config *internal.AppConfi
 
 func getActiveDraftHandler(db *internal.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name)
 		drafts, err := db.Queries.GetActiveDrafts(context.Background())
 		if err != nil {
 			err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

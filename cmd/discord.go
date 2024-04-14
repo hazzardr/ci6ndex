@@ -59,23 +59,35 @@ var slashCommands = &cobra.Command{
 	},
 }
 
-var removeCmd = &cobra.Command{
-	Use:   "remove",
-	Short: "remove all slash commands from the discord bot",
-	Run:   removeCommandsFunc,
+var refreshCmd = &cobra.Command{
+	Use:   "refresh",
+	Short: "refresh all slash commands from the discord bot.",
+	Long: `
+This command will refresh all slash commands registered for the bot. 
+By default, this will apply globally, but you can specify a guild ID to 
+apply to a specific guild. This is required if you change the *commands*,
+but not the handlers.
+`,
+	Run: refreshCommandsFunc,
 }
 
-func removeCommandsFunc(cmd *cobra.Command, args []string) {
+func refreshCommandsFunc(cmd *cobra.Command, args []string) {
 	bot, err := discord.NewBot(db, config)
 	if err != nil {
-		slog.Error("Error creating discord bot", "error", err)
+		slog.Error("error creating discord bot", "guildId", guildId, "error", err)
 		return
 	}
 	err = bot.RemoveSlashCommands(guildId)
 	if err != nil {
-		slog.Error("Error removing slashCommands", "error", err)
+		slog.Error("error removing slash (/) commands", "guildId", guildId, "error", err)
 		return
 	}
+	_, err = bot.RegisterSlashCommands(guildId)
+	if err != nil {
+		slog.Error("error registering slash (/) commands", "error", err)
+		return
+	}
+	slog.Info("successfully registered commands")
 }
 
 func init() {
@@ -83,9 +95,9 @@ func init() {
 	discordCmd.AddCommand(startBot)
 	discordCmd.AddCommand(slashCommands)
 
-	slashCommands.AddCommand(removeCmd)
+	slashCommands.AddCommand(refreshCmd)
 
-	removeCmd.Flags().StringVarP(&guildId, "guild-id", "g", "",
+	refreshCmd.Flags().StringVarP(&guildId, "guild-id", "g", "",
 		"Which guild to apply commands for. Defaults to global.")
 
 }
