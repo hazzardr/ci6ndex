@@ -34,7 +34,7 @@ func getRollCivsHandler(db *internal.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
 		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: "Rolling Civs. This may take a few seconds!",
 				Flags:   discordgo.MessageFlagsEphemeral,
@@ -53,14 +53,6 @@ func getRollCivsHandler(db *internal.DatabaseOperations) CommandHandler {
 		var activeDraft domain.Ci6ndexDraft
 
 		if len(drafts) == 0 {
-			_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: "There is no active draft. Roll will not be attached to a game...",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			})
-			if err != nil {
-				slog.Error("error responding to user", "error", err)
-			}
-
 			// dummy draft as a default
 			activeDraft, err = db.Queries.GetDraft(ctx, -1)
 			if err != nil {
@@ -77,15 +69,6 @@ func getRollCivsHandler(db *internal.DatabaseOperations) CommandHandler {
 		}
 
 		if len(drafts) == 1 {
-			_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: "Rolled civs will be attached to the active draft...",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			})
-
-			if err != nil {
-				slog.Error("error responding to user", "error", err)
-			}
-
 			activeDraft = drafts[0]
 		}
 		leaders, err := db.Queries.GetLeaders(ctx)
@@ -104,7 +87,6 @@ func getRollCivsHandler(db *internal.DatabaseOperations) CommandHandler {
 
 		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: fmt.Sprintf("The following picks were rolled: %v", offers),
-			Flags:   discordgo.MessageFlagsEphemeral,
 		})
 
 		if err != nil {

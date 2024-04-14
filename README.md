@@ -20,5 +20,5 @@ This repository is a tool for managing our weekly civ 6 games. Features include:
 
 ```
 source .env
-make build && run
+make build bot
 ```

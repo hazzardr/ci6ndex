@@ -18,6 +18,7 @@ var (
 
 type Bot struct {
 	s      *discordgo.Session
+	mb     *MessageBuilder
 	db     *internal.DatabaseOperations
 	config *internal.AppConfig
 }
@@ -31,7 +32,9 @@ func NewBot(db *internal.DatabaseOperations, config *internal.AppConfig) (*Bot, 
 	}
 
 	s.Identify.Intents = discordgo.IntentsGuildMessages
+
 	return &Bot{
+		mb:     NewDiscTemplate(),
 		s:      s,
 		db:     db,
 		config: config,

@@ -69,8 +69,7 @@ func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string,
 }
 
 func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
-	slog.Info("rolling civs for players", "players", c.Players, "strategy", c.DraftStrategy.Name)
-	slog.Info("banned leaders", "permaBanned", PermaBannedLeaders)
+	slog.Debug("banned leaders", "permaBanned", PermaBannedLeaders)
 
 	fullPool := make([]domain.Ci6ndexLeader, 0)
 	for _, leader := range c.Leaders {
