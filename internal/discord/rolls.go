@@ -5,7 +5,6 @@ import (
 	"ci6ndex/internal"
 	"context"
 	"errors"
-	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"log/slog"
 )
@@ -85,8 +84,13 @@ func getRollCivsHandler(db *internal.DatabaseOperations, mb *MessageBuilder) Com
 			return
 		}
 
+		content, err := mb.WriteDraftInfo(RollCivs.Name, offers)
+		if err != nil {
+			reportError("Error writing discord message", err, s, i, true)
+			return
+		}
 		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: fmt.Sprintf("The following picks were rolled: %v", offers),
+			Content: content,
 		})
 
 		if err != nil {

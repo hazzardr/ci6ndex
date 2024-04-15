@@ -3,6 +3,4 @@
 {{range .}}
 ### {{.User}}
 {{range .Leaders}}
-- **{{.LeaderName}}** 
-{{end}}
-{{end}}
+- {{.LeaderName}} {{end}} {{end}}
