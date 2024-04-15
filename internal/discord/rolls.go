@@ -84,7 +84,7 @@ func getRollCivsHandler(db *internal.DatabaseOperations, mb *MessageBuilder) Com
 			return
 		}
 
-		content, err := mb.WriteDraftInfo(RollCivs.Name, offers)
+		content, err := mb.WriteDraftOfferings(RollCivs.Name, offers)
 		if err != nil {
 			reportError("Error writing discord message", err, s, i, true)
 			return

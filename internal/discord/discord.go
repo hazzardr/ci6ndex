@@ -48,15 +48,22 @@ func (bot *Bot) Start() error {
 
 	handlers := make(map[string]CommandHandler)
 	handlers[Ci6ndexCommand.Name] = basicCommand
-	for name, h := range getDraftHandlers(bot.db) {
+	for name, h := range getDraftHandlers(bot.db, bot.mb) {
 		handlers[name] = h
 	}
 	for name, h := range getRollCivsHandlers(bot.db, bot.mb) {
 		handlers[name] = h
 	}
 	bot.s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		if h, ok := handlers[i.ApplicationCommandData().Name]; ok {
-			h(s, i)
+		switch i.Type {
+		case discordgo.InteractionApplicationCommand:
+			if h, ok := handlers[i.ApplicationCommandData().Name]; ok {
+				h(s, i)
+			}
+		case discordgo.InteractionMessageComponent:
+			if h, ok := handlers[i.MessageComponentData().CustomID]; ok {
+				h(s, i)
+			}
 		}
 	})
 	err := bot.s.Open()
