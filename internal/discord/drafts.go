@@ -1,11 +1,15 @@
 package discord
 
 import (
+	"ci6ndex/domain"
 	"ci6ndex/internal"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
+	"github.com/jackc/pgx/v5/pgtype"
 	"log/slog"
+	"time"
 )
 
 var (
@@ -21,7 +25,9 @@ var (
 
 	CreateDraftSelectPlayersId  = "create-draft-select-player"
 	CreateDraftSelectStrategyId = "create-draft-select-strategy"
+	CreateDraftLaunchModalId    = "create-draft-launch-modal-button"
 	CreateDraftConfirmButtonId  = "create-draft-confirm-button"
+	CreateDraftCancelButtonId   = "create-draft-cancel-button"
 )
 
 func getDraftCommands() []*discordgo.ApplicationCommand {
@@ -35,9 +41,11 @@ func getDraftHandlers(db *internal.DatabaseOperations, mb *MessageBuilder) map[s
 	handlers := make(map[string]CommandHandler)
 	handlers[GetActiveDraftCommand.Name] = getActiveDraftHandler(db)
 	handlers[PromptCreateDraftCommand.Name] = createDraftHandler(db)
-	handlers[CreateDraftSelectPlayersId] = handlePlayerPickerInteraction()
+	handlers[CreateDraftSelectPlayersId] = handlePlayerPickerInteraction(db)
 	handlers[CreateDraftSelectStrategyId] = handleDraftStrategyPickerInteraction()
-	handlers[CreateDraftConfirmButtonId] = handleCreateDraftButtonInteraction(mb)
+	handlers[CreateDraftLaunchModalId] = handleCreateDraftLaunchModalInteraction(db, mb)
+	handlers[CreateDraftConfirmButtonId] = handleCreateDraftConfirmInteraction(db, mb)
+	handlers[CreateDraftCancelButtonId] = handleCreateDraftCancelInteraction()
 	return handlers
 }
 
@@ -80,14 +88,33 @@ func createDraftHandler(db *internal.DatabaseOperations) CommandHandler {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
 		minPlayersAllowed := 1
 		maxPlayersAllowed := 12
+		ctx := context.Background()
 
-		strategies, err := db.Queries.GetDraftStrategies(context.Background())
+		drafts, err := db.Queries.GetActiveDrafts(ctx)
+		if err != nil {
+			reportError("error checking active drafts", err, s, i, false)
+		}
+		if len(drafts) > 0 {
+			err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "There is already an active draft! Cannot create a new one.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			if err != nil {
+				slog.Error("failed to respond to interaction", "i", i.Interaction, "error", err)
+			}
+			return
+		}
+		strategies, err := db.Queries.GetDraftStrategies(ctx)
 		if err != nil {
 			reportError("could not fetch draft strategies for discord interaciton", err, s, i, false)
 		}
 		stratMenuOptions := make([]discordgo.SelectMenuOption, 0, len(strategies))
+		defaultStrat := "RandomPickNoRepeats"
 		for _, s := range strategies {
-			if s.Name != "RandomPickNoRepeats" {
+			if s.Name != defaultStrat {
 				stratMenuOptions = append(stratMenuOptions, discordgo.SelectMenuOption{
 					Label: s.Name,
 					Value: s.Name,
@@ -99,6 +126,30 @@ func createDraftHandler(db *internal.DatabaseOperations) CommandHandler {
 					Default: true,
 				})
 			}
+		}
+
+		d, err := db.Queries.CreateActiveDraft(ctx, defaultStrat)
+		if err != nil {
+			reportError("error creating draft", err, s, i, false)
+		}
+
+		est, err := time.LoadLocation("America/New_York")
+		if err != nil {
+			reportError("error loading timezone", err, s, i, false)
+		}
+
+		// Convert current time to EST timezone
+		nowInEST := time.Now().In(est)
+		defaultDate := pgtype.Date{
+			Valid: true,
+			Time:  nowInEST,
+		}
+		_, err = db.Queries.CreateGameFromDraft(ctx, domain.CreateGameFromDraftParams{
+			DraftID:   d.ID,
+			StartDate: defaultDate,
+		})
+		if err != nil {
+			reportError("error scaffolding game", err, s, i, false)
 		}
 		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -129,7 +180,7 @@ func createDraftHandler(db *internal.DatabaseOperations) CommandHandler {
 					discordgo.ActionsRow{
 						Components: []discordgo.MessageComponent{
 							discordgo.Button{
-								CustomID: CreateDraftConfirmButtonId,
+								CustomID: CreateDraftLaunchModalId,
 								Style:    discordgo.PrimaryButton,
 								Label:    "Start Draft",
 							},
@@ -144,7 +195,7 @@ func createDraftHandler(db *internal.DatabaseOperations) CommandHandler {
 	}
 }
 
-func handlePlayerPickerInteraction() CommandHandler {
+func handlePlayerPickerInteraction(db *internal.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "messageComponentId", i.Interaction.MessageComponentData().CustomID, "interactionId", i.ID)
 
@@ -152,7 +203,12 @@ func handlePlayerPickerInteraction() CommandHandler {
 		for _, p := range i.Interaction.MessageComponentData().Resolved.Users {
 			players = append(players, p.GlobalName)
 		}
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		_, err := db.Queries.AddPlayersToActiveDraft(context.Background(), players)
+		if err != nil {
+			reportError("error adding players to draft", err, s, i, false)
+		}
+
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseDeferredMessageUpdate,
 		})
 		if err != nil {
@@ -175,18 +231,105 @@ func handleDraftStrategyPickerInteraction() CommandHandler {
 	}
 }
 
-// TODO: update original message with template from mb
-func handleCreateDraftButtonInteraction(mb *MessageBuilder) CommandHandler {
+func handleCreateDraftLaunchModalInteraction(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "messageComponentId", i.Interaction.MessageComponentData().CustomID, "interactionId", i.ID)
-		strategy := i.Interaction.MessageComponentData().Values[0]
 
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		drafts, err := db.Queries.GetActiveDrafts(context.Background())
+		if err != nil {
+			reportError("error getting active draft", err, s, i, false)
+		}
+
+		var activeDraft domain.Ci6ndexDraft
+
+		if len(drafts) > 1 || len(drafts) == 0 {
+			msg := "error: there should be exactly one active draft"
+			reportError(msg, errors.New(msg), s, i, false)
+			return
+		}
+
+		if len(drafts) == 1 {
+			activeDraft = drafts[0]
+		}
+
+		g, err := db.Queries.GetGameByDraftID(context.Background(), activeDraft.ID)
+		if err != nil {
+			reportError("error fetching game from active draft", err, s, i, false)
+		}
+		modalContents, err := mb.WriteConfirmDraft(CreateDraftLaunchModalId, activeDraft.Players, g.StartDate.Time.Format("01/02/06"))
+		if err != nil {
+			reportError("error writing draft confirmation message", err, s, i, false)
+		}
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseModal,
+			Data: &discordgo.InteractionResponseData{
+				CustomID: CreateDraftConfirmButtonId,
+				Title:    "Does this look right?",
+				Content:  modalContents,
+				Components: []discordgo.MessageComponent{
+					discordgo.ActionsRow{
+						Components: []discordgo.MessageComponent{
+							discordgo.Button{
+								CustomID: CreateDraftCancelButtonId,
+								Style:    discordgo.DangerButton,
+								Label:    "Cancel",
+							},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			slog.Error("failed to respond to interaction", "i", i.Interaction.ID, "error", err)
+		}
+	}
+}
+func handleCreateDraftConfirmInteraction(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slog.Info("event received", "messageComponentId", i.Interaction.MessageComponentData().CustomID, "interactionId", i.ID)
+
+		drafts, err := db.Queries.GetActiveDrafts(context.Background())
+		if err != nil {
+			reportError("error getting active draft", err, s, i, false)
+		}
+
+		var activeDraft domain.Ci6ndexDraft
+
+		if len(drafts) > 1 || len(drafts) == 0 {
+			msg := "error: there should be exactly one active draft"
+			reportError(msg, errors.New(msg), s, i, false)
+			return
+		}
+
+		if len(drafts) == 1 {
+			activeDraft = drafts[0]
+		}
+		g, err := db.Queries.GetGameByDraftID(context.Background(), activeDraft.ID)
+		if err != nil {
+			reportError("error fetching game from active draft", err, s, i, false)
+		}
+
+		if err != nil {
+			reportError("error finalizing draft", err, s, i, false)
+		}
+		displayMessage, err := mb.WriteConfirmDraft(CreateDraftLaunchModalId, activeDraft.Players, g.StartDate.Time.Format("01/02/06"))
+
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("Selected Strategy: %v", strategy),
-				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: displayMessage,
 			},
+		})
+		if err != nil {
+			slog.Error("failed to respond to interaction", "i", i.Interaction.ID, "error", err)
+		}
+	}
+}
+func handleCreateDraftCancelInteraction() CommandHandler {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slog.Info("event received", "messageComponentId", i.Interaction.MessageComponentData().CustomID, "interactionId", i.ID)
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
 		})
 		if err != nil {
 			slog.Error("failed to respond to interaction", "i", i.Interaction.ID, "error", err)

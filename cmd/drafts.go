@@ -174,16 +174,11 @@ func rollCivs(cmd *cobra.Command, args []string) {
 			slog.Error("Error fetching draft strategy", "draftId", d.ID, "error", err)
 			return
 		}
-		players, err := db.Queries.GetPlayersForDraft(ctx, d.ID)
 		if err != nil {
 			slog.Error("Error fetching players for draft", "draftId", d.ID, "error", err)
 			return
 		}
-		pNames := make([]string, len(players))
-		for i, p := range players {
-			pNames[i] = p.DiscordName
-		}
-		shuffler = internal.NewCivShuffler(ls, pNames, ds, db)
+		shuffler = internal.NewCivShuffler(ls, d.Players, ds, db)
 	} else {
 		if draftStrategy == "" {
 			slog.Error("No draft strategy provided")

@@ -100,6 +100,21 @@ INSERT INTO ci6ndex.drafts
 )
 RETURNING *;
 
+-- name: CreateActiveDraft :one
+INSERT INTO ci6ndex.drafts
+(
+    draft_strategy, active
+) VALUES (
+    $1, true
+)
+RETURNING *;
+
+-- name: AddPlayersToActiveDraft :one
+UPDATE ci6ndex.drafts
+SET players = $1
+where active=true
+RETURNING *;
+
 -- name: GetDraft :one
 SELECT * FROM ci6ndex.drafts
 WHERE id = $1
@@ -155,10 +170,18 @@ AND ci6ndex.draft_picks.draft_id IN (
     ORDER BY ci6ndex.games.start_date DESC LIMIT $2
 );
 
--- name: GetPlayersForDraft :many
-SELECT * FROM ci6ndex.users where discord_name in (
-    SELECT players FROM ci6ndex.games where draft_id = $1
-);
+-- name: CreateGameFromDraft :one
+INSERT INTO ci6ndex.games
+(
+    draft_id, start_date
+) VALUES (
+    $1, $2
+)
+RETURNING *;
+
+-- name: GetGameByDraftID :one
+SELECT * FROM ci6ndex.games
+WHERE draft_id = $1;
 
 -- name: WipeTables :exec
 DO $$

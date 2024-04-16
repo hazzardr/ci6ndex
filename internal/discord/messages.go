@@ -9,8 +9,8 @@ import (
 
 var (
 	templates = map[string]string{
-		RollCivs.Name:              "./templates/discord/rolls.md",
-		CreateDraftConfirmButtonId: "./templates/discord/start-draft.md",
+		RollCivs.Name:            "./templates/discord/rolls.md",
+		CreateDraftLaunchModalId: "./templates/discord/start-draft.md",
 	}
 )
 

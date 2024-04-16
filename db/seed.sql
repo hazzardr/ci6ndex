@@ -2,10 +2,10 @@ DELETE FROM ci6ndex.draft_picks cascade;
 DELETE FROM ci6ndex.rankings cascade;
 DELETE FROM ci6ndex.leaders cascade;
 
-INSERT INTO ci6ndex.leaders (civ_name, leader_name)
+INSERT INTO ci6ndex.leaders (civ_name, leader_name, discord_emoji_string, banned)
 VALUES
-    ('AMERICA', 'ABE'),
-    ('AMERICA', 'BULLMOOSE TEDDY'),
+    ('AMERICA', 'ABE','<:Abraham_Lincoln_Civ6:1229388680745975868>',true),
+    ('AMERICA', 'BULLMOOSE TEDDY','<:Teddy_Roosevelt_Civ6:1229393265988472924>',false),
     ('AMERICA', 'ROUGH RIDER TEDDY'),
     ('AMERICA', 'TEDDY'),
     ('ARABIA', 'SALADIN SULTAN'),

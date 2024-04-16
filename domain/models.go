@@ -43,11 +43,11 @@ type Ci6ndexGame struct {
 }
 
 type Ci6ndexLeader struct {
-	ID         int64
-	CivName    string
-	LeaderName string
-	IconUrl    pgtype.Text
-	Banned     bool
+	ID                 int64
+	CivName            string
+	LeaderName         string
+	DiscordEmojiString pgtype.Text
+	Banned             bool
 }
 
 type Ci6ndexOffered struct {

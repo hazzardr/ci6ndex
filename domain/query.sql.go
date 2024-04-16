@@ -11,6 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addPlayersToActiveDraft = `-- name: AddPlayersToActiveDraft :one
+UPDATE ci6ndex.drafts
+SET players = $1
+where active=true
+RETURNING id, draft_strategy, active, players
+`
+
+func (q *Queries) AddPlayersToActiveDraft(ctx context.Context, players []string) (Ci6ndexDraft, error) {
+	row := q.db.QueryRow(ctx, addPlayersToActiveDraft, players)
+	var i Ci6ndexDraft
+	err := row.Scan(
+		&i.ID,
+		&i.DraftStrategy,
+		&i.Active,
+		&i.Players,
+	)
+	return i, err
+}
+
 const clearOffered = `-- name: ClearOffered :exec
 TRUNCATE TABLE ci6ndex.offered
 `
@@ -18,6 +37,28 @@ TRUNCATE TABLE ci6ndex.offered
 func (q *Queries) ClearOffered(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, clearOffered)
 	return err
+}
+
+const createActiveDraft = `-- name: CreateActiveDraft :one
+INSERT INTO ci6ndex.drafts
+(
+    draft_strategy, active
+) VALUES (
+    $1, true
+)
+RETURNING id, draft_strategy, active, players
+`
+
+func (q *Queries) CreateActiveDraft(ctx context.Context, draftStrategy string) (Ci6ndexDraft, error) {
+	row := q.db.QueryRow(ctx, createActiveDraft, draftStrategy)
+	var i Ci6ndexDraft
+	err := row.Scan(
+		&i.ID,
+		&i.DraftStrategy,
+		&i.Active,
+		&i.Players,
+	)
+	return i, err
 }
 
 const createDraft = `-- name: CreateDraft :one
@@ -73,6 +114,34 @@ func (q *Queries) CreateDraftStrategy(ctx context.Context, arg CreateDraftStrate
 		&i.PoolSize,
 		&i.Randomize,
 		&i.Rules,
+	)
+	return i, err
+}
+
+const createGameFromDraft = `-- name: CreateGameFromDraft :one
+INSERT INTO ci6ndex.games
+(
+    draft_id, start_date
+) VALUES (
+    $1, $2
+)
+RETURNING id, draft_id, start_date, end_date, game_stats
+`
+
+type CreateGameFromDraftParams struct {
+	DraftID   int64
+	StartDate pgtype.Date
+}
+
+func (q *Queries) CreateGameFromDraft(ctx context.Context, arg CreateGameFromDraftParams) (Ci6ndexGame, error) {
+	row := q.db.QueryRow(ctx, createGameFromDraft, arg.DraftID, arg.StartDate)
+	var i Ci6ndexGame
+	err := row.Scan(
+		&i.ID,
+		&i.DraftID,
+		&i.StartDate,
+		&i.EndDate,
+		&i.GameStats,
 	)
 	return i, err
 }
@@ -338,8 +407,26 @@ func (q *Queries) GetDrafts(ctx context.Context) ([]Ci6ndexDraft, error) {
 	return items, nil
 }
 
+const getGameByDraftID = `-- name: GetGameByDraftID :one
+SELECT id, draft_id, start_date, end_date, game_stats FROM ci6ndex.games
+WHERE draft_id = $1
+`
+
+func (q *Queries) GetGameByDraftID(ctx context.Context, draftID int64) (Ci6ndexGame, error) {
+	row := q.db.QueryRow(ctx, getGameByDraftID, draftID)
+	var i Ci6ndexGame
+	err := row.Scan(
+		&i.ID,
+		&i.DraftID,
+		&i.StartDate,
+		&i.EndDate,
+		&i.GameStats,
+	)
+	return i, err
+}
+
 const getLeader = `-- name: GetLeader :one
-SELECT id, civ_name, leader_name, icon_url, banned FROM ci6ndex.leaders
+SELECT id, civ_name, leader_name, discord_emoji_string, banned FROM ci6ndex.leaders
          WHERE id = $1
          LIMIT 1
 `
@@ -351,14 +438,14 @@ func (q *Queries) GetLeader(ctx context.Context, id int64) (Ci6ndexLeader, error
 		&i.ID,
 		&i.CivName,
 		&i.LeaderName,
-		&i.IconUrl,
+		&i.DiscordEmojiString,
 		&i.Banned,
 	)
 	return i, err
 }
 
 const getLeaderByNameAndCiv = `-- name: GetLeaderByNameAndCiv :one
-SELECT id, civ_name, leader_name, icon_url, banned FROM ci6ndex.leaders
+SELECT id, civ_name, leader_name, discord_emoji_string, banned FROM ci6ndex.leaders
 WHERE leader_name = $1
 AND civ_name = $2
 LIMIT 1
@@ -376,14 +463,14 @@ func (q *Queries) GetLeaderByNameAndCiv(ctx context.Context, arg GetLeaderByName
 		&i.ID,
 		&i.CivName,
 		&i.LeaderName,
-		&i.IconUrl,
+		&i.DiscordEmojiString,
 		&i.Banned,
 	)
 	return i, err
 }
 
 const getLeaders = `-- name: GetLeaders :many
-SELECT id, civ_name, leader_name, icon_url, banned FROM ci6ndex.leaders
+SELECT id, civ_name, leader_name, discord_emoji_string, banned FROM ci6ndex.leaders
 `
 
 func (q *Queries) GetLeaders(ctx context.Context) ([]Ci6ndexLeader, error) {
@@ -399,35 +486,9 @@ func (q *Queries) GetLeaders(ctx context.Context) ([]Ci6ndexLeader, error) {
 			&i.ID,
 			&i.CivName,
 			&i.LeaderName,
-			&i.IconUrl,
+			&i.DiscordEmojiString,
 			&i.Banned,
 		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getPlayersForDraft = `-- name: GetPlayersForDraft :many
-SELECT id, discord_name, name FROM ci6ndex.users where discord_name in (
-    SELECT players FROM ci6ndex.games where draft_id = $1
-)
-`
-
-func (q *Queries) GetPlayersForDraft(ctx context.Context, draftID int64) ([]Ci6ndexUser, error) {
-	rows, err := q.db.Query(ctx, getPlayersForDraft, draftID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Ci6ndexUser
-	for rows.Next() {
-		var i Ci6ndexUser
-		if err := rows.Scan(&i.ID, &i.DiscordName, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

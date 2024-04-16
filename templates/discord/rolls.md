@@ -3,4 +3,4 @@
 {{range .}}
 ### {{.User}}
 {{range .Leaders}}
-- {{.LeaderName}} {{end}} {{end}}
+- {{if eq .DiscordEmojiString.Valid true}}{{.DiscordEmojiString.String}} {{end}}{{.LeaderName}} {{end}} {{end}}
