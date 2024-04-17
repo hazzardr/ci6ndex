@@ -53,7 +53,7 @@ type Ci6ndexLeader struct {
 type Ci6ndexOffered struct {
 	UserID  int64
 	DraftID int64
-	Offered []byte
+	Offered []int64
 }
 
 type Ci6ndexRanking struct {

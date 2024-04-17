@@ -30,6 +30,38 @@ func (q *Queries) AddPlayersToActiveDraft(ctx context.Context, players []string)
 	return i, err
 }
 
+const cancelActiveDrafts = `-- name: CancelActiveDrafts :many
+UPDATE ci6ndex.drafts
+SET active = false
+WHERE active = true
+RETURNING id, draft_strategy, active, players
+`
+
+func (q *Queries) CancelActiveDrafts(ctx context.Context) ([]Ci6ndexDraft, error) {
+	rows, err := q.db.Query(ctx, cancelActiveDrafts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ci6ndexDraft
+	for rows.Next() {
+		var i Ci6ndexDraft
+		if err := rows.Scan(
+			&i.ID,
+			&i.DraftStrategy,
+			&i.Active,
+			&i.Players,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const clearOffered = `-- name: ClearOffered :exec
 TRUNCATE TABLE ci6ndex.offered
 `
@@ -671,7 +703,7 @@ RETURNING user_id, draft_id, offered
 type WriteOfferedParams struct {
 	DraftID int64
 	UserID  int64
-	Offered []byte
+	Offered []int64
 }
 
 func (q *Queries) WriteOffered(ctx context.Context, arg WriteOfferedParams) (Ci6ndexOffered, error) {

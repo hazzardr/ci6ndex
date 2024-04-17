@@ -97,7 +97,7 @@ CREATE TABLE ci6ndex.offered
 (
     user_id BIGINT NOT NULL,
     draft_id BIGINT NOT NULL,
-    offered JSONB,
+    offered BIGINT[],
     PRIMARY KEY (user_id, draft_id)
 );
 

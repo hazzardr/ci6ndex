@@ -9,8 +9,9 @@ import (
 
 var (
 	templates = map[string]string{
-		RollCivs.Name:            "./templates/discord/rolls.md",
-		CreateDraftLaunchModalId: "./templates/discord/start-draft.md",
+		RollCivs.Name:              "./templates/discord/rolls.md",
+		CreateDraftConfirmId:       "./templates/discord/start-draft.md",
+		CheckActiveDraftCommand.ID: "./templates/discord/get-active-draft.md",
 	}
 )
 
@@ -21,6 +22,12 @@ type MessageBuilder struct {
 type DraftStartProps struct {
 	Players []string
 	Date    string
+}
+
+type GetActiveDraftProps struct {
+	Players   []string
+	NoPickYet []string
+	Date      string
 }
 
 // NewDiscTemplate Parse all disc message templates to be usable
@@ -54,6 +61,21 @@ func (mb *MessageBuilder) WriteConfirmDraft(cmdName string, players []string, da
 		Players: players,
 		Date:    date,
 	})
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func (mb *MessageBuilder) WriteActiveDraft(cmdName string, players []string, noPickYet []string, date string) (string, error) {
+	tmplName := filepath.Base(templates[cmdName])
+	var buf bytes.Buffer
+	draft := &GetActiveDraftProps{
+		Players:   players,
+		NoPickYet: noPickYet,
+		Date:      date,
+	}
+	err := mb.tmpl.ExecuteTemplate(&buf, tmplName, draft)
 	if err != nil {
 		return "", err
 	}

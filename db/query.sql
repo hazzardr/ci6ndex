@@ -127,6 +127,12 @@ SELECT * FROM ci6ndex.drafts;
 SELECT * FROM ci6ndex.drafts
 WHERE active = true;
 
+-- name: CancelActiveDrafts :many
+UPDATE ci6ndex.drafts
+SET active = false
+WHERE active = true
+RETURNING *;
+
 -- name: SubmitDraftPick :one
 INSERT INTO ci6ndex.draft_picks
 (

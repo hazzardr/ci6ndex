@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	GetActiveDraftCommand = &discordgo.ApplicationCommand{
+	CheckActiveDraftCommand = &discordgo.ApplicationCommand{
 		Name:        "get-active-draft",
 		Description: "Gets details of the active draft, if there is one",
 	}
@@ -23,33 +23,36 @@ var (
 		Description: "Creates a draft, if no active draft already exists.",
 	}
 
+	CancelAllActiveDraftsCommand = &discordgo.ApplicationCommand{
+		Name:        "cancel-all-active-drafts",
+		Description: "Sets all drafts to inactive in the database",
+	}
+
 	CreateDraftSelectPlayersId  = "create-draft-select-player"
 	CreateDraftSelectStrategyId = "create-draft-select-strategy"
-	CreateDraftLaunchModalId    = "create-draft-launch-modal-button"
-	CreateDraftConfirmButtonId  = "create-draft-confirm-button"
-	CreateDraftCancelButtonId   = "create-draft-cancel-button"
+	CreateDraftConfirmId        = "create-draft-confirm-button"
 )
 
 func getDraftCommands() []*discordgo.ApplicationCommand {
 	cmds := make([]*discordgo.ApplicationCommand, 0)
-	cmds = append(cmds, GetActiveDraftCommand)
+	cmds = append(cmds, CheckActiveDraftCommand)
 	cmds = append(cmds, PromptCreateDraftCommand)
+	cmds = append(cmds, CancelAllActiveDraftsCommand)
 	return cmds
 }
 
 func getDraftHandlers(db *internal.DatabaseOperations, mb *MessageBuilder) map[string]CommandHandler {
 	handlers := make(map[string]CommandHandler)
-	handlers[GetActiveDraftCommand.Name] = getActiveDraftHandler(db)
+	handlers[CheckActiveDraftCommand.Name] = getActiveDraftHandler(db, mb)
 	handlers[PromptCreateDraftCommand.Name] = createDraftHandler(db)
+	handlers[CancelAllActiveDraftsCommand.Name] = handleCancelDraftsCommand(db)
 	handlers[CreateDraftSelectPlayersId] = handlePlayerPickerInteraction(db)
 	handlers[CreateDraftSelectStrategyId] = handleDraftStrategyPickerInteraction()
-	handlers[CreateDraftLaunchModalId] = handleCreateDraftLaunchModalInteraction(db, mb)
-	handlers[CreateDraftConfirmButtonId] = handleCreateDraftConfirmInteraction(db, mb)
-	handlers[CreateDraftCancelButtonId] = handleCreateDraftCancelInteraction()
+	handlers[CreateDraftConfirmId] = handleCreateDraftConfirmInteraction(db, mb)
 	return handlers
 }
 
-func getActiveDraftHandler(db *internal.DatabaseOperations) CommandHandler {
+func getActiveDraftHandler(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name)
 		drafts, err := db.Queries.GetActiveDrafts(context.Background())
@@ -180,7 +183,7 @@ func createDraftHandler(db *internal.DatabaseOperations) CommandHandler {
 					discordgo.ActionsRow{
 						Components: []discordgo.MessageComponent{
 							discordgo.Button{
-								CustomID: CreateDraftLaunchModalId,
+								CustomID: CreateDraftConfirmId,
 								Style:    discordgo.PrimaryButton,
 								Label:    "Start Draft",
 							},
@@ -231,59 +234,6 @@ func handleDraftStrategyPickerInteraction() CommandHandler {
 	}
 }
 
-func handleCreateDraftLaunchModalInteraction(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
-	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		slog.Info("event received", "messageComponentId", i.Interaction.MessageComponentData().CustomID, "interactionId", i.ID)
-
-		drafts, err := db.Queries.GetActiveDrafts(context.Background())
-		if err != nil {
-			reportError("error getting active draft", err, s, i, false)
-		}
-
-		var activeDraft domain.Ci6ndexDraft
-
-		if len(drafts) > 1 || len(drafts) == 0 {
-			msg := "error: there should be exactly one active draft"
-			reportError(msg, errors.New(msg), s, i, false)
-			return
-		}
-
-		if len(drafts) == 1 {
-			activeDraft = drafts[0]
-		}
-
-		g, err := db.Queries.GetGameByDraftID(context.Background(), activeDraft.ID)
-		if err != nil {
-			reportError("error fetching game from active draft", err, s, i, false)
-		}
-		modalContents, err := mb.WriteConfirmDraft(CreateDraftLaunchModalId, activeDraft.Players, g.StartDate.Time.Format("01/02/06"))
-		if err != nil {
-			reportError("error writing draft confirmation message", err, s, i, false)
-		}
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseModal,
-			Data: &discordgo.InteractionResponseData{
-				CustomID: CreateDraftConfirmButtonId,
-				Title:    "Does this look right?",
-				Content:  modalContents,
-				Components: []discordgo.MessageComponent{
-					discordgo.ActionsRow{
-						Components: []discordgo.MessageComponent{
-							discordgo.Button{
-								CustomID: CreateDraftCancelButtonId,
-								Style:    discordgo.DangerButton,
-								Label:    "Cancel",
-							},
-						},
-					},
-				},
-			},
-		})
-		if err != nil {
-			slog.Error("failed to respond to interaction", "i", i.Interaction.ID, "error", err)
-		}
-	}
-}
 func handleCreateDraftConfirmInteraction(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "messageComponentId", i.Interaction.MessageComponentData().CustomID, "interactionId", i.ID)
@@ -304,7 +254,6 @@ func handleCreateDraftConfirmInteraction(db *internal.DatabaseOperations, mb *Me
 		if len(drafts) == 1 {
 			activeDraft = drafts[0]
 		}
-		g, err := db.Queries.GetGameByDraftID(context.Background(), activeDraft.ID)
 		if err != nil {
 			reportError("error fetching game from active draft", err, s, i, false)
 		}
@@ -312,12 +261,12 @@ func handleCreateDraftConfirmInteraction(db *internal.DatabaseOperations, mb *Me
 		if err != nil {
 			reportError("error finalizing draft", err, s, i, false)
 		}
-		displayMessage, err := mb.WriteConfirmDraft(CreateDraftLaunchModalId, activeDraft.Players, g.StartDate.Time.Format("01/02/06"))
-
+		//displayMessage, err := mb.WriteConfirmDraft(CreateDraftConfirmId, activeDraft.Players)
+		_ = activeDraft.Players
 		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
-				Content: displayMessage,
+				Content: "displayMessage",
 			},
 		})
 		if err != nil {
@@ -325,11 +274,21 @@ func handleCreateDraftConfirmInteraction(db *internal.DatabaseOperations, mb *Me
 		}
 	}
 }
-func handleCreateDraftCancelInteraction() CommandHandler {
+
+func handleCancelDraftsCommand(db *internal.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		slog.Info("event received", "messageComponentId", i.Interaction.MessageComponentData().CustomID, "interactionId", i.ID)
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		slog.Info("event received", "messageComponentId", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
+		_, err := db.Queries.CancelActiveDrafts(context.Background())
+		if err != nil {
+			reportError("unable to cancel drafts", err, s, i, false)
+			return
+		}
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Successfully cancelled drafts.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
 		})
 		if err != nil {
 			slog.Error("failed to respond to interaction", "i", i.Interaction.ID, "error", err)
