@@ -64,6 +64,10 @@ func (bot *Bot) Start() error {
 			if h, ok := handlers[i.MessageComponentData().CustomID]; ok {
 				h(s, i)
 			}
+		case discordgo.InteractionModalSubmit:
+			if h, ok := handlers[i.ModalSubmitData().CustomID]; ok {
+				h(s, i)
+			}
 		}
 	})
 	err := bot.s.Open()

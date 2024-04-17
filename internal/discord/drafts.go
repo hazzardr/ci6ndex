@@ -5,7 +5,6 @@ import (
 	"ci6ndex/internal"
 	"context"
 	"errors"
-	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/jackc/pgx/v5/pgtype"
 	"log/slog"
@@ -31,6 +30,7 @@ var (
 	CreateDraftSelectPlayersId  = "create-draft-select-player"
 	CreateDraftSelectStrategyId = "create-draft-select-strategy"
 	CreateDraftConfirmId        = "create-draft-confirm-button"
+	CreateDraftFinalizeId       = "create-draft-finalize-button"
 )
 
 func getDraftCommands() []*discordgo.ApplicationCommand {
@@ -48,7 +48,8 @@ func getDraftHandlers(db *internal.DatabaseOperations, mb *MessageBuilder) map[s
 	handlers[CancelAllActiveDraftsCommand.Name] = handleCancelDraftsCommand(db)
 	handlers[CreateDraftSelectPlayersId] = handlePlayerPickerInteraction(db)
 	handlers[CreateDraftSelectStrategyId] = handleDraftStrategyPickerInteraction()
-	handlers[CreateDraftConfirmId] = handleCreateDraftConfirmInteraction(db, mb)
+	handlers[CreateDraftConfirmId] = handleCreateDraftConfirmInteraction(db)
+	handlers[CreateDraftFinalizeId] = handleCreateDraftFinalizeInteraction(db, mb)
 	return handlers
 }
 
@@ -73,12 +74,55 @@ func getActiveDraftHandler(db *internal.DatabaseOperations, mb *MessageBuilder) 
 			}
 			return
 		}
+
 		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("The active draft id is %d", drafts[0].ID),
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		})
+		active := drafts[0]
+
+		users, err := db.Queries.GetUsers(context.Background())
+		if err != nil {
+			reportError("error fetching users", err, s, i, true)
+			return
+		}
+		picks, err := db.Queries.GetDraftPicksForDraft(context.Background(), active.ID)
+		if err != nil {
+			reportError("error fetching picks", err, s, i, true)
+			return
+		}
+		alreadyPicked := make([]string, 0)
+		for _, p := range picks {
+			for _, u := range users {
+				if p.UserID == u.ID {
+					alreadyPicked = append(alreadyPicked, u.DiscordName)
+				}
+			}
+		}
+		notYetPicked := make([]string, 0)
+		for _, player := range active.Players {
+			found := false
+			for _, picked := range alreadyPicked {
+				if player == picked {
+					found = true
+					break
+				}
+			}
+			if !found {
+				notYetPicked = append(notYetPicked, player)
+			}
+		}
+		g, err := db.Queries.GetGameByDraftID(context.Background(), active.ID)
+		if err != nil {
+			reportError("error fetching game from draft", err, s, i, true)
+		}
+		display, err := mb.WriteActiveDraft(CheckActiveDraftCommand.ID, active.Players, notYetPicked, g.StartDate.Time.Format("2006-01-02"))
+		if err != nil {
+			reportError("error writing active draft message", err, s, i, true)
+			return
+		}
+
+		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: display,
 		})
 		if err != nil {
 			slog.Error("failed to respond to interaction", "i", i.Interaction, "error", err)
@@ -234,41 +278,31 @@ func handleDraftStrategyPickerInteraction() CommandHandler {
 	}
 }
 
-func handleCreateDraftConfirmInteraction(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
+func handleCreateDraftConfirmInteraction(db *internal.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "messageComponentId", i.Interaction.MessageComponentData().CustomID, "interactionId", i.ID)
 
-		drafts, err := db.Queries.GetActiveDrafts(context.Background())
-		if err != nil {
-			reportError("error getting active draft", err, s, i, false)
-		}
-
-		var activeDraft domain.Ci6ndexDraft
-
-		if len(drafts) > 1 || len(drafts) == 0 {
-			msg := "error: there should be exactly one active draft"
-			reportError(msg, errors.New(msg), s, i, false)
-			return
-		}
-
-		if len(drafts) == 1 {
-			activeDraft = drafts[0]
-		}
-		if err != nil {
-			reportError("error fetching game from active draft", err, s, i, false)
-		}
-
-		if err != nil {
-			reportError("error finalizing draft", err, s, i, false)
-		}
-		//displayMessage, err := mb.WriteConfirmDraft(CreateDraftConfirmId, activeDraft.Players)
-		_ = activeDraft.Players
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseModal,
 			Data: &discordgo.InteractionResponseData{
-				Content: "displayMessage",
+				CustomID: CreateDraftFinalizeId,
+				Title:    "New Draft",
+				Components: []discordgo.MessageComponent{
+					discordgo.ActionsRow{
+						Components: []discordgo.MessageComponent{
+							discordgo.TextInput{
+								CustomID:    "date-picker",
+								Label:       "When will the game take place?",
+								Style:       discordgo.TextInputShort,
+								Placeholder: "2023-01-02",
+								Required:    true,
+							},
+						},
+					},
+				},
 			},
 		})
+
 		if err != nil {
 			slog.Error("failed to respond to interaction", "i", i.Interaction.ID, "error", err)
 		}
@@ -293,5 +327,82 @@ func handleCancelDraftsCommand(db *internal.DatabaseOperations) CommandHandler {
 		if err != nil {
 			slog.Error("failed to respond to interaction", "i", i.Interaction.ID, "error", err)
 		}
+	}
+}
+
+func handleCreateDraftFinalizeInteraction(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slog.Info("event received", "messageComponentId", i.Interaction.ModalSubmitData().CustomID, "interactionId", i.ID)
+
+		response := i.Interaction.ModalSubmitData().Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+		t, err := time.Parse("2006-01-02", response)
+		if err != nil {
+			err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Invalid date format. Please use YYYY-MM-DD",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			if err != nil {
+				slog.Error("failed to respond to interaction", "i", i.Interaction.ID, "error", err)
+			}
+			return
+		}
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Finalizing draft...",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		if err != nil {
+			slog.Error("failed to respond to interaction", "i", i.Interaction, "error", err)
+			return
+		}
+		ctx := context.Background()
+
+		drafts, err := db.Queries.GetActiveDrafts(context.Background())
+		if err != nil {
+			reportError("error getting active draft", err, s, i, true)
+			return
+		}
+
+		var activeDraft domain.Ci6ndexDraft
+
+		if len(drafts) > 1 || len(drafts) == 0 {
+			msg := "error: there should be exactly one active draft"
+			reportError(msg, errors.New(msg), s, i, true)
+			return
+		}
+
+		if len(drafts) == 1 {
+			activeDraft = drafts[0]
+		}
+		if err != nil {
+			reportError("error fetching game from active draft", err, s, i, true)
+			return
+		}
+		err = db.Queries.UpdateGameFromDraftId(ctx, domain.UpdateGameFromDraftIdParams{
+			DraftID: activeDraft.ID,
+			StartDate: pgtype.Date{
+				Valid: true,
+				Time:  t,
+			},
+		})
+		if err != nil {
+			reportError("error updating game from draft", err, s, i, true)
+			return
+		}
+		displayMsg, err := mb.WriteConfirmDraft(CreateDraftConfirmId, activeDraft.Players, response)
+		if err != nil {
+			reportError("error writing draft confirmation message", err, s, i, true)
+			return
+		}
+
+		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: displayMsg,
+		})
+
 	}
 }

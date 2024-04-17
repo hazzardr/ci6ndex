@@ -136,11 +136,15 @@ RETURNING *;
 -- name: SubmitDraftPick :one
 INSERT INTO ci6ndex.draft_picks
 (
-    draft_id, leader_id, user_id, offered
+    draft_id, leader_id, user_id
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3
 )
 RETURNING *;
+
+-- name: GetDraftPicksForDraft :many
+SELECT * FROM ci6ndex.draft_picks
+WHERE draft_id = $1;
 
 -- name: WriteOffered :one
 INSERT INTO ci6ndex.offered
@@ -152,10 +156,14 @@ INSERT INTO ci6ndex.offered
 DO UPDATE SET offered = $3
 RETURNING *;
 
--- name: ReadOffered :one
+-- name: ReadOfferedForUser :one
 SELECT * FROM ci6ndex.offered
 WHERE draft_id = $1
   AND user_id = $2;
+
+-- name: ReadOffer :many
+SELECT * FROM ci6ndex.offered
+WHERE draft_id = $1;
 
 -- name: DeleteOffered :exec
 DELETE FROM ci6ndex.offered
@@ -188,6 +196,12 @@ RETURNING *;
 -- name: GetGameByDraftID :one
 SELECT * FROM ci6ndex.games
 WHERE draft_id = $1;
+
+-- name: UpdateGameFromDraftId :exec
+UPDATE ci6ndex.games
+SET start_date = $2
+WHERE draft_id = $1
+RETURNING *;
 
 -- name: WipeTables :exec
 DO $$

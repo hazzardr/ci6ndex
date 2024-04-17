@@ -61,14 +61,12 @@ CREATE TABLE ci6ndex.draft_picks
     draft_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
     leader_id BIGINT,
-    offered BIGINT[],
     PRIMARY KEY (id),
     CONSTRAINT drafts_fk FOREIGN KEY (draft_id) REFERENCES ci6ndex.drafts (id),
     CONSTRAINT users_fk FOREIGN KEY (user_id) REFERENCES ci6ndex.users (id),
     CONSTRAINT leaders_fk FOREIGN KEY (leader_id) REFERENCES ci6ndex.leaders (id)
 );
 
-COMMENT ON COLUMN ci6ndex.draft_picks.offered IS 'The civs that were offered to the user.';
 CREATE UNIQUE INDEX draft_picks_draft_id_user_id_uindex ON ci6ndex.draft_picks (draft_id, user_id);
 
 CREATE TABLE ci6ndex.games

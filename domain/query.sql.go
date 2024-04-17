@@ -318,8 +318,38 @@ func (q *Queries) GetDraft(ctx context.Context, id int64) (Ci6ndexDraft, error) 
 	return i, err
 }
 
+const getDraftPicksForDraft = `-- name: GetDraftPicksForDraft :many
+SELECT id, draft_id, user_id, leader_id FROM ci6ndex.draft_picks
+WHERE draft_id = $1
+`
+
+func (q *Queries) GetDraftPicksForDraft(ctx context.Context, draftID int64) ([]Ci6ndexDraftPick, error) {
+	rows, err := q.db.Query(ctx, getDraftPicksForDraft, draftID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ci6ndexDraftPick
+	for rows.Next() {
+		var i Ci6ndexDraftPick
+		if err := rows.Scan(
+			&i.ID,
+			&i.DraftID,
+			&i.UserID,
+			&i.LeaderID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getDraftPicksForUserFromLastNGames = `-- name: GetDraftPicksForUserFromLastNGames :many
-SELECT id, draft_id, user_id, leader_id, offered FROM ci6ndex.draft_picks
+SELECT id, draft_id, user_id, leader_id FROM ci6ndex.draft_picks
 WHERE user_id = (
     SELECT id FROM ci6ndex.users
     WHERE discord_name = $1
@@ -349,7 +379,6 @@ func (q *Queries) GetDraftPicksForUserFromLastNGames(ctx context.Context, arg Ge
 			&i.DraftID,
 			&i.UserID,
 			&i.LeaderID,
-			&i.Offered,
 		); err != nil {
 			return nil, err
 		}
@@ -617,19 +646,44 @@ func (q *Queries) GetUsers(ctx context.Context) ([]Ci6ndexUser, error) {
 	return items, nil
 }
 
-const readOffered = `-- name: ReadOffered :one
+const readOffer = `-- name: ReadOffer :many
+SELECT user_id, draft_id, offered FROM ci6ndex.offered
+WHERE draft_id = $1
+`
+
+func (q *Queries) ReadOffer(ctx context.Context, draftID int64) ([]Ci6ndexOffered, error) {
+	rows, err := q.db.Query(ctx, readOffer, draftID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ci6ndexOffered
+	for rows.Next() {
+		var i Ci6ndexOffered
+		if err := rows.Scan(&i.UserID, &i.DraftID, &i.Offered); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const readOfferedForUser = `-- name: ReadOfferedForUser :one
 SELECT user_id, draft_id, offered FROM ci6ndex.offered
 WHERE draft_id = $1
   AND user_id = $2
 `
 
-type ReadOfferedParams struct {
+type ReadOfferedForUserParams struct {
 	DraftID int64
 	UserID  int64
 }
 
-func (q *Queries) ReadOffered(ctx context.Context, arg ReadOfferedParams) (Ci6ndexOffered, error) {
-	row := q.db.QueryRow(ctx, readOffered, arg.DraftID, arg.UserID)
+func (q *Queries) ReadOfferedForUser(ctx context.Context, arg ReadOfferedForUserParams) (Ci6ndexOffered, error) {
+	row := q.db.QueryRow(ctx, readOfferedForUser, arg.DraftID, arg.UserID)
 	var i Ci6ndexOffered
 	err := row.Scan(&i.UserID, &i.DraftID, &i.Offered)
 	return i, err
@@ -638,36 +692,46 @@ func (q *Queries) ReadOffered(ctx context.Context, arg ReadOfferedParams) (Ci6nd
 const submitDraftPick = `-- name: SubmitDraftPick :one
 INSERT INTO ci6ndex.draft_picks
 (
-    draft_id, leader_id, user_id, offered
+    draft_id, leader_id, user_id
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3
 )
-RETURNING id, draft_id, user_id, leader_id, offered
+RETURNING id, draft_id, user_id, leader_id
 `
 
 type SubmitDraftPickParams struct {
 	DraftID  int64
 	LeaderID pgtype.Int8
 	UserID   int64
-	Offered  []int64
 }
 
 func (q *Queries) SubmitDraftPick(ctx context.Context, arg SubmitDraftPickParams) (Ci6ndexDraftPick, error) {
-	row := q.db.QueryRow(ctx, submitDraftPick,
-		arg.DraftID,
-		arg.LeaderID,
-		arg.UserID,
-		arg.Offered,
-	)
+	row := q.db.QueryRow(ctx, submitDraftPick, arg.DraftID, arg.LeaderID, arg.UserID)
 	var i Ci6ndexDraftPick
 	err := row.Scan(
 		&i.ID,
 		&i.DraftID,
 		&i.UserID,
 		&i.LeaderID,
-		&i.Offered,
 	)
 	return i, err
+}
+
+const updateGameFromDraftId = `-- name: UpdateGameFromDraftId :exec
+UPDATE ci6ndex.games
+SET start_date = $2
+WHERE draft_id = $1
+RETURNING id, draft_id, start_date, end_date, game_stats
+`
+
+type UpdateGameFromDraftIdParams struct {
+	DraftID   int64
+	StartDate pgtype.Date
+}
+
+func (q *Queries) UpdateGameFromDraftId(ctx context.Context, arg UpdateGameFromDraftIdParams) error {
+	_, err := q.db.Exec(ctx, updateGameFromDraftId, arg.DraftID, arg.StartDate)
+	return err
 }
 
 const wipeTables = `-- name: WipeTables :exec

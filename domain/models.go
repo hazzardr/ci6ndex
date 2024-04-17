@@ -20,8 +20,6 @@ type Ci6ndexDraftPick struct {
 	DraftID  int64
 	UserID   int64
 	LeaderID pgtype.Int8
-	// The civs that were offered to the user.
-	Offered []int64
 }
 
 // The strategies that can be used to draft a civ
