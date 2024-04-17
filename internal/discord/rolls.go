@@ -130,6 +130,7 @@ func getRollCivsHandler(db *internal.DatabaseOperations, mb *MessageBuilder) Com
 	}
 }
 
+// TODO: Implement pickCivHandler
 func pickCivHandler(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
