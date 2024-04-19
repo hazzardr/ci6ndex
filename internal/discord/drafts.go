@@ -202,6 +202,7 @@ func createDraftHandler(db *internal.DatabaseOperations) CommandHandler {
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				CustomID: "new-draft",
+				Flags:    discordgo.MessageFlagsEphemeral,
 				Components: []discordgo.MessageComponent{
 					discordgo.ActionsRow{
 						Components: []discordgo.MessageComponent{

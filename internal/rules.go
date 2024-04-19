@@ -7,15 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"log/slog"
 	"math/rand/v2"
-	"slices"
 )
-
-var PermaBannedLeaders = []string{
-	"ABE",
-	"TOMYRIS",
-	"GILGAMESH",
-	"HAMMURABI",
-}
 
 type CivShuffler struct {
 	Leaders       []domain.Ci6ndexLeader
@@ -69,11 +61,10 @@ func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string,
 }
 
 func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
-	slog.Debug("banned leaders", "permaBanned", PermaBannedLeaders)
 
 	fullPool := make([]domain.Ci6ndexLeader, 0)
 	for _, leader := range c.Leaders {
-		if !slices.Contains(PermaBannedLeaders, leader.LeaderName) {
+		if !leader.Banned {
 			fullPool = append(fullPool, leader)
 		}
 	}

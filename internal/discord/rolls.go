@@ -18,6 +18,7 @@ var (
 		Name:        "pick-civ",
 		Description: "Checks if the current user is in a draft. If so, shows them who they are offered and allows the choice.",
 	}
+	PickCivSelectorId = "pick-civ-selector"
 )
 
 func getRollCivCommands() []*discordgo.ApplicationCommand {
@@ -31,7 +32,8 @@ func getRollCivsHandlers(db *internal.DatabaseOperations, mb *MessageBuilder) ma
 	handlers := make(map[string]CommandHandler)
 
 	handlers[RollCivs.Name] = getRollCivsHandler(db, mb)
-	handlers[PickCiv.Name] = pickCivHandler(db, mb)
+	handlers[PickCiv.Name] = pickCivHandler(db)
+	handlers[PickCivSelectorId] = pickCivSelectHandler(db)
 	return handlers
 }
 
@@ -130,27 +132,19 @@ func getRollCivsHandler(db *internal.DatabaseOperations, mb *MessageBuilder) Com
 	}
 }
 
-// TODO: Implement pickCivHandler
-func pickCivHandler(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
+func pickCivHandler(db *internal.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
-		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Rolling Civs. This may take a few seconds!",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		if err != nil {
-			slog.Error("failed to respond to interaction", "i", i.Interaction, "error", err)
-		}
+
+		var minValues int
+		minValues = 1
+
 		ctx := context.Background()
 		drafts, err := db.Queries.GetActiveDrafts(ctx)
 		if err != nil {
 			reportError("error checking active drafts", err, s, i, true)
 			return
 		}
-
 		var activeDraft domain.Ci6ndexDraft
 
 		if len(drafts) == 0 {
@@ -172,56 +166,95 @@ func pickCivHandler(db *internal.DatabaseOperations, mb *MessageBuilder) Command
 		if len(drafts) == 1 {
 			activeDraft = drafts[0]
 		}
-		leaders, err := db.Queries.GetLeaders(ctx)
+		u, err := db.Queries.GetUserByDiscordName(ctx, i.Interaction.Member.User.Username)
 		if err != nil {
-			reportError("Failed to fetch leaders for draft.", err, s, i, true)
+			reportError("error fetching user", err, s, i, true)
 			return
 		}
-
-		strat, err := db.Queries.GetDraftStrategy(ctx, activeDraft.DraftStrategy)
-		shuffler := internal.NewCivShuffler(leaders, activeDraft.Players, strat, db)
-		offers, err := shuffler.Shuffle()
-		if err != nil {
-			reportError("Error when shuffling civs.", err, s, i, true)
-			return
-		}
-		slog.Info("offers", offers)
-		for _, offer := range offers {
-			leaderIDs := make([]int64, len(offer.Leaders))
-			for j, l := range offer.Leaders {
-				leaderIDs[j] = l.ID
-			}
-			u, err := db.Queries.GetUserByDiscordName(ctx, offer.User)
-			if err != nil {
-				reportError("failed to fetch user information required for roll", err, s, i, true)
-				return
-			}
-			param := domain.WriteOfferedParams{
-				DraftID: activeDraft.ID,
-				UserID:  u.ID,
-				Offered: leaderIDs,
-			}
-
-			_, err = db.Queries.WriteOffered(ctx, param)
-			if err != nil {
-				reportError("failed to persist offer to database", err, s, i, true)
-				return
-			}
-		}
-
-		content, err := mb.WriteDraftOfferings(RollCivs.Name, offers)
-		if err != nil {
-			reportError("Error writing discord message", err, s, i, true)
-			return
-		}
-		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: content,
+		offers, err := db.Queries.ReadOfferedForUser(ctx, domain.ReadOfferedForUserParams{
+			UserID:  u.ID,
+			DraftID: activeDraft.ID,
 		})
-
 		if err != nil {
-			slog.Error("error responding to user", "error", err)
+			reportError("error fetching offered civs", err, s, i, true)
 			return
 		}
-		slog.Info("successfully rolled civs", "interactionId", i.ID)
+
+		leaders := make([]domain.Ci6ndexLeader, 0)
+		for _, o := range offers.Offered {
+			l, err := db.Queries.GetLeader(ctx, o)
+			if err != nil {
+				reportError("error fetching leader", err, s, i, true)
+				return
+			}
+			leaders = append(leaders, l)
+		}
+		options := make([]discordgo.SelectMenuOption, len(leaders))
+		for i, l := range leaders {
+			options[i] = discordgo.SelectMenuOption{
+				Label: "Leader",
+				Value: l.LeaderName,
+				Emoji: &discordgo.ComponentEmoji{
+					Name: l.LeaderName,
+					ID:   l.DiscordEmojiString.String,
+				},
+			}
+		}
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				CustomID: "submit-pick",
+				Components: []discordgo.MessageComponent{
+					discordgo.ActionsRow{
+						Components: []discordgo.MessageComponent{
+							discordgo.SelectMenu{
+								CustomID:    PickCivSelectorId,
+								Placeholder: "Please select your civ",
+								MinValues:   &minValues,
+								MaxValues:   1,
+								MenuType:    discordgo.StringSelectMenu,
+								Options:     options,
+							},
+						},
+					},
+				},
+				Flags: discordgo.MessageFlagsEphemeral,
+			},
+		})
+	}
+}
+
+func pickCivSelectHandler(db *internal.DatabaseOperations) CommandHandler {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slog.Info("event received", "command", i.Interaction.MessageComponentData().CustomID,
+			"interactionId", i.ID)
+		slog.Info("msg", i.Interaction.MessageComponentData())
+		//ctx := context.Background()
+		//drafts, err := db.Queries.GetActiveDrafts(ctx)
+		//if err != nil {
+		//	reportError("error checking active drafts", err, s, i, true)
+		//	return
+		//}
+		//var activeDraft domain.Ci6ndexDraft
+		//
+		//if len(drafts) == 0 {
+		//	reportError("No active draft found", errors.New("no active draft found"), s, i, true)
+		//}
+		//
+		//if len(drafts) > 1 {
+		//	msg := "There are multiple active drafts. This should not be possible."
+		//	reportError(msg, errors.New(msg), s, i, true)
+		//	return
+		//}
+		//
+		//if len(drafts) == 1 {
+		//	activeDraft = drafts[0]
+		//}
+		//u, err := db.Queries.GetUserByDiscordName(ctx, i.Interaction.Member.User.Username)
+		//if err != nil {
+		//	reportError("error fetching user", err, s, i, true)
+		//	return
+		//}
+
 	}
 }
