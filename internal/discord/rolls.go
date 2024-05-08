@@ -5,8 +5,10 @@ import (
 	"ci6ndex/internal"
 	"context"
 	"errors"
+	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"log/slog"
+	"strings"
 )
 
 var (
@@ -16,7 +18,7 @@ var (
 	}
 	PickCiv = &discordgo.ApplicationCommand{
 		Name:        "pick-civ",
-		Description: "Checks if the current user is in a draft. If so, shows them who they are offered and allows the choice.",
+		Description: "Shows a user what civs they can pick from.",
 	}
 	PickCivSelectorId = "pick-civ-selector"
 )
@@ -137,7 +139,7 @@ func pickCivHandler(db *internal.DatabaseOperations) CommandHandler {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
 
 		var minValues int
-		minValues = 1
+		minValues = 0
 
 		ctx := context.Background()
 		drafts, err := db.Queries.GetActiveDrafts(ctx)
@@ -166,7 +168,7 @@ func pickCivHandler(db *internal.DatabaseOperations) CommandHandler {
 		if len(drafts) == 1 {
 			activeDraft = drafts[0]
 		}
-		u, err := db.Queries.GetUserByDiscordName(ctx, i.Interaction.Member.User.Username)
+		u, err := db.Queries.GetUserByDiscordName(ctx, i.Interaction.Member.User.GlobalName)
 		if err != nil {
 			reportError("error fetching user", err, s, i, true)
 			return
@@ -191,19 +193,25 @@ func pickCivHandler(db *internal.DatabaseOperations) CommandHandler {
 		}
 		options := make([]discordgo.SelectMenuOption, len(leaders))
 		for i, l := range leaders {
+			trimmed := strings.Trim(l.DiscordEmojiString.String, "<:>")
+
+			parts := strings.Split(trimmed, ":")
 			options[i] = discordgo.SelectMenuOption{
-				Label: "Leader",
+				Label: fmt.Sprintf("%s (%s)", l.LeaderName, l.CivName),
 				Value: l.LeaderName,
 				Emoji: &discordgo.ComponentEmoji{
-					Name: l.LeaderName,
-					ID:   l.DiscordEmojiString.String,
+					Name:     parts[0],
+					ID:       parts[1],
+					Animated: false,
 				},
 			}
 		}
+
 		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				CustomID: "submit-pick",
+				Flags:    discordgo.MessageFlagsEphemeral,
 				Components: []discordgo.MessageComponent{
 					discordgo.ActionsRow{
 						Components: []discordgo.MessageComponent{
@@ -218,9 +226,12 @@ func pickCivHandler(db *internal.DatabaseOperations) CommandHandler {
 						},
 					},
 				},
-				Flags: discordgo.MessageFlagsEphemeral,
 			},
 		})
+		if err != nil {
+			reportError("error responding to user", err, s, i, true)
+			return
+		}
 	}
 }
 
