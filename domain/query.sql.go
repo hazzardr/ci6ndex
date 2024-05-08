@@ -689,13 +689,38 @@ func (q *Queries) ReadOfferedForUser(ctx context.Context, arg ReadOfferedForUser
 	return i, err
 }
 
+const removeDraftPick = `-- name: RemoveDraftPick :one
+DELETE FROM ci6ndex.draft_picks
+WHERE draft_id = $1
+  AND user_id = $2
+RETURNING id, draft_id, user_id, leader_id
+`
+
+type RemoveDraftPickParams struct {
+	DraftID int64
+	UserID  int64
+}
+
+func (q *Queries) RemoveDraftPick(ctx context.Context, arg RemoveDraftPickParams) (Ci6ndexDraftPick, error) {
+	row := q.db.QueryRow(ctx, removeDraftPick, arg.DraftID, arg.UserID)
+	var i Ci6ndexDraftPick
+	err := row.Scan(
+		&i.ID,
+		&i.DraftID,
+		&i.UserID,
+		&i.LeaderID,
+	)
+	return i, err
+}
+
 const submitDraftPick = `-- name: SubmitDraftPick :one
 INSERT INTO ci6ndex.draft_picks
 (
     draft_id, leader_id, user_id
 ) VALUES (
     $1, $2, $3
-)
+) ON CONFLICT (draft_id, user_id)
+DO UPDATE SET leader_id = $2
 RETURNING id, draft_id, user_id, leader_id
 `
 

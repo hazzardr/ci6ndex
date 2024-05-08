@@ -139,7 +139,14 @@ INSERT INTO ci6ndex.draft_picks
     draft_id, leader_id, user_id
 ) VALUES (
     $1, $2, $3
-)
+) ON CONFLICT (draft_id, user_id)
+DO UPDATE SET leader_id = $2
+RETURNING *;
+
+-- name: RemoveDraftPick :one
+DELETE FROM ci6ndex.draft_picks
+WHERE draft_id = $1
+  AND user_id = $2
 RETURNING *;
 
 -- name: GetDraftPicksForDraft :many

@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
+	"github.com/jackc/pgx/v5/pgtype"
 	"log/slog"
+	"strconv"
 	"strings"
 )
 
@@ -46,7 +48,6 @@ func getRollCivsHandler(db *internal.DatabaseOperations, mb *MessageBuilder) Com
 			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: "Rolling Civs. This may take a few seconds!",
-				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
 		if err != nil {
@@ -198,7 +199,7 @@ func pickCivHandler(db *internal.DatabaseOperations) CommandHandler {
 			parts := strings.Split(trimmed, ":")
 			options[i] = discordgo.SelectMenuOption{
 				Label: fmt.Sprintf("%s (%s)", l.LeaderName, l.CivName),
-				Value: l.LeaderName,
+				Value: strconv.FormatInt(l.ID, 10),
 				Emoji: &discordgo.ComponentEmoji{
 					Name:     parts[0],
 					ID:       parts[1],
@@ -239,33 +240,89 @@ func pickCivSelectHandler(db *internal.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "command", i.Interaction.MessageComponentData().CustomID,
 			"interactionId", i.ID)
-		slog.Info("msg", i.Interaction.MessageComponentData())
-		//ctx := context.Background()
-		//drafts, err := db.Queries.GetActiveDrafts(ctx)
-		//if err != nil {
-		//	reportError("error checking active drafts", err, s, i, true)
-		//	return
-		//}
-		//var activeDraft domain.Ci6ndexDraft
-		//
-		//if len(drafts) == 0 {
-		//	reportError("No active draft found", errors.New("no active draft found"), s, i, true)
-		//}
-		//
-		//if len(drafts) > 1 {
-		//	msg := "There are multiple active drafts. This should not be possible."
-		//	reportError(msg, errors.New(msg), s, i, true)
-		//	return
-		//}
-		//
-		//if len(drafts) == 1 {
-		//	activeDraft = drafts[0]
-		//}
-		//u, err := db.Queries.GetUserByDiscordName(ctx, i.Interaction.Member.User.Username)
-		//if err != nil {
-		//	reportError("error fetching user", err, s, i, true)
-		//	return
-		//}
+
+		ctx := context.Background()
+
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		})
+		if err != nil {
+			slog.Error("failed to respond to interaction", "i", i.Interaction, "error", err)
+			return
+		}
+
+		drafts, err := db.Queries.GetActiveDrafts(ctx)
+		if err != nil {
+			reportError("error checking active drafts", err, s, i, true)
+			return
+		}
+		var activeDraft domain.Ci6ndexDraft
+
+		if len(drafts) == 0 {
+			reportError("No active draft found", errors.New("no active draft found"), s, i, true)
+		}
+
+		if len(drafts) > 1 {
+			msg := "There are multiple active drafts. This should not be possible."
+			reportError(msg, errors.New(msg), s, i, true)
+			return
+		}
+
+		if len(drafts) == 1 {
+			activeDraft = drafts[0]
+		}
+		u, err := db.Queries.GetUserByDiscordName(ctx, i.Interaction.Member.User.GlobalName)
+		if err != nil {
+			reportError("error fetching user", err, s, i, true)
+			return
+		}
+		selects := i.Interaction.MessageComponentData().Values
+		if len(selects) == 0 {
+			_, err := db.Queries.RemoveDraftPick(ctx, domain.RemoveDraftPickParams{
+				UserID:  u.ID,
+				DraftID: activeDraft.ID,
+			})
+			if err != nil {
+				reportError("error removing pick", err, s, i, true)
+				return
+			}
+			slog.Info("pick removed", "user", u.DiscordName, "draft", activeDraft.ID)
+			return
+		}
+
+		leaderId, err := strconv.ParseInt(selects[0], 10, 64)
+		if err != nil {
+			reportError("error parsing leader id from select", err, s, i, true)
+			return
+		}
+		var leaderPK pgtype.Int8
+		leaderPK.Int64 = leaderId
+		leaderPK.Valid = true
+		pick, err := db.Queries.SubmitDraftPick(ctx, domain.SubmitDraftPickParams{
+			UserID:   u.ID,
+			DraftID:  activeDraft.ID,
+			LeaderID: leaderPK,
+		})
+		if err != nil {
+			reportError("error submitting pick", err, s, i, true)
+			return
+		}
+		slog.Info("submitted", "pick", pick, "user", u.DiscordName)
+		//_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		//	Content: "Pick submitted. Good luck!",
+		//	Flags:   discordgo.MessageFlagsEphemeral,
+		//})
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Pick submitted. Good luck!",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		if err != nil {
+			slog.Error("error responding to user", "error", err)
+			return
+		}
 
 	}
 }
