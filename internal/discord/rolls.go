@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"log/slog"
 	"strconv"
@@ -179,6 +180,20 @@ func pickCivHandler(db *internal.DatabaseOperations) CommandHandler {
 			DraftID: activeDraft.ID,
 		})
 		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "You have no civs to pick from. Roll civs first.",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				if err != nil {
+					reportError("error responding to user", err, s, i, true)
+					return
+				}
+				return
+			}
 			reportError("error fetching offered civs", err, s, i, true)
 			return
 		}
@@ -308,21 +323,10 @@ func pickCivSelectHandler(db *internal.DatabaseOperations) CommandHandler {
 			return
 		}
 		slog.Info("submitted", "pick", pick, "user", u.DiscordName)
-		//_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		//	Content: "Pick submitted. Good luck!",
-		//	Flags:   discordgo.MessageFlagsEphemeral,
-		//})
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Pick submitted. Good luck!",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "Pick submitted. You can change this pick at any time. Good luck!",
+			Flags:   discordgo.MessageFlagsEphemeral,
 		})
-		if err != nil {
-			slog.Error("error responding to user", "error", err)
-			return
-		}
 
 	}
 }
