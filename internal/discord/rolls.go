@@ -24,21 +24,26 @@ var (
 		Description: "Shows a user what civs they can pick from.",
 	}
 	PickCivSelectorId = "pick-civ-selector"
+	RevealCivs        = &discordgo.ApplicationCommand{
+		Name:        "reveal",
+		Description: "Reveals the civs that have been picked, and ends the draft.",
+	}
 )
 
 func getRollCivCommands() []*discordgo.ApplicationCommand {
 	cmds := make([]*discordgo.ApplicationCommand, 0)
 	cmds = append(cmds, RollCivs)
 	cmds = append(cmds, PickCiv)
+	cmds = append(cmds, RevealCivs)
 	return cmds
 }
 
 func getRollCivsHandlers(db *internal.DatabaseOperations, mb *MessageBuilder) map[string]CommandHandler {
 	handlers := make(map[string]CommandHandler)
-
 	handlers[RollCivs.Name] = getRollCivsHandler(db, mb)
 	handlers[PickCiv.Name] = pickCivHandler(db)
 	handlers[PickCivSelectorId] = pickCivSelectHandler(db)
+	handlers[RevealCivs.Name] = revealCivHandler(db, mb)
 	return handlers
 }
 
@@ -326,6 +331,59 @@ func pickCivSelectHandler(db *internal.DatabaseOperations) CommandHandler {
 		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "Pick submitted. You can change this pick at any time. Good luck!",
 			Flags:   discordgo.MessageFlagsEphemeral,
+		})
+
+	}
+}
+
+func revealCivHandler(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
+
+		ctx := context.Background()
+		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		})
+		drafts, err := db.Queries.GetActiveDrafts(ctx)
+		if err != nil {
+			reportError("error checking active drafts", err, s, i, true)
+			return
+		}
+		var activeDraft domain.Ci6ndexDraft
+
+		if len(drafts) == 0 {
+			// dummy draft as a default
+			activeDraft, err = db.Queries.GetDraft(ctx, -1)
+			if err != nil {
+				reportError("Failed to roll civs for mock draft.", err, s, i, true)
+				return
+			}
+
+		}
+
+		if len(drafts) > 1 {
+			msg := "There are multiple active drafts. This should not be possible."
+			reportError(msg, errors.New(msg), s, i, true)
+			return
+		}
+
+		if len(drafts) == 1 {
+			activeDraft = drafts[0]
+		}
+		picks, err := db.Queries.GetDenormalizedDraftPicksForDraft(ctx, activeDraft.ID)
+		if err != nil {
+			reportError("error fetching picked civs", err, s, i, true)
+			return
+		}
+
+		message, err := mb.WriteFinalizedPicks(RevealCivs.Name, picks)
+		if err != nil {
+			reportError("error writing finalized picks", err, s, i, true)
+			return
+		}
+
+		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: message,
 		})
 
 	}

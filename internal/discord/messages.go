@@ -2,6 +2,7 @@ package discord
 
 import (
 	"bytes"
+	"ci6ndex/domain"
 	"ci6ndex/internal"
 	"path/filepath"
 	"text/template"
@@ -12,6 +13,7 @@ var (
 		RollCivs.Name:              "./templates/discord/rolls.md",
 		CreateDraftConfirmId:       "./templates/discord/start-draft.md",
 		CheckActiveDraftCommand.ID: "./templates/discord/get-active-draft.md",
+		RevealCivs.Name:            "./templates/discord/reveal-civs.md",
 	}
 )
 
@@ -76,6 +78,29 @@ func (mb *MessageBuilder) WriteActiveDraft(cmdName string, players []string, noP
 		Date:      date,
 	}
 	err := mb.tmpl.ExecuteTemplate(&buf, tmplName, draft)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+type RevealCivsProps struct {
+	Picks []domain.GetDenormalizedDraftPicksForDraftRow
+	Start string
+}
+
+func (mb *MessageBuilder) WriteFinalizedPicks(cmdName string,
+	picks []domain.GetDenormalizedDraftPicksForDraftRow) (string, error) {
+	tmplName := filepath.Base(templates[cmdName])
+
+	date := picks[0].StartDate.Time.Format("2006-01-02")
+	props := &RevealCivsProps{
+		Picks: picks,
+		Start: date,
+	}
+
+	var buf bytes.Buffer
+	err := mb.tmpl.ExecuteTemplate(&buf, tmplName, props)
 	if err != nil {
 		return "", err
 	}

@@ -153,6 +153,14 @@ RETURNING *;
 SELECT * FROM ci6ndex.draft_picks
 WHERE draft_id = $1;
 
+-- name: GetDenormalizedDraftPicksForDraft :many
+SELECT u.discord_name, l.leader_name, l.civ_name, l.discord_emoji_string, dp.draft_id, g.start_date
+FROM ci6ndex.draft_picks dp
+JOIN ci6ndex.games g on dp.draft_id = g.draft_id
+JOIN ci6ndex.leaders l ON dp.leader_id = l.id
+JOIN ci6ndex.users u ON dp.user_id = u.id
+WHERE dp.draft_id = $1;
+
 -- name: WriteOffered :one
 INSERT INTO ci6ndex.offered
 (

@@ -300,6 +300,51 @@ func (q *Queries) GetActiveDrafts(ctx context.Context) ([]Ci6ndexDraft, error) {
 	return items, nil
 }
 
+const getDenormalizedDraftPicksForDraft = `-- name: GetDenormalizedDraftPicksForDraft :many
+SELECT u.discord_name, l.leader_name, l.civ_name, l.discord_emoji_string, dp.draft_id, g.start_date
+FROM ci6ndex.draft_picks dp
+JOIN ci6ndex.games g on dp.draft_id = g.draft_id
+JOIN ci6ndex.leaders l ON dp.leader_id = l.id
+JOIN ci6ndex.users u ON dp.user_id = u.id
+WHERE dp.draft_id = $1
+`
+
+type GetDenormalizedDraftPicksForDraftRow struct {
+	DiscordName        string
+	LeaderName         string
+	CivName            string
+	DiscordEmojiString pgtype.Text
+	DraftID            int64
+	StartDate          pgtype.Date
+}
+
+func (q *Queries) GetDenormalizedDraftPicksForDraft(ctx context.Context, draftID int64) ([]GetDenormalizedDraftPicksForDraftRow, error) {
+	rows, err := q.db.Query(ctx, getDenormalizedDraftPicksForDraft, draftID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetDenormalizedDraftPicksForDraftRow
+	for rows.Next() {
+		var i GetDenormalizedDraftPicksForDraftRow
+		if err := rows.Scan(
+			&i.DiscordName,
+			&i.LeaderName,
+			&i.CivName,
+			&i.DiscordEmojiString,
+			&i.DraftID,
+			&i.StartDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getDraft = `-- name: GetDraft :one
 SELECT id, draft_strategy, active, players FROM ci6ndex.drafts
 WHERE id = $1
