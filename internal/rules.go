@@ -171,7 +171,7 @@ func randomPickValidate(leaders []domain.Ci6ndexLeader, user string,
 			slog.Error("failed to unmarshal rules", "error", err, "strat", strat.Name)
 			return false
 		}
-		numGames, checkNumRepeats := rules["no_repeats"]
+		numGames, checkNumRepeats := rules["noRepeats"]
 		numGames, ok := numGames.(float64) // default serializing here no idea why
 		if !ok {
 			slog.Error("failed to convert no_repeats to int", "numGames", numGames)
@@ -182,6 +182,22 @@ func randomPickValidate(leaders []domain.Ci6ndexLeader, user string,
 			noRecentPick := hasNoRecentPick(leaders, user, numGames.(int32), db)
 			valid = valid && noRecentPick
 		}
+		//minTier, hasMinTier := rules["minTier"]
+		//if hasMinTier {
+		//	minTier, ok := minTier.(int32)
+		//	if !ok {
+		//		slog.Error("failed to convert minTier to int", "minTier", minTier)
+		//		return false
+		//	}
+		//	hasAboveTier := false
+		//	for _, leader := range leaders {
+		//		if leader.Tier < minTier {
+		//			slog.Warn("leader is below min tier", "leader", leader, "minTier", minTier)
+		//			return false
+		//		}
+		//	}
+		//
+		//}
 	}
 	return valid
 }

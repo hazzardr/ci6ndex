@@ -352,13 +352,11 @@ func revealCivHandler(db *internal.DatabaseOperations, mb *MessageBuilder) Comma
 		var activeDraft domain.Ci6ndexDraft
 
 		if len(drafts) == 0 {
-			// dummy draft as a default
-			activeDraft, err = db.Queries.GetDraft(ctx, -1)
-			if err != nil {
-				reportError("Failed to roll civs for mock draft.", err, s, i, true)
-				return
-			}
-
+			_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: "No active draft found.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			})
+			return
 		}
 
 		if len(drafts) > 1 {
@@ -379,6 +377,12 @@ func revealCivHandler(db *internal.DatabaseOperations, mb *MessageBuilder) Comma
 		message, err := mb.WriteFinalizedPicks(RevealCivs.Name, picks)
 		if err != nil {
 			reportError("error writing finalized picks", err, s, i, true)
+			return
+		}
+
+		_, err = db.Queries.CancelActiveDrafts(ctx)
+		if err != nil {
+			reportError("error cancelling active drafts", err, s, i, true)
 			return
 		}
 

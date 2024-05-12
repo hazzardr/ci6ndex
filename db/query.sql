@@ -51,6 +51,8 @@ INSERT INTO ci6ndex.rankings
     $1, $2, $3
 );
 
+-- name:
+
 -- name: GetLeaders :many
 SELECT * FROM ci6ndex.leaders;
 
