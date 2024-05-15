@@ -46,6 +46,7 @@ type Ci6ndexLeader struct {
 	LeaderName         string
 	DiscordEmojiString pgtype.Text
 	Banned             bool
+	Tier               float64
 }
 
 type Ci6ndexOffered struct {

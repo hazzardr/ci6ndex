@@ -80,6 +80,12 @@ refresh:
 	@./$(EXEC_NAME) discord commands refresh
 	@echo "Done!"
 
+.PHONY: rankings ## refreshes slash commands for the bot
+rankings:
+	@echo "Refreshing rankings..."
+	@./$(EXEC_NAME) rankings refresh
+	@echo "Done!"
+
 .PHONY: bot ## run the project as a discord bot
 bot:
 	@echo "Running discord bot..."

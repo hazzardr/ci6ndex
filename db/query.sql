@@ -30,6 +30,10 @@ INSERT INTO ci6ndex.users
 -- name: GetRankings :many
 SELECT * FROM ci6ndex.rankings;
 
+-- name: GetRankingsByLeader :many
+SELECT * FROM ci6ndex.rankings
+WHERE leader_id = $1;
+
 -- name: DeleteRankings :exec
 DELETE FROM ci6ndex.rankings
 RETURNING *;
@@ -50,8 +54,6 @@ INSERT INTO ci6ndex.rankings
 ) VALUES (
     $1, $2, $3
 );
-
--- name:
 
 -- name: GetLeaders :many
 SELECT * FROM ci6ndex.leaders;
@@ -75,6 +77,11 @@ INSERT INTO ci6ndex.leaders
     $1, $2
 );
 
+-- name: UpdateLeaderTier :one
+UPDATE ci6ndex.leaders
+SET tier = $2
+WHERE id = $1
+RETURNING *;
 
 -- name: CreateDraftStrategy :one
 INSERT INTO ci6ndex.draft_strategies

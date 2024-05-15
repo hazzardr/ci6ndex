@@ -532,7 +532,7 @@ func (q *Queries) GetGameByDraftID(ctx context.Context, draftID int64) (Ci6ndexG
 }
 
 const getLeader = `-- name: GetLeader :one
-SELECT id, civ_name, leader_name, discord_emoji_string, banned FROM ci6ndex.leaders
+SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM ci6ndex.leaders
          WHERE id = $1
          LIMIT 1
 `
@@ -546,12 +546,13 @@ func (q *Queries) GetLeader(ctx context.Context, id int64) (Ci6ndexLeader, error
 		&i.LeaderName,
 		&i.DiscordEmojiString,
 		&i.Banned,
+		&i.Tier,
 	)
 	return i, err
 }
 
 const getLeaderByNameAndCiv = `-- name: GetLeaderByNameAndCiv :one
-SELECT id, civ_name, leader_name, discord_emoji_string, banned FROM ci6ndex.leaders
+SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM ci6ndex.leaders
 WHERE leader_name = $1
 AND civ_name = $2
 LIMIT 1
@@ -571,12 +572,13 @@ func (q *Queries) GetLeaderByNameAndCiv(ctx context.Context, arg GetLeaderByName
 		&i.LeaderName,
 		&i.DiscordEmojiString,
 		&i.Banned,
+		&i.Tier,
 	)
 	return i, err
 }
 
 const getLeaders = `-- name: GetLeaders :many
-SELECT id, civ_name, leader_name, discord_emoji_string, banned FROM ci6ndex.leaders
+SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM ci6ndex.leaders
 `
 
 func (q *Queries) GetLeaders(ctx context.Context) ([]Ci6ndexLeader, error) {
@@ -594,6 +596,7 @@ func (q *Queries) GetLeaders(ctx context.Context) ([]Ci6ndexLeader, error) {
 			&i.LeaderName,
 			&i.DiscordEmojiString,
 			&i.Banned,
+			&i.Tier,
 		); err != nil {
 			return nil, err
 		}
@@ -611,6 +614,36 @@ SELECT id, user_id, tier, leader_id FROM ci6ndex.rankings
 
 func (q *Queries) GetRankings(ctx context.Context) ([]Ci6ndexRanking, error) {
 	rows, err := q.db.Query(ctx, getRankings)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ci6ndexRanking
+	for rows.Next() {
+		var i Ci6ndexRanking
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Tier,
+			&i.LeaderID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRankingsByLeader = `-- name: GetRankingsByLeader :many
+SELECT id, user_id, tier, leader_id FROM ci6ndex.rankings
+WHERE leader_id = $1
+`
+
+func (q *Queries) GetRankingsByLeader(ctx context.Context, leaderID int64) ([]Ci6ndexRanking, error) {
+	rows, err := q.db.Query(ctx, getRankingsByLeader, leaderID)
 	if err != nil {
 		return nil, err
 	}
@@ -802,6 +835,32 @@ type UpdateGameFromDraftIdParams struct {
 func (q *Queries) UpdateGameFromDraftId(ctx context.Context, arg UpdateGameFromDraftIdParams) error {
 	_, err := q.db.Exec(ctx, updateGameFromDraftId, arg.DraftID, arg.StartDate)
 	return err
+}
+
+const updateLeaderTier = `-- name: UpdateLeaderTier :one
+UPDATE ci6ndex.leaders
+SET tier = $2
+WHERE id = $1
+RETURNING id, civ_name, leader_name, discord_emoji_string, banned, tier
+`
+
+type UpdateLeaderTierParams struct {
+	ID   int64
+	Tier float64
+}
+
+func (q *Queries) UpdateLeaderTier(ctx context.Context, arg UpdateLeaderTierParams) (Ci6ndexLeader, error) {
+	row := q.db.QueryRow(ctx, updateLeaderTier, arg.ID, arg.Tier)
+	var i Ci6ndexLeader
+	err := row.Scan(
+		&i.ID,
+		&i.CivName,
+		&i.LeaderName,
+		&i.DiscordEmojiString,
+		&i.Banned,
+		&i.Tier,
+	)
+	return i, err
 }
 
 const wipeTables = `-- name: WipeTables :exec

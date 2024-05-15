@@ -70,7 +70,7 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 	}
 	var allRolls []DraftOffering
 
-	totalNumTries := 20
+	totalNumTries := 200
 	attempt := 0
 
 	for attempt < totalNumTries && len(allRolls) < len(c.Players) {
@@ -174,7 +174,7 @@ func randomPickValidate(leaders []domain.Ci6ndexLeader, user string,
 		numGames, checkNumRepeats := rules["noRepeats"]
 		numGames, ok := numGames.(float64) // default serializing here no idea why
 		if !ok {
-			slog.Error("failed to convert no_repeats to int", "numGames", numGames)
+			slog.Error("failed to convert noRepeats to int", "numGames", numGames)
 			return false
 		}
 		numGames = int32(numGames.(float64))
@@ -182,22 +182,25 @@ func randomPickValidate(leaders []domain.Ci6ndexLeader, user string,
 			noRecentPick := hasNoRecentPick(leaders, user, numGames.(int32), db)
 			valid = valid && noRecentPick
 		}
-		//minTier, hasMinTier := rules["minTier"]
-		//if hasMinTier {
-		//	minTier, ok := minTier.(int32)
-		//	if !ok {
-		//		slog.Error("failed to convert minTier to int", "minTier", minTier)
-		//		return false
-		//	}
-		//	hasAboveTier := false
-		//	for _, leader := range leaders {
-		//		if leader.Tier < minTier {
-		//			slog.Warn("leader is below min tier", "leader", leader, "minTier", minTier)
-		//			return false
-		//		}
-		//	}
-		//
-		//}
+		minTier, hasMinTier := rules["minTier"]
+		if hasMinTier {
+			minTier, ok := minTier.(float64)
+			if !ok {
+				slog.Error("failed to convert minTier to float", "minTier", minTier)
+				return false
+			}
+			hasAboveTier := false
+			for _, leader := range leaders {
+				if leader.Tier <= minTier {
+					hasAboveTier = true
+					break
+				}
+			}
+			if !hasAboveTier {
+				slog.Warn("no leaders above minTier", "minTier", minTier, "user", user, "leaders", leaders)
+			}
+			valid = valid && hasAboveTier
+		}
 	}
 	return valid
 }

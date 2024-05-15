@@ -68,7 +68,7 @@ func UpdateRankings(ctx context.Context, newRanks []Ranking, db *DatabaseOperati
 		return err
 	}
 
-	dbRanks := make([]domain.CreateRankingsParams, len(newRanks))
+	dbRanks := make([]domain.CreateRankingsParams, 0)
 
 	for _, rank := range newRanks {
 		p, err := rank.ToRankingDBParam(ctx, db)
@@ -85,11 +85,10 @@ func UpdateRankings(ctx context.Context, newRanks []Ranking, db *DatabaseOperati
 		}
 		dbRanks = append(dbRanks, p)
 	}
-
+	slog.Info("converted rankings", "count", len(dbRanks))
 	_, err = db.Queries.CreateRankings(ctx, dbRanks)
 	if err != nil {
-		slog.Error("error inserting newRanks to db. will try to reinsert old rankings.",
-			"newRanks", dbRanks, "error", err)
+		slog.Error("error inserting newRanks to db. will try to reinsert old rankings.", "error", err)
 		err = insertRanks(ctx, oldRankings, db)
 		if err != nil {
 			slog.Error("error reinserting old rankings. database is empty", "error", err)
@@ -117,5 +116,60 @@ func insertRanks(ctx context.Context, ranks []domain.Ci6ndexRanking, db *Databas
 		return err
 	}
 	slog.Info("successfully reinserted old rankings", "count", len(toInsert))
+	return nil
+}
+
+type Result struct {
+	LeaderName string
+	Tier       float64
+	Err        error
+}
+
+func ComputeAverageTier(ctx context.Context, db *DatabaseOperations) error {
+	leaders, err := db.Queries.GetLeaders(ctx)
+	if err != nil {
+		return err
+	}
+	results := make(chan Result)
+	for _, l := range leaders {
+		go func(l domain.Ci6ndexLeader) {
+			var res Result
+			res.LeaderName = l.LeaderName
+			slog.Info("computing average tier for", "leader", l.LeaderName)
+			ranks, err := db.Queries.GetRankingsByLeader(ctx, l.ID)
+			if err != nil {
+				res.Err = err
+				results <- res
+				return
+			}
+			var average float64
+			for _, r := range ranks {
+				average += r.Tier
+			}
+			average = average / float64(len(ranks))
+			_, err = db.Queries.UpdateLeaderTier(ctx, domain.UpdateLeaderTierParams{
+				ID:   l.ID,
+				Tier: average,
+			})
+			if err != nil {
+				res.Err = err
+				results <- res
+				return
+			}
+			res.Tier = average
+			results <- res
+		}(l)
+	}
+
+	errs := errors.New("failed to compute average tier for some leaders")
+	totalCount := len(leaders)
+	for i := 1; i <= totalCount; i++ {
+		res := <-results
+		if res.Err != nil {
+			errs = errors.Join(errs, res.Err)
+			continue
+		}
+		slog.Info("computed average tier", "number", i, "total", totalCount)
+	}
 	return nil
 }

@@ -16,6 +16,7 @@ CREATE TABLE ci6ndex.leaders
     leader_name TEXT NOT NULL,
     discord_emoji_string TEXT,
     banned BOOLEAN NOT NULL DEFAULT FALSE,
+    tier FLOAT NOT NULL,
     PRIMARY KEY (id)
 );
 
