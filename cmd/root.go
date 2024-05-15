@@ -22,7 +22,7 @@ This tool manages the above through the CLI, and the rankings themselves are man
 This tool is also used to define the different draft strategies available, and the status of the draft itself.`,
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
+// Execute adds all child slashCommands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
@@ -40,7 +40,9 @@ func init() {
 		slog.Error("Error initializing config", "error", err)
 		return
 	}
+	slog.Info("initializing db...")
 	db, err = internal.NewDBConnection(config.DatabaseUrl)
+	slog.Info("done!")
 	if err != nil {
 		slog.Error("Error initializing db", "error", err)
 		return

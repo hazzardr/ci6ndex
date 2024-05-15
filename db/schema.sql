@@ -14,8 +14,9 @@ CREATE TABLE ci6ndex.leaders
     id BIGSERIAL NOT NULL,
     civ_name TEXT NOT NULL,
     leader_name TEXT NOT NULL,
-    icon_url TEXT,
+    discord_emoji_string TEXT,
     banned BOOLEAN NOT NULL DEFAULT FALSE,
+    tier FLOAT NOT NULL,
     PRIMARY KEY (id)
 );
 
@@ -61,14 +62,12 @@ CREATE TABLE ci6ndex.draft_picks
     draft_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
     leader_id BIGINT,
-    offered BIGINT[],
     PRIMARY KEY (id),
     CONSTRAINT drafts_fk FOREIGN KEY (draft_id) REFERENCES ci6ndex.drafts (id),
     CONSTRAINT users_fk FOREIGN KEY (user_id) REFERENCES ci6ndex.users (id),
     CONSTRAINT leaders_fk FOREIGN KEY (leader_id) REFERENCES ci6ndex.leaders (id)
 );
 
-COMMENT ON COLUMN ci6ndex.draft_picks.offered IS 'The civs that were offered to the user.';
 CREATE UNIQUE INDEX draft_picks_draft_id_user_id_uindex ON ci6ndex.draft_picks (draft_id, user_id);
 
 CREATE TABLE ci6ndex.games
@@ -97,7 +96,7 @@ CREATE TABLE ci6ndex.offered
 (
     user_id BIGINT NOT NULL,
     draft_id BIGINT NOT NULL,
-    offered JSONB,
+    offered BIGINT[],
     PRIMARY KEY (user_id, draft_id)
 );
 

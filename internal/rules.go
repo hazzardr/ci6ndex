@@ -7,15 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"log/slog"
 	"math/rand/v2"
-	"slices"
 )
-
-var PermaBannedLeaders = []string{
-	"ABE",
-	"TOMYRIS",
-	"GILGAMESH",
-	"HAMMURABI",
-}
 
 type CivShuffler struct {
 	Leaders       []domain.Ci6ndexLeader
@@ -69,18 +61,16 @@ func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string,
 }
 
 func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
-	slog.Info("rolling civs for players", "players", c.Players, "strategy", c.DraftStrategy.Name)
-	slog.Info("banned leaders", "permaBanned", PermaBannedLeaders)
 
 	fullPool := make([]domain.Ci6ndexLeader, 0)
 	for _, leader := range c.Leaders {
-		if !slices.Contains(PermaBannedLeaders, leader.LeaderName) {
+		if !leader.Banned {
 			fullPool = append(fullPool, leader)
 		}
 	}
 	var allRolls []DraftOffering
 
-	totalNumTries := 20
+	totalNumTries := 200
 	attempt := 0
 
 	for attempt < totalNumTries && len(allRolls) < len(c.Players) {
@@ -96,7 +86,7 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 			numTriesPerPlayer := 10
 			valid := false
 			for attemptPerPlayer < numTriesPerPlayer && !valid {
-				slog.Info("rolling civs for player", "player", player,
+				slog.Debug("rolling civs for player", "player", player,
 					"strategy", c.DraftStrategy.Name, "attempt", attemptPerPlayer+1)
 				shuffle := c.Functions[c.DraftStrategy.Name].shuffle
 				validate := c.Functions[c.DraftStrategy.Name].validate
@@ -181,16 +171,35 @@ func randomPickValidate(leaders []domain.Ci6ndexLeader, user string,
 			slog.Error("failed to unmarshal rules", "error", err, "strat", strat.Name)
 			return false
 		}
-		numGames, checkNumRepeats := rules["no_repeats"]
+		numGames, checkNumRepeats := rules["noRepeats"]
 		numGames, ok := numGames.(float64) // default serializing here no idea why
 		if !ok {
-			slog.Error("failed to convert no_repeats to int", "numGames", numGames)
+			slog.Error("failed to convert noRepeats to int", "numGames", numGames)
 			return false
 		}
 		numGames = int32(numGames.(float64))
 		if checkNumRepeats {
 			noRecentPick := hasNoRecentPick(leaders, user, numGames.(int32), db)
 			valid = valid && noRecentPick
+		}
+		minTier, hasMinTier := rules["minTier"]
+		if hasMinTier {
+			minTier, ok := minTier.(float64)
+			if !ok {
+				slog.Error("failed to convert minTier to float", "minTier", minTier)
+				return false
+			}
+			hasAboveTier := false
+			for _, leader := range leaders {
+				if leader.Tier <= minTier {
+					hasAboveTier = true
+					break
+				}
+			}
+			if !hasAboveTier {
+				slog.Warn("no leaders above minTier", "minTier", minTier, "user", user, "leaders", leaders)
+			}
+			valid = valid && hasAboveTier
 		}
 	}
 	return valid

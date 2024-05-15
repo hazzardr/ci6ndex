@@ -20,8 +20,6 @@ type Ci6ndexDraftPick struct {
 	DraftID  int64
 	UserID   int64
 	LeaderID pgtype.Int8
-	// The civs that were offered to the user.
-	Offered []int64
 }
 
 // The strategies that can be used to draft a civ
@@ -43,17 +41,18 @@ type Ci6ndexGame struct {
 }
 
 type Ci6ndexLeader struct {
-	ID         int64
-	CivName    string
-	LeaderName string
-	IconUrl    pgtype.Text
-	Banned     bool
+	ID                 int64
+	CivName            string
+	LeaderName         string
+	DiscordEmojiString pgtype.Text
+	Banned             bool
+	Tier               float64
 }
 
 type Ci6ndexOffered struct {
 	UserID  int64
 	DraftID int64
-	Offered []byte
+	Offered []int64
 }
 
 type Ci6ndexRanking struct {

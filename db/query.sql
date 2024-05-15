@@ -30,6 +30,10 @@ INSERT INTO ci6ndex.users
 -- name: GetRankings :many
 SELECT * FROM ci6ndex.rankings;
 
+-- name: GetRankingsByLeader :many
+SELECT * FROM ci6ndex.rankings
+WHERE leader_id = $1;
+
 -- name: DeleteRankings :exec
 DELETE FROM ci6ndex.rankings
 RETURNING *;
@@ -73,6 +77,11 @@ INSERT INTO ci6ndex.leaders
     $1, $2
 );
 
+-- name: UpdateLeaderTier :one
+UPDATE ci6ndex.leaders
+SET tier = $2
+WHERE id = $1
+RETURNING *;
 
 -- name: CreateDraftStrategy :one
 INSERT INTO ci6ndex.draft_strategies
@@ -100,6 +109,21 @@ INSERT INTO ci6ndex.drafts
 )
 RETURNING *;
 
+-- name: CreateActiveDraft :one
+INSERT INTO ci6ndex.drafts
+(
+    draft_strategy, active
+) VALUES (
+    $1, true
+)
+RETURNING *;
+
+-- name: AddPlayersToActiveDraft :one
+UPDATE ci6ndex.drafts
+SET players = $1
+where active=true
+RETURNING *;
+
 -- name: GetDraft :one
 SELECT * FROM ci6ndex.drafts
 WHERE id = $1
@@ -112,14 +136,39 @@ SELECT * FROM ci6ndex.drafts;
 SELECT * FROM ci6ndex.drafts
 WHERE active = true;
 
+-- name: CancelActiveDrafts :many
+UPDATE ci6ndex.drafts
+SET active = false
+WHERE active = true
+RETURNING *;
+
 -- name: SubmitDraftPick :one
 INSERT INTO ci6ndex.draft_picks
 (
-    draft_id, leader_id, user_id, offered
+    draft_id, leader_id, user_id
 ) VALUES (
-    $1, $2, $3, $4
-)
+    $1, $2, $3
+) ON CONFLICT (draft_id, user_id)
+DO UPDATE SET leader_id = $2
 RETURNING *;
+
+-- name: RemoveDraftPick :one
+DELETE FROM ci6ndex.draft_picks
+WHERE draft_id = $1
+  AND user_id = $2
+RETURNING *;
+
+-- name: GetDraftPicksForDraft :many
+SELECT * FROM ci6ndex.draft_picks
+WHERE draft_id = $1;
+
+-- name: GetDenormalizedDraftPicksForDraft :many
+SELECT u.discord_name, l.leader_name, l.civ_name, l.discord_emoji_string, dp.draft_id, g.start_date
+FROM ci6ndex.draft_picks dp
+JOIN ci6ndex.games g on dp.draft_id = g.draft_id
+JOIN ci6ndex.leaders l ON dp.leader_id = l.id
+JOIN ci6ndex.users u ON dp.user_id = u.id
+WHERE dp.draft_id = $1;
 
 -- name: WriteOffered :one
 INSERT INTO ci6ndex.offered
@@ -131,10 +180,14 @@ INSERT INTO ci6ndex.offered
 DO UPDATE SET offered = $3
 RETURNING *;
 
--- name: ReadOffered :one
+-- name: ReadOfferedForUser :one
 SELECT * FROM ci6ndex.offered
 WHERE draft_id = $1
   AND user_id = $2;
+
+-- name: ReadOffer :many
+SELECT * FROM ci6ndex.offered
+WHERE draft_id = $1;
 
 -- name: DeleteOffered :exec
 DELETE FROM ci6ndex.offered
@@ -155,10 +208,24 @@ AND ci6ndex.draft_picks.draft_id IN (
     ORDER BY ci6ndex.games.start_date DESC LIMIT $2
 );
 
--- name: GetPlayersForDraft :many
-SELECT * FROM ci6ndex.users where discord_name in (
-    SELECT players FROM ci6ndex.games where draft_id = $1
-);
+-- name: CreateGameFromDraft :one
+INSERT INTO ci6ndex.games
+(
+    draft_id, start_date
+) VALUES (
+    $1, $2
+)
+RETURNING *;
+
+-- name: GetGameByDraftID :one
+SELECT * FROM ci6ndex.games
+WHERE draft_id = $1;
+
+-- name: UpdateGameFromDraftId :exec
+UPDATE ci6ndex.games
+SET start_date = $2
+WHERE draft_id = $1
+RETURNING *;
 
 -- name: WipeTables :exec
 DO $$

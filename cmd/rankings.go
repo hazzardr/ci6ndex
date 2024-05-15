@@ -53,6 +53,12 @@ func refreshRanks(cmd *cobra.Command, args []string) {
 		return
 	}
 	slog.Info("Successfully updated internal rankings", "count", len(newRanks))
+	err = internal.ComputeAverageTier(ctx, db)
+	if err != nil {
+		slog.Error("Error computing average tier", "error", err)
+		return
+	}
+	slog.Info("Successfully computed average tier for each leader")
 }
 
 func init() {
