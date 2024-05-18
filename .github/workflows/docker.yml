@@ -12,6 +12,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      attestations: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,3 +33,4 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/ci6ndex-bot:latest
+          labels: ${{ steps.meta.outputs.labels }}
