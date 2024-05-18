@@ -8,7 +8,7 @@ RUN go mod download
 RUN go build -o ci6ndex ./main.go
 
 # Final stage
-FROM golang:1.22-alpine
+FROM alpine
 
 WORKDIR /app
 COPY --from=build /app/ci6ndex /app/ci6ndex
