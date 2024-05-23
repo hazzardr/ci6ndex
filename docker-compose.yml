@@ -1,0 +1,6 @@
+services:
+  ci6ndex-bot:
+    image: ghcr.io/hazzardr/ci6ndex-bot:latest
+    volumes:
+      - .env:/app/.env
+    command: ["/app/ci6ndex", "discord", "start"]
