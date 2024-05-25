@@ -12,5 +12,6 @@ FROM alpine
 
 WORKDIR /app
 COPY --from=build /app/ci6ndex /app/ci6ndex
+COPY --from=build /app/templates /app/templates
 
 CMD ["/app/ci6ndex", "discord", "start"]
