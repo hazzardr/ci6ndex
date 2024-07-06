@@ -1,4 +1,4 @@
-package internal
+package pkg
 
 type AppConfig struct {
 	DiscordToken                   string `mapstructure:"DISCORD_API_TOKEN"`

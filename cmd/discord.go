@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"ci6ndex/internal/discord"
+	"ci6ndex/pkg/discord"
 	"fmt"
 	"log/slog"
 

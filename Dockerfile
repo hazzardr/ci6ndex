@@ -7,7 +7,7 @@ ADD . /app
 RUN go mod download
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ci6ndex ./main.go
 
-# Final stage
+# Run stage
 FROM alpine
 
 WORKDIR /app

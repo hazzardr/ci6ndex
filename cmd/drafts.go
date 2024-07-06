@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"ci6ndex/internal"
+	"ci6ndex/pkg"
 	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
@@ -43,8 +43,8 @@ var startDraftCommand = &cobra.Command{
 
 func startDraft(cmd *cobra.Command, args []string) {
 	ctx := cmd.Context()
-	cdr := internal.CreateDraftRequest{DraftStrategy: draftStrategy}
-	draft, err := internal.CreateDraft(ctx, cdr, db)
+	cdr := pkg.CreateDraftRequest{DraftStrategy: draftStrategy}
+	draft, err := pkg.CreateDraft(ctx, cdr, db)
 	if err != nil {
 		slog.Error("Error creating draft", "error", err)
 		return
@@ -69,7 +69,7 @@ func getDrafts(cmd *cobra.Command, args []string) {
 		slog.Error("unable to parse active flag", "error", err)
 		return
 	}
-	drafts, err := internal.GetDrafts(ctx, db, active)
+	drafts, err := pkg.GetDrafts(ctx, db, active)
 	if err != nil {
 		slog.Error("Error fetching drafts", "error", err)
 		return
@@ -93,7 +93,7 @@ var strategiesCommand = &cobra.Command{
 
 func listDraftStrategies(cmd *cobra.Command, args []string) {
 	ctx := cmd.Context()
-	strategies, err := internal.GetDraftStrategies(ctx, db)
+	strategies, err := pkg.GetDraftStrategies(ctx, db)
 	if err != nil {
 		slog.Error("Error fetching draft strategies", "error", err)
 		return
@@ -153,7 +153,7 @@ func rollCivs(cmd *cobra.Command, args []string) {
 		slog.Error("Error fetching leaders", "error", err)
 		return
 	}
-	var shuffler *internal.CivShuffler
+	var shuffler *pkg.CivShuffler
 	if draft {
 		drafts, err := db.Queries.GetActiveDrafts(ctx)
 		if err != nil {
@@ -178,7 +178,7 @@ func rollCivs(cmd *cobra.Command, args []string) {
 			slog.Error("Error fetching players for draft", "draftId", d.ID, "error", err)
 			return
 		}
-		shuffler = internal.NewCivShuffler(ls, d.Players, ds, db)
+		shuffler = pkg.NewCivShuffler(ls, d.Players, ds, db)
 	} else {
 		if draftStrategy == "" {
 			slog.Error("No draft strategy provided")
@@ -193,7 +193,7 @@ func rollCivs(cmd *cobra.Command, args []string) {
 			slog.Error("Error fetching draft strategy", "strategy", draftStrategy, "error", err)
 			return
 		}
-		shuffler = internal.NewCivShuffler(ls, players, ds, db)
+		shuffler = pkg.NewCivShuffler(ls, players, ds, db)
 	}
 	offers, err := shuffler.Shuffle()
 	if err != nil {

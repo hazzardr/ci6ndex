@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"ci6ndex/internal"
+	"ci6ndex/pkg"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -27,7 +27,7 @@ var addCmd = &cobra.Command{
 			fmt.Println("Please provide an input file")
 			return
 		}
-		err := internal.AddUsersFromFile(input, db)
+		err := pkg.AddUsersFromFile(input, db)
 		if err != nil {
 			fmt.Println("Failed to add user: ", err)
 		}

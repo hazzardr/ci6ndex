@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"ci6ndex/internal"
+	"ci6ndex/pkg"
 	"context"
 	"fmt"
 	"github.com/spf13/cobra"
@@ -34,7 +34,7 @@ var refreshRankingsCmd = &cobra.Command{
 // Refreshes the ranks from Google sheets and updates the database
 func refreshRanks(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
-	newRanks, err := internal.GetRankingsFromSheets(config, ctx)
+	newRanks, err := pkg.GetRankingsFromSheets(config, ctx)
 	if err != nil {
 		slog.Error("Error getting newRanks from google sheets", "error", err)
 		return
@@ -47,13 +47,13 @@ func refreshRanks(cmd *cobra.Command, args []string) {
 	}
 	slog.Info("Successfully got newRanks from google sheets", "count", len(newRanks))
 
-	err = internal.UpdateRankings(ctx, newRanks, db)
+	err = pkg.UpdateRankings(ctx, newRanks, db)
 	if err != nil {
-		slog.Error("Error updating internal rankings", "error", err)
+		slog.Error("Error updating pkg rankings", "error", err)
 		return
 	}
-	slog.Info("Successfully updated internal rankings", "count", len(newRanks))
-	err = internal.ComputeAverageTier(ctx, db)
+	slog.Info("Successfully updated pkg rankings", "count", len(newRanks))
+	err = pkg.ComputeAverageTier(ctx, db)
 	if err != nil {
 		slog.Error("Error computing average tier", "error", err)
 		return

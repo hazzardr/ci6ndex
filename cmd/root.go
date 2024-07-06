@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"ci6ndex/internal"
+	"ci6ndex/pkg"
 	"fmt"
 	"github.com/spf13/viper"
 	"log/slog"
@@ -31,8 +31,8 @@ func Execute() {
 	}
 }
 
-var db *internal.DatabaseOperations
-var config *internal.AppConfig
+var db *pkg.DatabaseOperations
+var config *pkg.AppConfig
 
 func init() {
 	err := initializeConfig()
@@ -41,7 +41,7 @@ func init() {
 		return
 	}
 	slog.Info("initializing db...")
-	db, err = internal.NewDBConnection(config.DatabaseUrl)
+	db, err = pkg.NewDBConnection(config.DatabaseUrl)
 	slog.Info("done!")
 	if err != nil {
 		slog.Error("Error initializing db", "error", err)

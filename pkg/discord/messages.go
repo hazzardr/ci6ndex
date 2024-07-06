@@ -3,7 +3,7 @@ package discord
 import (
 	"bytes"
 	"ci6ndex/domain"
-	"ci6ndex/internal"
+	"ci6ndex/pkg"
 	"path/filepath"
 	"text/template"
 )
@@ -46,7 +46,7 @@ func NewDiscTemplate() *MessageBuilder {
 }
 
 // WriteDraftOfferings writes info in a discord friendly format given the draft offerings.
-func (mb *MessageBuilder) WriteDraftOfferings(cmdName string, offers []internal.DraftOffering) (string, error) {
+func (mb *MessageBuilder) WriteDraftOfferings(cmdName string, offers []pkg.DraftOffering) (string, error) {
 	tmplName := filepath.Base(templates[cmdName])
 	var buf bytes.Buffer
 	err := mb.tmpl.ExecuteTemplate(&buf, tmplName, offers)

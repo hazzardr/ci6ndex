@@ -2,7 +2,7 @@ package discord
 
 import (
 	"ci6ndex/domain"
-	"ci6ndex/internal"
+	"ci6ndex/pkg"
 	"context"
 	"errors"
 	"github.com/bwmarrin/discordgo"
@@ -41,7 +41,7 @@ func getDraftCommands() []*discordgo.ApplicationCommand {
 	return cmds
 }
 
-func getDraftHandlers(db *internal.DatabaseOperations, mb *MessageBuilder) map[string]CommandHandler {
+func getDraftHandlers(db *pkg.DatabaseOperations, mb *MessageBuilder) map[string]CommandHandler {
 	handlers := make(map[string]CommandHandler)
 	handlers[CheckActiveDraftCommand.Name] = getActiveDraftHandler(db, mb)
 	handlers[PromptCreateDraftCommand.Name] = createDraftHandler(db)
@@ -53,7 +53,7 @@ func getDraftHandlers(db *internal.DatabaseOperations, mb *MessageBuilder) map[s
 	return handlers
 }
 
-func getActiveDraftHandler(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
+func getActiveDraftHandler(db *pkg.DatabaseOperations, mb *MessageBuilder) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name)
 		drafts, err := db.Queries.GetActiveDrafts(context.Background())
@@ -130,7 +130,7 @@ func getActiveDraftHandler(db *internal.DatabaseOperations, mb *MessageBuilder) 
 	}
 }
 
-func createDraftHandler(db *internal.DatabaseOperations) CommandHandler {
+func createDraftHandler(db *pkg.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
 		minPlayersAllowed := 1
@@ -243,7 +243,7 @@ func createDraftHandler(db *internal.DatabaseOperations) CommandHandler {
 	}
 }
 
-func handlePlayerPickerInteraction(db *internal.DatabaseOperations) CommandHandler {
+func handlePlayerPickerInteraction(db *pkg.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "messageComponentId", i.Interaction.MessageComponentData().CustomID, "interactionId", i.ID)
 
@@ -279,7 +279,7 @@ func handleDraftStrategyPickerInteraction() CommandHandler {
 	}
 }
 
-func handleCreateDraftConfirmInteraction(db *internal.DatabaseOperations) CommandHandler {
+func handleCreateDraftConfirmInteraction(db *pkg.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "messageComponentId", i.Interaction.MessageComponentData().CustomID, "interactionId", i.ID)
 
@@ -310,7 +310,7 @@ func handleCreateDraftConfirmInteraction(db *internal.DatabaseOperations) Comman
 	}
 }
 
-func handleCancelDraftsCommand(db *internal.DatabaseOperations) CommandHandler {
+func handleCancelDraftsCommand(db *pkg.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "messageComponentId", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
 		_, err := db.Queries.CancelActiveDrafts(context.Background())
@@ -331,7 +331,7 @@ func handleCancelDraftsCommand(db *internal.DatabaseOperations) CommandHandler {
 	}
 }
 
-func handleCreateDraftFinalizeInteraction(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
+func handleCreateDraftFinalizeInteraction(db *pkg.DatabaseOperations, mb *MessageBuilder) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "messageComponentId", i.Interaction.ModalSubmitData().CustomID, "interactionId", i.ID)
 

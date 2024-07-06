@@ -2,7 +2,7 @@ package discord
 
 import (
 	"ci6ndex/domain"
-	"ci6ndex/internal"
+	"ci6ndex/pkg"
 	"context"
 	"errors"
 	"fmt"
@@ -38,7 +38,7 @@ func getRollCivCommands() []*discordgo.ApplicationCommand {
 	return cmds
 }
 
-func getRollCivsHandlers(db *internal.DatabaseOperations, mb *MessageBuilder) map[string]CommandHandler {
+func getRollCivsHandlers(db *pkg.DatabaseOperations, mb *MessageBuilder) map[string]CommandHandler {
 	handlers := make(map[string]CommandHandler)
 	handlers[RollCivs.Name] = getRollCivsHandler(db, mb)
 	handlers[PickCiv.Name] = pickCivHandler(db)
@@ -47,7 +47,7 @@ func getRollCivsHandlers(db *internal.DatabaseOperations, mb *MessageBuilder) ma
 	return handlers
 }
 
-func getRollCivsHandler(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
+func getRollCivsHandler(db *pkg.DatabaseOperations, mb *MessageBuilder) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
 		err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -94,7 +94,7 @@ func getRollCivsHandler(db *internal.DatabaseOperations, mb *MessageBuilder) Com
 		}
 
 		strat, err := db.Queries.GetDraftStrategy(ctx, activeDraft.DraftStrategy)
-		shuffler := internal.NewCivShuffler(leaders, activeDraft.Players, strat, db)
+		shuffler := pkg.NewCivShuffler(leaders, activeDraft.Players, strat, db)
 		offers, err := shuffler.Shuffle()
 		if err != nil {
 			reportError("Error when shuffling civs.", err, s, i, true)
@@ -141,7 +141,7 @@ func getRollCivsHandler(db *internal.DatabaseOperations, mb *MessageBuilder) Com
 	}
 }
 
-func pickCivHandler(db *internal.DatabaseOperations) CommandHandler {
+func pickCivHandler(db *pkg.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
 
@@ -256,7 +256,7 @@ func pickCivHandler(db *internal.DatabaseOperations) CommandHandler {
 	}
 }
 
-func pickCivSelectHandler(db *internal.DatabaseOperations) CommandHandler {
+func pickCivSelectHandler(db *pkg.DatabaseOperations) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "command", i.Interaction.MessageComponentData().CustomID,
 			"interactionId", i.ID)
@@ -336,7 +336,7 @@ func pickCivSelectHandler(db *internal.DatabaseOperations) CommandHandler {
 	}
 }
 
-func revealCivHandler(db *internal.DatabaseOperations, mb *MessageBuilder) CommandHandler {
+func revealCivHandler(db *pkg.DatabaseOperations, mb *MessageBuilder) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		slog.Info("event received", "command", i.Interaction.ApplicationCommandData().Name, "interactionId", i.ID)
 

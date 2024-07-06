@@ -1,7 +1,7 @@
 package discord
 
 import (
-	"ci6ndex/internal"
+	"ci6ndex/pkg"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"log/slog"
@@ -19,13 +19,13 @@ var (
 type Bot struct {
 	s      *discordgo.Session
 	mb     *MessageBuilder
-	db     *internal.DatabaseOperations
-	config *internal.AppConfig
+	db     *pkg.DatabaseOperations
+	config *pkg.AppConfig
 }
 
 type CommandHandler func(s *discordgo.Session, i *discordgo.InteractionCreate)
 
-func NewBot(db *internal.DatabaseOperations, config *internal.AppConfig) (*Bot, error) {
+func NewBot(db *pkg.DatabaseOperations, config *pkg.AppConfig) (*Bot, error) {
 	s, err := discordgo.New("Bot " + config.DiscordToken)
 	if err != nil {
 		return nil, fmt.Errorf("could not start discord client: %w", err)

@@ -1,8 +1,8 @@
-package internal
+package pkg
 
 import (
 	"ci6ndex/domain"
-	"ci6ndex/internal/testhelper"
+	"ci6ndex/pkg/testhelper"
 	"context"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"

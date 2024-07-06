@@ -1,7 +1,7 @@
-package internal
+package pkg
 
 import (
-	"ci6ndex/internal/testhelper"
+	"ci6ndex/pkg/testhelper"
 	"context"
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/suite"

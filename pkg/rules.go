@@ -1,4 +1,4 @@
-package internal
+package pkg
 
 import (
 	"ci6ndex/domain"
