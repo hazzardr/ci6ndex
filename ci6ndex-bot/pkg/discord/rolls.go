@@ -108,7 +108,12 @@ func getRollCivsHandler(db *pkg.DatabaseOperations, mb *MessageBuilder) CommandH
 			}
 			u, err := db.Queries.GetUserByDiscordName(ctx, offer.User)
 			if err != nil {
-				reportError("failed to fetch user information required for roll", err, s, i, true)
+				reportError("failed to fetch user information required for roll",
+					fmt.Errorf("user=%s %w", offer.User, err),
+					s,
+					i,
+					true,
+				)
 				return
 			}
 			param := domain.WriteOfferedParams{

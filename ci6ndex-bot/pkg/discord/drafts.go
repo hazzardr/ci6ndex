@@ -159,7 +159,7 @@ func createDraftHandler(db *pkg.DatabaseOperations) CommandHandler {
 			reportError("could not fetch draft strategies for discord interaciton", err, s, i, false)
 		}
 		stratMenuOptions := make([]discordgo.SelectMenuOption, 0, len(strategies))
-		defaultStrat := "RandomPickNoRepeats"
+		defaultStrat := "RandomPickPool3"
 		for _, s := range strategies {
 			if s.Name != defaultStrat {
 				stratMenuOptions = append(stratMenuOptions, discordgo.SelectMenuOption{
@@ -249,6 +249,10 @@ func handlePlayerPickerInteraction(db *pkg.DatabaseOperations) CommandHandler {
 
 		players := make([]string, 0)
 		for _, p := range i.Interaction.MessageComponentData().Resolved.Users {
+			slog.Info("player selected", "player", p, "globalName", p.GlobalName, "username", p.Username)
+			if p.GlobalName == "" {
+				players = append(players, p.Username)
+			}
 			players = append(players, p.GlobalName)
 		}
 		_, err := db.Queries.AddPlayersToActiveDraft(context.Background(), players)
@@ -295,7 +299,7 @@ func handleCreateDraftConfirmInteraction(db *pkg.DatabaseOperations) CommandHand
 								CustomID:    "date-picker",
 								Label:       "When will the game take place?",
 								Style:       discordgo.TextInputShort,
-								Placeholder: "2023-01-02",
+								Placeholder: "2024-09-30",
 								Required:    true,
 							},
 						},
@@ -395,6 +399,7 @@ func handleCreateDraftFinalizeInteraction(db *pkg.DatabaseOperations, mb *Messag
 			reportError("error updating game from draft", err, s, i, true)
 			return
 		}
+
 		displayMsg, err := mb.WriteConfirmDraft(CreateDraftConfirmId, activeDraft.Players, response)
 		if err != nil {
 			reportError("error writing draft confirmation message", err, s, i, true)

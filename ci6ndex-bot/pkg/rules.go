@@ -52,6 +52,10 @@ func NewCivShuffler(leaders []domain.Ci6ndexLeader, players []string,
 				shuffle:  randomPick,
 				validate: randomPickValidate,
 			},
+			"RandomPickPool3": {
+				shuffle:  randomPick,
+				validate: randomPickValidate,
+			},
 			"RandomPickNoRepeats": {
 				shuffle:  randomPick,
 				validate: randomPickValidate,
@@ -167,19 +171,20 @@ func randomPickValidate(leaders []domain.Ci6ndexLeader, user string,
 	if hasRules(strat) {
 		var rules map[string]interface{}
 		err := json.Unmarshal(strat.Rules, &rules)
+		slog.Info("rules", "rules", rules)
 		if err != nil {
 			slog.Error("failed to unmarshal rules", "error", err, "strat", strat.Name)
 			return false
 		}
 		numGames, checkNumRepeats := rules["noRepeats"]
-		numGames, ok := numGames.(float64) // default serializing here no idea why
-		if !ok {
-			slog.Error("failed to convert noRepeats to int", "numGames", numGames)
-			return false
-		}
-		numGames = int32(numGames.(float64))
 		if checkNumRepeats {
-			noRecentPick := hasNoRecentPick(leaders, user, numGames.(int32), db)
+			numGames, ok := numGames.(float64) // default serializing here no idea why
+			if !ok {
+				slog.Error("failed to convert noRepeats to int", "numGames", numGames)
+				return false
+			}
+			numGamesInt := int32(numGames)
+			noRecentPick := hasNoRecentPick(leaders, user, numGamesInt, db)
 			valid = valid && noRecentPick
 		}
 		minTier, hasMinTier := rules["minTier"]
