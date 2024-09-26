@@ -106,27 +106,27 @@ func getRollCivsHandler(db *pkg.DatabaseOperations, mb *MessageBuilder) CommandH
 			for j, l := range offer.Leaders {
 				leaderIDs[j] = l.ID
 			}
-			u, err := db.Queries.GetUserByDiscordName(ctx, offer.User)
-			if err != nil {
-				reportError("failed to fetch user information required for roll",
-					fmt.Errorf("user=%s %w", offer.User, err),
-					s,
-					i,
-					true,
-				)
-				return
-			}
-			param := domain.WriteOfferedParams{
-				DraftID: activeDraft.ID,
-				UserID:  u.ID,
-				Offered: leaderIDs,
-			}
-
-			_, err = db.Queries.WriteOffered(ctx, param)
-			if err != nil {
-				reportError("failed to persist offer to database", err, s, i, true)
-				return
-			}
+			//u, err := db.Queries.GetUserByDiscordName(ctx, offer.User)
+			//if err != nil {
+			//	reportError("failed to fetch user information required for roll",
+			//		fmt.Errorf("user=%s %w", offer.User, err),
+			//		s,
+			//		i,
+			//		true,
+			//	)
+			//	return
+			//}
+			//param := domain.WriteOfferedParams{
+			//	DraftID: activeDraft.ID,
+			//	UserID:  u.ID,
+			//	Offered: leaderIDs,
+			//}
+			//
+			//_, err = db.Queries.WriteOffered(ctx, param)
+			//if err != nil {
+			//	reportError("failed to persist offer to database", err, s, i, true)
+			//	return
+			//}
 		}
 
 		content, err := mb.WriteDraftOfferings(RollCivs.Name, offers)
@@ -134,6 +134,7 @@ func getRollCivsHandler(db *pkg.DatabaseOperations, mb *MessageBuilder) CommandH
 			reportError("Error writing discord message", err, s, i, true)
 			return
 		}
+		slog.Info("content", content)
 		_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: content,
 		})

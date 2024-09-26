@@ -74,7 +74,7 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 	}
 	var allRolls []DraftOffering
 
-	totalNumTries := 200
+	totalNumTries := 2000
 	attempt := 0
 
 	for attempt < totalNumTries && len(allRolls) < len(c.Players) {
@@ -87,7 +87,7 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 		for playerIndex < len(c.Players) && !exhaustedRolls {
 			player := c.Players[playerIndex]
 			attemptPerPlayer := 0
-			numTriesPerPlayer := 10
+			numTriesPerPlayer := 1000
 			valid := false
 			for attemptPerPlayer < numTriesPerPlayer && !valid {
 				slog.Debug("rolling civs for player", "player", player,
@@ -130,10 +130,10 @@ func (c *CivShuffler) Shuffle() ([]DraftOffering, error) {
 		}
 		attempt++
 	}
-	if countNonNil(allRolls) < len(c.Players) {
-		slog.Warn("failed to roll valid offerings for all players", "strategy", c.DraftStrategy.Name, "players", c.Players, "totalTries", totalNumTries)
-		return nil, errors.New("failed to roll valid offerings for all players")
-	}
+	//if countNonNil(allRolls) < len(c.Players) {
+	//	slog.Warn("failed to roll valid offerings for all players", "strategy", c.DraftStrategy.Name, "players", c.Players, "totalTries", totalNumTries)
+	//	return nil, errors.New("failed to roll valid offerings for all players")
+	//}
 
 	return allRolls, nil
 }
@@ -171,7 +171,6 @@ func randomPickValidate(leaders []domain.Ci6ndexLeader, user string,
 	if hasRules(strat) {
 		var rules map[string]interface{}
 		err := json.Unmarshal(strat.Rules, &rules)
-		slog.Info("rules", "rules", rules)
 		if err != nil {
 			slog.Error("failed to unmarshal rules", "error", err, "strat", strat.Name)
 			return false
