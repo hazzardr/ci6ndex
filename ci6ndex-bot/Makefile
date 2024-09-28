@@ -13,6 +13,13 @@ help:
 	@grep '^.PHONY: ' Makefile | sed 's/.PHONY: //' | awk '{split($$0,a," ## "); printf "  \033[34m%0-10s\033[0m %s\n", a[1], a[2]}'
 
 
+.PHONY: update ## update dependencies
+update:
+	@echo "Updating dependencies..."
+	@go get -u
+	@go mod tidy
+	@echo "Done!"
+
 .PHONY: doctor ## checks if local environment is ready for development
 doctor:
 	@echo "Checking local environment..."
