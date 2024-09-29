@@ -27,3 +27,4 @@ build/
 gcloud_oauth2.json
 .idea/
 token.json
+*.db
