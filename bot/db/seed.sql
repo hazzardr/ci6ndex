@@ -2,7 +2,7 @@ DELETE FROM ci6ndex.draft_picks cascade;
 DELETE FROM ci6ndex.rankings cascade;
 DELETE FROM ci6ndex.leaders cascade;
 
-INSERT INTO ci6ndex.leaders (civ_name, leader_name, discord_emoji_string, banned)
+INSERT INTO leaders (civ_name, leader_name, discord_emoji_string, banned)
 VALUES
     ('AMERICA', 'ABE','<:Abraham_Lincoln_Civ6:1229388680745975868>',true),
     ('AMERICA', 'BULLMOOSE TEDDY','<:Teddy_Roosevelt_Civ6:1229599575476670605>',false),
@@ -86,26 +86,23 @@ on conflict (civ_name, leader_name)
 do update set discord_emoji_string = excluded.discord_emoji_string, banned = excluded.banned
 ;
 
-INSERT INTO ci6ndex.draft_strategies (name, description, randomize, pool_size, rules)
+INSERT INTO draft_strategies (name, description, randomize, pool_size)
 VALUES
 (
  'AllPick',
  'Everyone can freely pick a leader, no restrictions.',
  false,
- null,
  null
 ),
 (
  'RandomPick',
  'Everyone gets a single randomized leader.',
  true,
- 1,
- null
+ 1
 ),
 (
  'RandomPickNoRepeats',
  'Everyone gets a pool of randomized leaders to pick from. They will not be offered any leaders they have picked in the past 3 games',
  true,
- 3,
- '{"no_repeats": 3}'
+ 3
 )

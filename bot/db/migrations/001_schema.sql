@@ -25,16 +25,16 @@ CREATE TABLE drafts
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     draft_strategy TEXT NOT NULL,
     active BOOLEAN NOT NULL DEFAULT TRUE,
-    players TEXT,
+    players TEXT, -- String array,
     FOREIGN KEY (draft_strategy) REFERENCES draft_strategies (name)
 );
 
 CREATE TABLE offered
 (
-    user_id INTEGER NOT NULL,
+    player TEXT NOT NULL,
     draft_id INTEGER NOT NULL,
     offered TEXT,
-    PRIMARY KEY (user_id, draft_id)
+    PRIMARY KEY (player, draft_id)
 );
 
 -- +goose Down

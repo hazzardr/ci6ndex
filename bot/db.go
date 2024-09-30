@@ -2,39 +2,36 @@ package main
 
 import (
 	"ci6ndex-bot/domain"
-	"context"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"database/sql"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
-type DatabaseOperations struct {
-	db      *pgxpool.Pool
-	Queries *domain.Queries
+type Database struct {
+	Queries    *domain.Queries
+	Connection *sql.DB
 }
 
-func NewDBConnection(dbUrl string) (*DatabaseOperations, error) {
-	conn, err := pgxpool.New(context.Background(), dbUrl)
+func NewDBConnection(dbUrl string) (*Database, error) {
+	conn, err := sql.Open("sqlite3", dbUrl)
 	if err != nil {
 		return nil, err
 	}
+	return &Database{
+		Queries:    domain.New(conn),
+		Connection: conn,
+	}, nil
 
-	err = conn.Ping(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	q := domain.New(conn)
-
-	return &DatabaseOperations{db: conn, Queries: q}, nil
 }
 
-func (db DatabaseOperations) Health() error {
-	err := db.db.Ping(context.Background())
+func (db Database) Health() error {
+	err := db.Connection.Ping()
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (db DatabaseOperations) Close() {
-	db.db.Close()
+func (db Database) Close() error {
+	return db.Connection.Close()
 }
