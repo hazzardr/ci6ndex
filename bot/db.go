@@ -3,35 +3,57 @@ package main
 import (
 	"ci6ndex-bot/domain"
 	"database/sql"
+	"github.com/pkg/errors"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type Database struct {
-	Queries    *domain.Queries
-	Connection *sql.DB
+type DatabaseOperations struct {
+	Queries         *domain.Queries
+	ReadConnection  *sql.DB
+	WriteConnection *sql.DB
 }
 
-func NewDBConnection(dbUrl string) (*Database, error) {
-	conn, err := sql.Open("sqlite3", dbUrl)
+func NewDBConnection(dbUrl string) (*DatabaseOperations, error) {
+	readConn, err := sql.Open("sqlite3", dbUrl)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to initialize read connection.")
 	}
-	return &Database{
-		Queries:    domain.New(conn),
-		Connection: conn,
+	writeConn, err := sql.Open("sqlite3", dbUrl)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to initialize write connection.")
+	}
+
+	// sqlite does not support multiple write connections
+	writeConn.SetMaxOpenConns(1)
+	return &DatabaseOperations{
+		Queries:         domain.New(readConn),
+		ReadConnection:  readConn,
+		WriteConnection: writeConn,
 	}, nil
 
 }
 
-func (db Database) Health() error {
-	err := db.Connection.Ping()
+func (db DatabaseOperations) Health() error {
+	err := db.ReadConnection.Ping()
+	if err != nil {
+		return err
+	}
+	err = db.WriteConnection.Ping()
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (db Database) Close() error {
-	return db.Connection.Close()
+func (db DatabaseOperations) Close() error {
+	err := db.ReadConnection.Close()
+	if err != nil {
+		return err
+	}
+	err = db.WriteConnection.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }
