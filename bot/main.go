@@ -14,6 +14,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	slog.Info("Database connection successful")
+	_, err = loadConfig()
+	if err != nil {
+		panic(err)
+	}
+	slog.Info("Initialization successful")
+
 	db.Close()
 }
