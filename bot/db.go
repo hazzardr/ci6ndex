@@ -13,7 +13,7 @@ type DatabaseOperations struct {
 	readConn *sql.DB
 }
 
-func NewDBConnection(dbUrl string) (*DatabaseOperations, error) {
+func newDBConnection(dbUrl string) (*DatabaseOperations, error) {
 	readConn, err := sql.Open("sqlite3", dbUrl)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to initialize read connection.")
