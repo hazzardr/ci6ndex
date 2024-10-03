@@ -1,19 +1,18 @@
-package main
+package domain
 
 import (
-	"ci6ndex-bot/domain"
+	"ci6ndex-bot/domain/generated"
 	"database/sql"
-	"github.com/pkg/errors"
-
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pkg/errors"
 )
 
 type DatabaseOperations struct {
-	Queries  *domain.Queries
+	Queries  *generated.Queries
 	readConn *sql.DB
 }
 
-func newDBConnection(dbUrl string) (*DatabaseOperations, error) {
+func NewDBConnection(dbUrl string) (*DatabaseOperations, error) {
 	readConn, err := sql.Open("sqlite3", dbUrl)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to initialize read connection.")
@@ -26,7 +25,7 @@ func newDBConnection(dbUrl string) (*DatabaseOperations, error) {
 	//// sqlite does not support multiple write connections
 	//writeConn.SetMaxOpenConns(1)
 	return &DatabaseOperations{
-		Queries: domain.New(readConn),
+		Queries: generated.New(readConn),
 	}, nil
 
 }

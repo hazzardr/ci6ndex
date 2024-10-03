@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.24.0
 
-package domain
+package generated
 
 import (
 	"database/sql"
@@ -28,11 +28,11 @@ type Leader struct {
 	LeaderName         string
 	DiscordEmojiString sql.NullString
 	Banned             bool
-	Ranking            float64
+	Tier               float64
 }
 
 type Offered struct {
-	UserID  int64
+	Player  string
 	DraftID int64
 	Offered sql.NullString
 }

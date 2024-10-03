@@ -3,14 +3,14 @@
 //   sqlc v1.24.0
 // source: query.sql
 
-package domain
+package generated
 
 import (
 	"context"
 )
 
 const getLeaders = `-- name: GetLeaders :one
-SELECT id, civ_name, leader_name, discord_emoji_string, banned, ranking FROM leaders
+SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM leaders
 `
 
 func (q *Queries) GetLeaders(ctx context.Context) (Leader, error) {
@@ -22,7 +22,7 @@ func (q *Queries) GetLeaders(ctx context.Context) (Leader, error) {
 		&i.LeaderName,
 		&i.DiscordEmojiString,
 		&i.Banned,
-		&i.Ranking,
+		&i.Tier,
 	)
 	return i, err
 }
