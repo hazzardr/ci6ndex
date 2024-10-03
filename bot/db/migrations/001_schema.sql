@@ -6,7 +6,7 @@ CREATE TABLE leaders
     leader_name TEXT NOT NULL,
     discord_emoji_string TEXT,
     banned BOOLEAN NOT NULL DEFAULT FALSE,
-    ranking FLOAT NOT NULL
+    tier FLOAT NOT NULL
 );
 
 CREATE UNIQUE INDEX leaders_civ_name_leader_name_uindex ON leaders (civ_name, leader_name);

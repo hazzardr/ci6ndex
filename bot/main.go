@@ -7,11 +7,10 @@ import "log/slog"
 
 func main() {
 	db, err := NewDBConnection("file:bot.db")
-	defer db.Close()
-
 	if err != nil {
 		panic(err)
 	}
+
 	err = db.Health()
 	if err != nil {
 		panic(err)
@@ -20,5 +19,5 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	slog.Info("Initialization successful")
+	slog.Info("initialization successful")
 }

@@ -1,0 +1,110 @@
+-- +goose Up
+INSERT INTO leaders (civ_name, leader_name, discord_emoji_string, banned, tier)
+VALUES
+    ('AMERICA', 'ABE','<:Abraham_Lincoln_Civ6:1229388680745975868>',true, 1.33),
+    ('AMERICA', 'BULLMOOSE TEDDY','<:Teddy_Roosevelt_Civ6:1229599575476670605>',false, 2),
+    ('AMERICA', 'ROUGH RIDER TEDDY','<:Teddy_Roosevelt_Rough_Rider_Civ6:1229599578014093353>',false, 3.33),
+    ('AMERICA', 'TEDDY','<:Teddy_Roosevelt_Civ6:1229599575476670605>',false, 3),
+    ('ARABIA', 'SALADIN SULTAN','<:Saladin_Sultan_Civ6:1229599470434648084>',false, 2.6),
+    ('ARABIA', 'SALADIN VIZIR','<:Saladin_Civ6:1229599467381194792>',false, 2.75),
+    ('AUSTRALIA', 'JOHN CURTIN','<:John_Curtin_Civ6:1229389046241951795>',false, 1.88),
+    ('AZTEC', 'MONTEZUMA','<:Montezuma_Civ6:1229393522717622313>', false, 1.92),
+    ('BABYLON', 'HAMMURABI','<:Hammurabi_Civ6:1229388959637831740>', true,1.14),
+    ('BRAZIL', 'PEDRO II','<:Pedro_II_Civ6:1229599108428202045>',false,2.83),
+    ('BYZANTIUM', 'BASIL II','<:Basil_II_Civ6:1229388717421105243>', false, 1.75),
+    ('BYZANTIUM', 'THEODORA','<:Theodora_Civ6:1229599580476276846>',false,1.83),
+    ('CANADA', 'WILFRID LAURIER','<:Wilfrid_Laurier_Civ6:1229599649204142182>',false,3),
+    ('CHINA', 'KUBLAI KHAN','<:Kublai_Khan_Chinese_Civ6:1229389100164055071>',false,3.38),
+    ('CHINA', 'QIN SHI HUANG UNIFIER','<:Qin_Shi_Huang_Unifier_Civ6:1229599339169714186>',false,6),
+    ('CHINA', 'QIN SHI HUANG','<:Qin_Shi_Huang_Civ6:1229599336753532992>',false,3.25),
+    ('CHINA', 'WU ZEITAN','<:Wu_Zetian_Civ6:1229599688332677252>',false,4.2),
+    ('CHINA', 'YONGLE','<:Yongle_Civ6:1229599691168153690>',false,2.14),
+    ('CREE', 'POUNDMAKER','<:Poundmaker_Civ6:1229599299973677097>',false,3.6),
+    ('DUTCH', 'WILHELMINA','<:Wilhelmina_Civ6:1229599651829907517>',false,3.2),
+    ('EGYPT', 'CLEOPATRA','<:Cleopatra_Civ6:1229388784907583551>', false,3.17),
+    ('EGYPT', 'PTOLEMEIC CLEO','<:Cleopatra_Ptolemaic_Civ6:1229388788413890560>', false,2.8),
+    ('EGYPT', 'RAMSEYS','<:Ramses_II_Civ6:1229599389454958703>',false,4.75),
+    ('ENGLAND', 'ELEANOR OF AQUITAINE','<:Eleanor_of_Aquitaine_English_Civ:1229388885860159562>', false,5.17),
+    ('ENGLAND', 'ELIZABETH','<:Elizabeth_I_Civ6:1229388893502312510>',false,4),
+    ('ENGLAND', 'STEAMY VICKY','<:Victoria_Age_of_Steam_Civ6:1229599618871066724>',false,2.29),
+    ('ENGLAND', 'VICTORIA','<:Victoria_Civ6:1229599621576265799>',false,2.6),
+    ('ETHIOPIA', 'MENELIK II','<:Menelik_II_Civ6:1229393224708128820>',false,1.67),
+    ('FRANCE', 'CATHERINE DE MEDICI','<:Catherine_de_Medici_Civ6:1229388757699002428>', false,4),
+    ('FRANCE', 'ELEANOR AQUITAINE','<:Eleanor_of_Aquitaine_French_Civ6:1229388889815384205>',false,4.8),
+    ('FRANCE', 'MAGNIFICENCE CATHERINE','<:Catherine_de_Medici_Magnificence:1229388761343721573>', false,3.25),
+    ('GAUL', 'AMBIORIX','<:Ambiorix_Civ6:1229388711087702046>',false,1.43),
+    ('GEORGIA', 'TAMAR','<:Tamar_Civ6:1229599572800569426>',false,5),
+    ('GERMANY', 'FREDERICK BARBAROSSA','<:Frederick_Barbarossa_Civ6:1229388940897681459>',false,1),
+    ('GERMANY', 'LUDWIG','<:Ludwig_II_Civ6:1229393216990875658>',false,2.17),
+    ('GRAN COLUMBIA', 'SIMON BOLIVAR','<:Simn_Bolvar_Civ6:1229599483118092378>',false,1.17),
+    ('GREECE', 'GORGO','<:Gorgo_Civ6:1229388956215283792>',false,2.6),
+    ('GREECE', 'PERICLES','<:Pericles_Civ6:1229599111054098432>',false,2.8),
+    ('HUNGARY', 'MATTHIAS CORVINUS','<:Matthias_Corvinus_Civ6:1229393222061785098>',false,1.86),
+    ('INCA', 'PACHACUTI','<:Pachacuti_Civ6:1229393648571912212>',false,3.2),
+    ('INDIA', 'CHANDRAGUPTA','<:Chandragupta_Civ6:1229388764158234624>', false, 5.4),
+    ('INDIA', 'GHANDI','<:Gandhi_Civ6:1229388944014049300>',false, 6),
+    ('INDONESIA', 'GITARJA','<:Gitarja_Civ6:1229388953434718290>',false, 2.6),
+    ('JAPAN', 'HOJO TOKIMUNE','<:Hojo_Tokimune_Civ6:1229388968827551795>',false,1.13),
+    ('JAPAN', 'TOKUGAWA','<:Tokugawa_Civ6:1229599582682349692>',false,1.25),
+    ('KHMER', 'JAYAVARMAN VII','<:Jayavarman_VII_Civ6:1229389039283736646>',false,1.75),
+    ('KONGO', 'MVEMBA A NZINGA','<:Mvemba_a_Nzinga_Civ6:1229393595342262272>', false,4.33),
+    ('KONGO', 'NZINGA MBANDE','<:Nzinga_Mbande_Civ6:1229393600790663220>',false,3.33),
+    ('KOREA', 'SEJONG','<:Sejong_Civ6:1229599472946909194>',false,3.25),
+    ('KOREA', 'SEONDEOK','<:Seondeok_Civ6:1229599476252151818>',false,1.86),
+    ('MACEDON', 'ALEXANDER','<:Alexander_Civ6:1229381348251406417>',false,1.67),
+    ('MALI', 'MANSA MUSA','<:Mansa_Musa_Civ6:1229393219461189723>',false,2.83),
+    ('MALI', 'SUNDIATA KEITA','<:Sundiata_Keita_Civ6:1229599570074406994>',false,3),
+    ('MAORI', 'KUPE','<:Kupe_Civ6:1229389108170719382>',false,2),
+    ('MAPUCHE', 'LAUTARO','<:Lautaro_Civ6:1229393214906171482>',false,3.8),
+    ('MAYA', 'LADY SIX SKY','<:Lady_Six_Sky_Civ6:1229393212645572618>',false,3),
+    ('MONGOLIA', 'GENGHIS KHAN','<:Genghis_Khan_Civ6:1229388947298451487>',false,3.43),
+    ('MONGOLIA', 'KUBLAI KHAN','<:Kublai_Khan_Mongolian_Civ6:1229389103418834964>',false,3.75),
+    ('NORWAY', 'HARALD HARDRADA','<:Harald_Hardrada_Civ6:1229388963001929739>',false,3.6),
+    ('NORWAY', 'VARANGIA HARALD','<:Harald_Hardrada_Varangian_Civ6:1229388966235734056>',false,3.25),
+    ('NUBIA', 'AMANITORE','<:Amanitore_Civ6:1229388707962818611>',false,3.75),
+    ('OTTOMAN', 'SULEIMAN MUHTEŞEM','<:Suleiman_Muhteem_Civ6:1229599567344046120>',false,2.75),
+    ('OTTOMAN', 'SULEIMAN','<:Suleiman_Civ6:1229599564277874720>',false,2.75),
+    ('PERSIA', 'CYRUS','<:Cyrus_Civ6:1229388792218124298>', false,2.75),
+    ('PERSIA', 'NADER SHAH','<:Nader_Shah_Civ6:1229393597598666784>',false,4),
+    ('PHOENICIAN', 'DIDO','<:Dido_Civ6:1229388795565309984>',false,3),
+    ('POLISH', 'JADWIGA','<:Jadwiga_Civ6:1229389035869306943>',false,3.6),
+    ('PORTUGAL', 'JOÃO III','<:Joo_III_Civ6:1229389042898964580>',false,2.38),
+    ('ROME', 'JULIUS CAESER','<:Julius_Caesar_Civ6:1229389049278500905>',false,4),
+    ('ROME', 'TRAJAN','<:Trajan_Civ6:1229599587959046195>',false,1.8),
+    ('RUSSIA', 'PETER','<:Peter_Civ6:1229599112869969941>',false,1.13),
+    ('SCOTLAND', 'ROBERT THE BRUCE','<:Robert_the_Bruce_Civ6:1229599423382949958>',false,4.33),
+    ('SCYTHIA', 'TOMYRIS','<:Tomyris_Civ6:1229599585232621608>',true,2.67),
+    ('SPAIN', 'PHILLIP II','<:Philip_II_Civ6:1229599116388991006>',false,2.71),
+    ('SUMERIA', 'GILGAMESH','<:Gilgamesh_Civ6:1229388950276149299>',true,1.4),
+    ('SWEDEN', 'KRISTINA','<:Kristina_Civ6:1229389097231974480>',false,3.8),
+    ('VIETNAM', 'BÀ TRIỆU','<:B_Triu_Civ6:1229388714526900284>',false,2.75),
+    ('ZULU', 'SHAKA','<:Shaka_Civ6:1229599479712317591>',false,3.5)
+on conflict (civ_name, leader_name)
+    do update set discord_emoji_string = excluded.discord_emoji_string, banned = excluded.banned
+;
+
+INSERT INTO draft_strategies (name, description, randomize, pool_size)
+VALUES
+    (
+        'AllPick',
+        'Everyone can freely pick a leader, no restrictions.',
+        false,
+        1
+    ),
+    (
+        'RandomPick',
+        'Everyone gets a single randomized leader.',
+        true,
+        1
+    ),
+    (
+        'RandomPickNoRepeats',
+        'Everyone gets a pool of randomized leaders to pick from. They will not be offered any leaders they have picked in the past 3 games',
+        true,
+        3
+    )
+;
+
+-- +goose Down
+DELETE FROM leaders;
+DELETE FROM draft_strategies;

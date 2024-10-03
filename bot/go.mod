@@ -2,7 +2,11 @@ module ci6ndex-bot
 
 go 1.23.1
 
-require github.com/mattn/go-sqlite3 v1.14.23
+require (
+	github.com/mattn/go-sqlite3 v1.14.23
+	github.com/pkg/errors v0.9.1
+	github.com/spf13/viper v1.19.0
+)
 
 require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
@@ -16,7 +20,6 @@ require (
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.19.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
