@@ -1,19 +1,20 @@
 package main
 
 import (
+	"ci6ndex-bot/ci6ndex"
 	"ci6ndex-bot/domain"
 	"github.com/charmbracelet/log"
 	"os"
 	"time"
 )
 
-type App struct {
+type Dependencies struct {
 	db     *domain.DatabaseOperations
-	config *AppConfig
+	config *ci6ndex.AppConfig
 	logger *log.Logger
 }
 
-func InitNewApp(c *AppConfig) (*App, error) {
+func Initialize(c *ci6ndex.AppConfig) (*Dependencies, error) {
 	db, err := domain.NewDBConnection(c.DatabaseUrl)
 	if err != nil {
 		panic(err)
@@ -24,13 +25,13 @@ func InitNewApp(c *AppConfig) (*App, error) {
 		TimeFormat:      time.Kitchen,
 	})
 
-	return &App{
+	return &Dependencies{
 		db:     db,
 		config: c,
 		logger: logger,
 	}, nil
 }
 
-func (a *App) Serve() {
+func (a *Dependencies) Serve() {
 	a.db.Close()
 }

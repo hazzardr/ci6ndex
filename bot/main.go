@@ -4,45 +4,21 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package main
 
 import (
-	"github.com/spf13/viper"
-	"log/slog"
+	"ci6ndex-bot/ci6ndex"
 )
 
-type AppConfig struct {
-	DiscordToken     string `mapstructure:"DISCORD_API_TOKEN"`
-	BotApplicationID string `mapstructure:"DISCORD_BOT_APPLICATION_ID"`
-	GuildId          string `mapstructure:"CS_GUILD_ID"`
-	DatabaseUrl      string `mapstructure:"SQLITE_DB_URL"`
-}
-
-func loadConfig() (*AppConfig, error) {
-	var config AppConfig
-	viper.SetConfigFile(".env")
-	viper.SetConfigType("env")
-
-	viper.AutomaticEnv()
-
-	err := viper.ReadInConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	err = viper.Unmarshal(&config)
-
-	if err != nil {
-		return nil, err
-	}
-	return &config, nil
-}
-
 func main() {
-	config, err := loadConfig()
+	config, err := ci6ndex.LoadConfig()
 	if err != nil {
 		panic(err)
 	}
-	_, err = InitNewApp(config)
+	deps, err := Initialize(config)
 	if err != nil {
 		panic(err)
 	}
-	slog.Info("initialization successful")
+	bot := ci6ndex.New(*config, deps.db, *deps.logger)
+	if err := bot.Configure(); err != nil {
+		panic(err)
+	}
+	bot.Start()
 }
