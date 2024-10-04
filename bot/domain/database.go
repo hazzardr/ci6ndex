@@ -25,7 +25,8 @@ func NewDBConnection(dbUrl string) (*DatabaseOperations, error) {
 	//// sqlite does not support multiple write connections
 	//writeConn.SetMaxOpenConns(1)
 	return &DatabaseOperations{
-		Queries: generated.New(readConn),
+		Queries:  generated.New(readConn),
+		readConn: readConn,
 	}, nil
 
 }

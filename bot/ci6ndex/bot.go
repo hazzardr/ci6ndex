@@ -9,7 +9,6 @@ import (
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
-	"os"
 )
 
 type Ci6ndex struct {
@@ -52,18 +51,16 @@ func (c *Ci6ndex) Start() {
 	if err := c.Client.OpenGateway(context.Background()); err != nil {
 		c.Logger.Errorf("Failed to connect to discord gateway: %s", err)
 	}
-	defer func() {
-		c.Logger.Info("Shutting down bot...")
-		c.Client.Close(context.Background())
-		c.DB.Close()
-	}()
+}
 
-	s := make(chan os.Signal, 1)
-	<-s
+func (c *Ci6ndex) GracefulShutdown() {
+	c.Logger.Info("Shutting down bot...")
+	c.Client.Close(context.Background())
+	c.DB.Close()
 }
 
 func (c *Ci6ndex) OnReady(_ *events.Ready) {
-	c.Logger.Info("Bot started! Listening for new events.")
+	c.Logger.Info("Bot ready! Listening for new events...")
 	if err := c.Client.SetPresence(context.Background(),
 		gateway.WithListeningActivity("Ian and Alex arguing		"),
 		gateway.WithOnlineStatus(discord.OnlineStatusOnline),
