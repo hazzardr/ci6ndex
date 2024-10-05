@@ -5,7 +5,7 @@ import "github.com/spf13/viper"
 type AppConfig struct {
 	DiscordToken     string `mapstructure:"DISCORD_API_TOKEN"`
 	BotApplicationID string `mapstructure:"DISCORD_BOT_APPLICATION_ID"`
-	GuildId          string `mapstructure:"CS_GUILD_ID"`
+	GuildIds         string `mapstructure:"GUILD_IDS"`
 	DatabaseUrl      string `mapstructure:"SQLITE_DB_URL"`
 }
 

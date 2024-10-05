@@ -1,6 +1,7 @@
 package ci6ndex
 
 import (
+	"ci6ndex-bot/commands"
 	"ci6ndex-bot/domain"
 	"context"
 	"github.com/charmbracelet/log"
@@ -9,6 +10,9 @@ import (
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
+	"github.com/disgoorg/disgo/handler"
+	"github.com/disgoorg/snowflake/v2"
+	"strings"
 )
 
 type Ci6ndex struct {
@@ -26,8 +30,8 @@ func New(config AppConfig, db *domain.DatabaseOperations, log log.Logger) *Ci6nd
 	}
 }
 
-func (c *Ci6ndex) Configure() error {
-	c.Logger.Info("Configuring Bot...", "guildId", c.Config.GuildId)
+func (c *Ci6ndex) Configure(r handler.Router) error {
+	c.Logger.Info("Configuring Ci6ndex...")
 	var err error
 	if c.Client, err = disgo.New(c.Config.DiscordToken,
 		bot.WithGatewayConfigOpts(
@@ -38,33 +42,51 @@ func (c *Ci6ndex) Configure() error {
 			),
 		),
 		bot.WithEventListenerFunc(c.OnReady),
+		bot.WithEventListeners(r),
 	); err != nil {
-		c.Logger.Errorf("Failed to configure bot: %s", err)
+		c.Logger.Errorf("Failed to configure Ci6ndex: %s", err)
 	}
 
 	return nil
 }
 
-func (c *Ci6ndex) Start() {
-	c.Logger.Info("Starting Bot...")
+func (c *Ci6ndex) Start() error {
+	c.Logger.Info("Starting Ci6ndex...")
 
 	if err := c.Client.OpenGateway(context.Background()); err != nil {
 		c.Logger.Errorf("Failed to connect to discord gateway: %s", err)
+		return err
 	}
+	return nil
 }
 
 func (c *Ci6ndex) GracefulShutdown() {
-	c.Logger.Info("Shutting down bot...")
+	c.Logger.Info("Shutting down Ci6ndex...")
 	c.Client.Close(context.Background())
 	c.DB.Close()
 }
 
 func (c *Ci6ndex) OnReady(_ *events.Ready) {
-	c.Logger.Info("Bot ready! Listening for new events...")
+	c.Logger.Info("Ci6ndex ready! Listening for new events...")
 	if err := c.Client.SetPresence(context.Background(),
 		gateway.WithListeningActivity("Ian and Alex arguing		"),
 		gateway.WithOnlineStatus(discord.OnlineStatusOnline),
 	); err != nil {
 		c.Logger.Errorf("Failed to set presence: %s", err)
+	}
+}
+
+func (c *Ci6ndex) SyncCommands() {
+	c.Logger.Info("Syncing commands...")
+	ids := strings.Split(c.Config.GuildIds, ",")
+	for _, id := range ids {
+		_, err := c.Client.Rest().SetGuildCommands(
+			snowflake.MustParse(c.Config.BotApplicationID),
+			snowflake.MustParse(id),
+			commands.Commands,
+		)
+		if err != nil {
+			c.Logger.Errorf("Failed to sync commands: %v", err)
+		}
 	}
 }

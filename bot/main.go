@@ -5,6 +5,8 @@ package main
 
 import (
 	"ci6ndex-bot/ci6ndex"
+	"ci6ndex-bot/commands"
+	"github.com/disgoorg/disgo/handler"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,15 +23,24 @@ func main() {
 	}
 
 	bot := ci6ndex.New(*config, deps.db, *deps.logger)
-	if err := bot.Configure(); err != nil {
+	r := handler.New()
+	r.Command("/ping", commands.HandlePing)
+	r.Command("/roll", commands.HandleRollCivs)
+
+	err = bot.Configure(r)
+	if err != nil {
 		panic(err)
 	}
 
+	//bot.SyncCommands()
 	defer func() {
 		bot.GracefulShutdown()
 	}()
-	bot.Start()
+	err = bot.Start()
 
+	if err != nil {
+		panic(err)
+	}
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-s
