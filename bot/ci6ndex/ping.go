@@ -1,4 +1,4 @@
-package commands
+package ci6ndex
 
 import (
 	"github.com/disgoorg/disgo/discord"

@@ -1,7 +1,6 @@
 package ci6ndex
 
 import (
-	"ci6ndex-bot/commands"
 	"ci6ndex-bot/domain"
 	"context"
 	"github.com/charmbracelet/log"
@@ -12,6 +11,8 @@ import (
 	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/disgo/handler"
 	"github.com/disgoorg/snowflake/v2"
+	"github.com/pkg/errors"
+	"log/slog"
 	"strings"
 )
 
@@ -33,7 +34,7 @@ func New(config AppConfig, db *domain.DatabaseOperations, log log.Logger) *Ci6nd
 func (c *Ci6ndex) Configure(r handler.Router) error {
 	c.Logger.Info("Configuring Ci6ndex...")
 	var err error
-	if c.Client, err = disgo.New(c.Config.DiscordToken,
+	c.Client, err = disgo.New(c.Config.DiscordToken,
 		bot.WithGatewayConfigOpts(
 			gateway.WithIntents(gateway.IntentGuildMessages),
 			gateway.WithCompress(true),
@@ -43,9 +44,12 @@ func (c *Ci6ndex) Configure(r handler.Router) error {
 		),
 		bot.WithEventListenerFunc(c.OnReady),
 		bot.WithEventListeners(r),
-	); err != nil {
-		c.Logger.Errorf("Failed to configure Ci6ndex: %s", err)
+		bot.WithLogger(slog.New(&c.Logger)),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to create discord client")
 	}
+	c.Client.Logger()
 
 	return nil
 }
@@ -83,7 +87,7 @@ func (c *Ci6ndex) SyncCommands() {
 		_, err := c.Client.Rest().SetGuildCommands(
 			snowflake.MustParse(c.Config.BotApplicationID),
 			snowflake.MustParse(id),
-			commands.Commands,
+			Commands,
 		)
 		if err != nil {
 			c.Logger.Errorf("Failed to sync commands: %v", err)

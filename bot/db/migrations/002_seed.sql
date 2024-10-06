@@ -83,28 +83,5 @@ on conflict (civ_name, leader_name)
     do update set discord_emoji_string = excluded.discord_emoji_string, banned = excluded.banned
 ;
 
-INSERT INTO draft_strategies (name, description, randomize, pool_size)
-VALUES
-    (
-        'AllPick',
-        'Everyone can freely pick a leader, no restrictions.',
-        false,
-        1
-    ),
-    (
-        'RandomPick',
-        'Everyone gets a single randomized leader.',
-        true,
-        1
-    ),
-    (
-        'RandomPickNoRepeats',
-        'Everyone gets a pool of randomized leaders to pick from. They will not be offered any leaders they have picked in the past 3 games',
-        true,
-        3
-    )
-;
-
 -- +goose Down
 DELETE FROM leaders;
-DELETE FROM draft_strategies;

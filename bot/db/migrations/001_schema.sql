@@ -11,22 +11,11 @@ CREATE TABLE leaders
 
 CREATE UNIQUE INDEX leaders_civ_name_leader_name_uindex ON leaders (civ_name, leader_name);
 
-CREATE TABLE draft_strategies
-(
-    name TEXT UNIQUE NOT NULL,
-    description TEXT NOT NULL,
-    pool_size INTEGER NOT NULL DEFAULT 3,
-    randomize BOOLEAN NOT NULL DEFAULT FALSE,
-    PRIMARY KEY (name)
-);
-
 CREATE TABLE drafts
 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    draft_strategy TEXT NOT NULL,
     active BOOLEAN NOT NULL DEFAULT TRUE,
-    players TEXT, -- String array,
-    FOREIGN KEY (draft_strategy) REFERENCES draft_strategies (name)
+    players TEXT -- String array, comma separated.
 );
 
 CREATE TABLE offered
@@ -39,6 +28,5 @@ CREATE TABLE offered
 
 -- +goose Down
 DROP TABLE leaders;
-DROP TABLE draft_strategies;
 DROP TABLE drafts;
 DROP TABLE offered;

@@ -70,11 +70,11 @@ generate:
 .PHONY: db-up ## run database migrations
 db-up:
 	@echo "Running database migrations..."
-	@goose -dir db/migrations sqlite3 ./bot.db up
+	@goose -dir db/migrations sqlite3 ./db/bot.db up
 	@echo "Done!"
 
 .PHONY: db-down ## run database migrations
 db-down:
 	@echo "Running database migrations..."
-	@goose -dir db/migrations sqlite3 ./bot.db down
+	@goose -dir db/migrations sqlite3 ./db/bot.db down
 	@echo "Done!"
