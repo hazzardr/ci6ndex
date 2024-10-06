@@ -19,22 +19,41 @@ var rollCivsCommand = discord.SlashCommandCreate{
 			Description: "Whether or not to randomize picked civs",
 			Required:    true,
 		},
-		discord.ApplicationCommandOptionUser{
-			Name:        "player",
-			Description: "The player to roll civilizations for",
-			Required:    true,
-		},
 	},
 }
 
 func HandleRollCivs(c *Ci6ndex) handler.CommandHandler {
 	return func(e *handler.CommandEvent) error {
-		data := e.SlashCommandInteractionData()
+		_ = e.SlashCommandInteractionData()
 
+		var minPlayers int
+		minPlayers = 1
+		maxPlayers := 14
 		return e.CreateMessage(discord.NewMessageCreateBuilder().
-			SetContentf("Rolling %d civilizations...", data.Int("pool-size")).
+			SetContent("Add Users to draft").
+			AddActionRow(
+				discord.UserSelectMenuComponent{
+					CustomID:  "select-player",
+					MinValues: &minPlayers,
+					MaxValues: maxPlayers,
+				}).
 			SetEphemeral(true).
 			Build(),
 		)
+	}
+}
+
+func HandlePlayerSelect(c *Ci6ndex) handler.SelectMenuComponentHandler {
+	return func(data discord.SelectMenuInteractionData, e *handler.ComponentEvent) error {
+		c.Logger.Info("player selected")
+		_, err := e.UpdateInteractionResponse(
+			discord.NewMessageUpdateBuilder().
+				SetContent("player selected!").
+				Build(),
+		)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 }

@@ -72,10 +72,11 @@ func (c *Ci6ndex) GracefulShutdown() {
 
 func (c *Ci6ndex) OnReady(_ *events.Ready) {
 	c.Logger.Info("Ci6ndex ready! Listening for new events...")
-	if err := c.Client.SetPresence(context.Background(),
-		gateway.WithListeningActivity("Ian and Alex arguing		"),
+	err := c.Client.SetPresence(context.Background(),
+		gateway.WithListeningActivity("Ian and Alex arguing"),
 		gateway.WithOnlineStatus(discord.OnlineStatusOnline),
-	); err != nil {
+	)
+	if err != nil {
 		c.Logger.Errorf("Failed to set presence: %s", err)
 	}
 }

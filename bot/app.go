@@ -19,10 +19,6 @@ func Initialize(c *ci6ndex.AppConfig) (*Dependencies, error) {
 	if err != nil {
 		panic(err)
 	}
-	err = db.Health()
-	if err != nil {
-		panic(err)
-	}
 	logger := log.NewWithOptions(os.Stderr, log.Options{
 		ReportCaller:    true,
 		ReportTimestamp: true,

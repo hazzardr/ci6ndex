@@ -25,21 +25,19 @@ func main() {
 	r := handler.New()
 	r.Command("/ping", ci6ndex.HandlePing)
 	r.Command("/roll", ci6ndex.HandleRollCivs(bot))
-
+	r.SelectMenuComponent("/select-player", ci6ndex.HandlePlayerSelect(bot))
 	err = bot.Configure(r)
 	if err != nil {
 		panic(err)
 	}
 
-	bot.SyncCommands()
-	defer func() {
-		bot.GracefulShutdown()
-	}()
+	//bot.SyncCommands()
+	defer bot.GracefulShutdown()
 	err = bot.Start()
-
 	if err != nil {
 		panic(err)
 	}
+
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-s
