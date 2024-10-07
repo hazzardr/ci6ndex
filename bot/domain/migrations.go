@@ -21,6 +21,5 @@ func (dbo *DatabaseOperations) migrateUp(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	dbo.logger.Debug("migrations ran successfully", "database", db)
 	return nil
 }

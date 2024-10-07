@@ -43,7 +43,7 @@ func (dbo *DatabaseOperations) openNewConnection(guildId uint64) (*DB, error) {
 	dbUrl := "file:" + strconv.FormatUint(guildId, 10) + ".db"
 	_, err := os.Stat(dbUrl)
 	if os.IsNotExist(err) {
-		dbo.logger.Info("no database exists, creating new ...", "guildId", guildId)
+		dbo.logger.Info("no database exists, creating new one...", "guildId", guildId)
 		db, err := sql.Open("sqlite3", dbUrl)
 		if err != nil {
 			return nil, errors.Wrap(

@@ -13,6 +13,7 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 	"github.com/pkg/errors"
 	"log/slog"
+	"strconv"
 	"strings"
 )
 
@@ -94,4 +95,12 @@ func (c *Ci6ndex) SyncCommands() {
 			c.Logger.Errorf("Failed to sync commands: %v", err)
 		}
 	}
+}
+
+func parseGuildId(guild string) (uint64, error) {
+	id, err := strconv.ParseUint(guild, 10, 64)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to parse guild id")
+	}
+	return id, nil
 }

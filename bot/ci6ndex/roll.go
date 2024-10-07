@@ -5,7 +5,6 @@ import (
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
 	"github.com/pkg/errors"
-	"strconv"
 )
 
 var rollCivsCommand = discord.SlashCommandCreate{
@@ -48,17 +47,12 @@ func HandleRollCivs(c *Ci6ndex) handler.CommandHandler {
 
 func HandlePlayerSelect(c *Ci6ndex) handler.SelectMenuComponentHandler {
 	return func(data discord.SelectMenuInteractionData, e *handler.ComponentEvent) error {
-		guild := e.GuildID()
-		if guild == nil {
-			c.Logger.Error("unable to parse guild from interaction", "event", e)
-			return fmt.Errorf("unable to parse guild from interaction")
-		}
-		gid, err := strconv.ParseUint(guild.String(), 10, 64)
+		c.Logger.Info("event received", "guild", e.GuildID(), "eventId", e.ID())
+		guild, err := parseGuildId(e.GuildID().String())
 		if err != nil {
-			return errors.Wrapf(err, "failed to parse guild id %s", guild.String())
+			return errors.Wrap(err, "failed to parse guild id from event")
 		}
-
-		d, err := c.DB.GetOrCreateActiveDraft(gid)
+		d, err := c.DB.GetOrCreateActiveDraft(guild)
 		if err != nil {
 			return errors.Wrap(err, "failed to get active draft")
 		}
