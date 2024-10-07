@@ -9,6 +9,17 @@ import (
 	"context"
 )
 
+const getActiveDraft = `-- name: GetActiveDraft :one
+SELECT id, active, players FROM drafts WHERE active = true
+`
+
+func (q *Queries) GetActiveDraft(ctx context.Context) (Draft, error) {
+	row := q.db.QueryRowContext(ctx, getActiveDraft)
+	var i Draft
+	err := row.Scan(&i.ID, &i.Active, &i.Players)
+	return i, err
+}
+
 const getLeaders = `-- name: GetLeaders :one
 SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM leaders
 `

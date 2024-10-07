@@ -7,3 +7,10 @@ sql:
       go:
         package: "generated"
         out: "domain/generated"
+  - engine: "sqlite"
+    queries: "db/writes.sql"
+    schema: "db/migrations/001_schema.sql"
+    gen:
+      go:
+        package: "generated"
+        out: "domain/generated"

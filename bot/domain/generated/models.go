@@ -9,17 +9,9 @@ import (
 )
 
 type Draft struct {
-	ID            int64
-	DraftStrategy string
-	Active        bool
-	Players       sql.NullString
-}
-
-type DraftStrategy struct {
-	Name        string
-	Description string
-	PoolSize    int64
-	Randomize   bool
+	ID      int64
+	Active  bool
+	Players sql.NullString
 }
 
 type Leader struct {

@@ -1,8 +1,11 @@
 package ci6ndex
 
 import (
+	"fmt"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
+	"github.com/pkg/errors"
+	"strconv"
 )
 
 var rollCivsCommand = discord.SlashCommandCreate{
@@ -45,15 +48,24 @@ func HandleRollCivs(c *Ci6ndex) handler.CommandHandler {
 
 func HandlePlayerSelect(c *Ci6ndex) handler.SelectMenuComponentHandler {
 	return func(data discord.SelectMenuInteractionData, e *handler.ComponentEvent) error {
-		c.Logger.Info("player selected")
-		_, err := e.UpdateInteractionResponse(
-			discord.NewMessageUpdateBuilder().
-				SetContent("player selected!").
-				Build(),
-		)
-		if err != nil {
-			return err
+		guild := e.GuildID()
+		if guild == nil {
+			c.Logger.Error("unable to parse guild from interaction", "event", e)
+			return fmt.Errorf("unable to parse guild from interaction")
 		}
-		return nil
+		gid, err := strconv.ParseUint(guild.String(), 10, 64)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse guild id %s", guild.String())
+		}
+
+		d, err := c.DB.GetOrCreateActiveDraft(gid)
+		if err != nil {
+			return errors.Wrap(err, "failed to get active draft")
+		}
+		return e.CreateMessage(discord.NewMessageCreateBuilder().
+			SetContent(fmt.Sprintf("draft toime %v", d)).
+			SetEphemeral(true).
+			Build(),
+		)
 	}
 }

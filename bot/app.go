@@ -3,10 +3,14 @@ package main
 import (
 	"ci6ndex-bot/ci6ndex"
 	"ci6ndex-bot/domain"
+	"embed"
 	"github.com/charmbracelet/log"
 	"os"
 	"time"
 )
+
+//go:embed db/migrations/*.sql
+var embedMigrations embed.FS
 
 type Dependencies struct {
 	db     *domain.DatabaseOperations
@@ -15,15 +19,13 @@ type Dependencies struct {
 }
 
 func Initialize(c *ci6ndex.AppConfig) (*Dependencies, error) {
-	db, err := domain.NewDBConnection(c.DatabaseUrl)
-	if err != nil {
-		panic(err)
-	}
+
 	logger := log.NewWithOptions(os.Stderr, log.Options{
 		ReportCaller:    true,
 		ReportTimestamp: true,
 		TimeFormat:      time.Kitchen,
 	})
+	db := domain.NewDBOperations(embedMigrations, logger)
 
 	return &Dependencies{
 		db:     db,
