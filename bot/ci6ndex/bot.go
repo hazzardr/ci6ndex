@@ -50,8 +50,6 @@ func (c *Ci6ndex) Configure(r handler.Router) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create discord client")
 	}
-	c.Client.Logger()
-
 	return nil
 }
 

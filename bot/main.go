@@ -26,6 +26,7 @@ func main() {
 	r.Command("/ping", ci6ndex.HandlePing)
 	r.Command("/roll", ci6ndex.HandleRollCivs(bot))
 	r.SelectMenuComponent("/select-player", ci6ndex.HandlePlayerSelect(bot))
+	r.ButtonComponent("/confirm-roll", ci6ndex.HandleConfirmRoll(bot))
 	err = bot.Configure(r)
 	if err != nil {
 		panic(err)

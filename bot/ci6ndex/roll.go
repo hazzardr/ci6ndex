@@ -39,6 +39,12 @@ func HandleRollCivs(c *Ci6ndex) handler.CommandHandler {
 					MinValues: &minPlayers,
 					MaxValues: maxPlayers,
 				}).
+			AddActionRow(
+				discord.ButtonComponent{
+					Style:    discord.ButtonStylePrimary,
+					Label:    "Confirm Players! \U0001F3B2",
+					CustomID: "confirm-roll",
+				}).
 			SetEphemeral(true).
 			Build(),
 		)
@@ -56,8 +62,21 @@ func HandlePlayerSelect(c *Ci6ndex) handler.SelectMenuComponentHandler {
 		if err != nil {
 			return errors.Wrap(err, "failed to get active draft")
 		}
+		d.Players = data.Values
 		return e.CreateMessage(discord.NewMessageCreateBuilder().
 			SetContent(fmt.Sprintf("draft toime %v", d)).
+			SetEphemeral(true).
+			Build(),
+		)
+	}
+}
+
+func HandleConfirmRoll(c *Ci6ndex) handler.ButtonComponentHandler {
+	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
+		d := e.ButtonInteractionData()
+		c.Logger.Info("event received", "bid", bid, "data", d)
+		return e.CreateMessage(discord.NewMessageCreateBuilder().
+			SetContent("Rolling Civs").
 			SetEphemeral(true).
 			Build(),
 		)
