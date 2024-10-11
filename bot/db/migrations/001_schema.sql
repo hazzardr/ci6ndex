@@ -17,18 +17,18 @@ CREATE TABLE drafts
     active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
-CREATE TABLE player_drafts_rel
+CREATE TABLE draft_registry
 (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
     player_id INTEGER NOT NULL,
     draft_id INTEGER NOT NULL,
+    primary key (player_id, draft_id),
     FOREIGN KEY (player_id) REFERENCES players (id),
     FOREIGN KEY (draft_id) REFERENCES drafts (id)
 );
 
-CREATE TABLE offered
+CREATE TABLE pool
 (
-    player TEXT NOT NULL,
+    player TEXT,
     draft_id INTEGER NOT NULL,
     leader INTEGER NOT NULL,
     FOREIGN KEY (draft_id) REFERENCES drafts (id),
@@ -40,6 +40,7 @@ CREATE TABLE picks
     player TEXT NOT NULL,
     draft_id INTEGER NOT NULL,
     pick INTEGER NOT NULL,
+    offered TEXT, -- comma-delimited list of leader ids
     PRIMARY KEY (player, draft_id),
     FOREIGN KEY (pick) REFERENCES leaders (id),
     FOREIGN KEY (draft_id) REFERENCES drafts (id)
@@ -47,7 +48,7 @@ CREATE TABLE picks
 
 CREATE TABLE players
 (
-    id INTEGER PRIMARY KEY ,
+    id INTEGER PRIMARY KEY,
     username TEXT NOT NULL,
     global_name TEXT,
     discord_avatar TEXT
@@ -56,7 +57,7 @@ CREATE TABLE players
 -- +goose Down
 DROP TABLE leaders;
 DROP TABLE drafts;
-DROP TABLE offered;
+DROP TABLE pool;
 DROP TABLE picks;
 DROP TABLE players;
-DROP TABLE player_drafts_rel;
+DROP TABLE draft_registry;

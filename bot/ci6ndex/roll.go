@@ -1,7 +1,8 @@
 package ci6ndex
 
 import (
-	"fmt"
+	"ci6ndex-bot/domain"
+	"ci6ndex-bot/domain/generated"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
 	"github.com/pkg/errors"
@@ -54,31 +55,73 @@ func HandleRollCivs(c *Ci6ndex) handler.CommandHandler {
 func HandlePlayerSelect(c *Ci6ndex) handler.SelectMenuComponentHandler {
 	return func(data discord.SelectMenuInteractionData, e *handler.ComponentEvent) error {
 		c.Logger.Info("event received", "guild", e.GuildID(), "eventId", e.ID())
+		users := data.(discord.UserSelectMenuInteractionData)
+
 		guild, err := parseGuildId(e.GuildID().String())
 		if err != nil {
 			return errors.Wrap(err, "failed to parse guild id from event")
 		}
 		d, err := c.DB.GetOrCreateActiveDraft(guild)
+		aurl := e.User().EffectiveAvatarURL()
 		if err != nil {
 			return errors.Wrap(err, "failed to get active draft")
 		}
-		d.Players = data.Values
-		return e.CreateMessage(discord.NewMessageCreateBuilder().
-			SetContent(fmt.Sprintf("draft toime %v", d)).
-			SetEphemeral(true).
-			Build(),
-		)
+		var players []generated.AddPlayerParams
+		for id, user := range users.Resolved.Users {
+			gn := domain.ResolveOptionalString(user.GlobalName)
+			av := domain.ResolveOptionalString(&aurl)
+			players = append(players, generated.AddPlayerParams{
+				ID:            int64(id),
+				Username:      user.Username,
+				GlobalName:    gn,
+				DiscordAvatar: av,
+			})
+		}
+
+		errs := c.DB.SetPlayersForDraft(guild, d.ID, players)
+		if len(errs) > 0 {
+			c.Client.Logger().Error("failed to add players to draft", "errors", errs)
+			return errors.New("failed to add players to draft")
+		}
+		return e.DeferUpdateMessage()
 	}
 }
 
 func HandleConfirmRoll(c *Ci6ndex) handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		d := e.ButtonInteractionData()
-		c.Logger.Info("event received", "bid", bid, "data", d)
-		return e.CreateMessage(discord.NewMessageCreateBuilder().
-			SetContent("Rolling Civs").
-			SetEphemeral(true).
+		c.Logger.Info("event received", "guild", e.GuildID(), "")
+		gid, err := parseGuildId(e.GuildID().String())
+		if err != nil {
+			return errors.Wrap(err, "failed to parse guild id from event")
+		}
+		players, err := c.DB.GetPlayersFromActiveDraft(gid)
+		if err != nil {
+			return errors.Wrap(err, "failed to get players from active draft")
+		}
+
+		pf := make([]discord.EmbedField, len(players))
+		for i, player := range players {
+			inline := true
+			pf[i] = getRollEmbedField(player, &inline)
+		}
+
+		me, _ := c.Client.Caches().SelfUser()
+		return e.UpdateMessage(discord.NewMessageUpdateBuilder().
+			SetEmbeds(discord.NewEmbedBuilder().
+				SetTitle("Rolls:").
+				SetThumbnail(me.EffectiveAvatarURL()).
+				AddFields(pf...).
+				Build()).
+			ClearContainerComponents().
 			Build(),
 		)
+	}
+}
+
+func getRollEmbedField(player generated.Player, inline *bool) discord.EmbedField {
+	return discord.EmbedField{
+		Name:   player.Username,
+		Value:  "Aztecs\nSomeone else",
+		Inline: inline,
 	}
 }

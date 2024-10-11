@@ -9,9 +9,13 @@ import (
 )
 
 type Draft struct {
-	ID      int64
-	Active  bool
-	Players sql.NullString
+	ID     int64
+	Active bool
+}
+
+type DraftRegistry struct {
+	PlayerID int64
+	DraftID  int64
 }
 
 type Leader struct {
@@ -23,8 +27,22 @@ type Leader struct {
 	Tier               float64
 }
 
-type Offered struct {
+type Pick struct {
 	Player  string
 	DraftID int64
+	Pick    int64
 	Offered sql.NullString
+}
+
+type Player struct {
+	ID            int64
+	Username      string
+	GlobalName    sql.NullString
+	DiscordAvatar sql.NullString
+}
+
+type Pool struct {
+	Player  sql.NullString
+	DraftID int64
+	Leader  int64
 }

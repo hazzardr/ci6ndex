@@ -41,7 +41,7 @@ func NewDBOperations(embedFileSystem embed.FS, logger *log.Logger) *DatabaseOper
 
 func (dbo *DatabaseOperations) openNewConnection(guildId uint64) (*DB, error) {
 	dbUrl := "file:" + strconv.FormatUint(guildId, 10) + ".db"
-	_, err := os.Stat(dbUrl)
+	_, err := os.Stat(strconv.FormatUint(guildId, 10) + ".db")
 	if os.IsNotExist(err) {
 		dbo.logger.Info("no database exists, creating new one...", "guildId", guildId)
 		db, err := sql.Open("sqlite3", dbUrl)
@@ -110,5 +110,17 @@ func (dbo *DatabaseOperations) Close() {
 	for _, db := range dbo.connections {
 		db.ReadConn.Close()
 		db.WriteConn.Close()
+	}
+}
+
+func ResolveOptionalString(s *string) sql.NullString {
+	if s == nil {
+		return sql.NullString{
+			Valid: false,
+		}
+	}
+	return sql.NullString{
+		String: *s,
+		Valid:  true,
 	}
 }
