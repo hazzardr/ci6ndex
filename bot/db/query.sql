@@ -16,3 +16,6 @@ FROM draft_registry dr
 JOIN players p ON dr.player_id = p.id
 JOIN drafts d ON dr.draft_id = d.id
 WHERE d.active = true;
+
+-- name: GetEligibleLeaders :many
+SELECT * FROM leaders WHERE banned = false;

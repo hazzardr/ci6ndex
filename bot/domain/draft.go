@@ -91,7 +91,7 @@ func (dbo *DatabaseOperations) GetPlayersFromActiveDraft(guildId uint64) ([]gene
 	if err != nil {
 		return nil, err
 	}
-	players, err := db.Queries.GetPlayersFromActiveDraft(context.Background())
+	players, err := db.Queries.GetPlayersFromActiveDraft(context.TODO())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return make([]generated.Player, 0), nil

@@ -20,6 +20,40 @@ func (q *Queries) GetActiveDraft(ctx context.Context) (Draft, error) {
 	return i, err
 }
 
+const getEligibleLeaders = `-- name: GetEligibleLeaders :many
+SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM leaders WHERE banned = false
+`
+
+func (q *Queries) GetEligibleLeaders(ctx context.Context) ([]Leader, error) {
+	rows, err := q.db.QueryContext(ctx, getEligibleLeaders)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Leader
+	for rows.Next() {
+		var i Leader
+		if err := rows.Scan(
+			&i.ID,
+			&i.CivName,
+			&i.LeaderName,
+			&i.DiscordEmojiString,
+			&i.Banned,
+			&i.Tier,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLeaders = `-- name: GetLeaders :one
 SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM leaders
 `

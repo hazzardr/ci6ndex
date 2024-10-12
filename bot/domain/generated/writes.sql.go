@@ -18,7 +18,10 @@ INSERT INTO players (
     discord_avatar
 ) VALUES (
     ?, ?, ?, ?
-) ON CONFLICT DO NOTHING
+) ON CONFLICT (id) DO UPDATE SET
+    username = EXCLUDED.username,
+    global_name = EXCLUDED.global_name,
+    discord_avatar = EXCLUDED.discord_avatar
 `
 
 type AddPlayerParams struct {
