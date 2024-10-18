@@ -35,3 +35,6 @@ INSERT INTO pool (
 ) VALUES (
     ?, ?, ?
 );
+
+-- name: DeletePoolsForDraftId :exec
+DELETE FROM pool WHERE draft_id = ?;

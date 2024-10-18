@@ -72,6 +72,33 @@ func (q *Queries) GetLeaders(ctx context.Context) (Leader, error) {
 	return i, err
 }
 
+const getOffersByDraftId = `-- name: GetOffersByDraftId :many
+SELECT player_id, draft_id, leader FROM pool WHERE draft_id = ?
+`
+
+func (q *Queries) GetOffersByDraftId(ctx context.Context, draftID int64) ([]Pool, error) {
+	rows, err := q.db.QueryContext(ctx, getOffersByDraftId, draftID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Pool
+	for rows.Next() {
+		var i Pool
+		if err := rows.Scan(&i.PlayerID, &i.DraftID, &i.Leader); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPlayersFromActiveDraft = `-- name: GetPlayersFromActiveDraft :many
 SELECT p.id, p.username, p.global_name, p.discord_avatar
 FROM draft_registry dr

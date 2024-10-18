@@ -3,7 +3,6 @@ package domain
 import (
 	"ci6ndex-bot/domain/generated"
 	"fmt"
-	"slices"
 )
 
 type FullPoolError struct{}
@@ -30,9 +29,17 @@ func (r *MinTierRule) isValid(player generated.Player, leader generated.Leader) 
 }
 
 func (r *MinTierRule) evaluate(player generated.Player, leaders []generated.Leader) []generated.Leader {
-	return slices.DeleteFunc(leaders, func(l generated.Leader) bool {
-		return !r.isValid(player, l)
-	})
+	filtered := make([]generated.Leader, 0)
+	for _, leader := range leaders {
+		if r.isValid(player, leader) {
+			filtered = append(filtered, leader)
+		}
+	}
+	return filtered
+}
+
+func remove(slice []generated.Leader, s int) []generated.Leader {
+	return append(slice[:s], slice[s+1:]...)
 }
 
 type NoOpRule struct{}

@@ -83,6 +83,7 @@ func (c *Ci6ndex) OnReady(_ *events.Ready) {
 func (c *Ci6ndex) SyncCommands() {
 	c.Logger.Info("Syncing commands...")
 	ids := strings.Split(c.Config.GuildIds, ",")
+
 	for _, id := range ids {
 		_, err := c.Client.Rest().SetGuildCommands(
 			snowflake.MustParse(c.Config.BotApplicationID),

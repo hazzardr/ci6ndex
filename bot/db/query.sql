@@ -19,3 +19,6 @@ WHERE d.active = true;
 
 -- name: GetEligibleLeaders :many
 SELECT * FROM leaders WHERE banned = false;
+
+-- name: GetOffersByDraftId :many
+SELECT * FROM pool WHERE draft_id = ?;

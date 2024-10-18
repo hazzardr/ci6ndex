@@ -11,24 +11,22 @@ import (
 var rollCivsCommand = discord.SlashCommandCreate{
 	Name:        "roll",
 	Description: "Rolls a random set of civilizations",
-	Options: []discord.ApplicationCommandOption{
-		discord.ApplicationCommandOptionInt{
-			Name:        "pool-size",
-			Description: "The number of civilizations a player will have to choose from",
-			Required:    true,
-		},
-		discord.ApplicationCommandOptionBool{
-			Name:        "randomize",
-			Description: "Whether or not to randomize picked civs",
-			Required:    true,
-		},
-	},
+	//Options: []discord.ApplicationCommandOption{
+	//	discord.ApplicationCommandOptionInt{
+	//		Name:        "pool-size",
+	//		Description: "The number of civilizations a player will have to choose from",
+	//		Required:    true,
+	//	},
+	//	discord.ApplicationCommandOptionBool{
+	//		Name:        "randomize",
+	//		Description: "Whether or not to randomize picked civs",
+	//		Required:    true,
+	//	},
+	//},
 }
 
 func HandleRollCivs(c *Ci6ndex) handler.CommandHandler {
 	return func(e *handler.CommandEvent) error {
-		_ = e.SlashCommandInteractionData()
-
 		var minPlayers int
 		minPlayers = 1
 		maxPlayers := 14
@@ -99,10 +97,15 @@ func HandleConfirmRoll(c *Ci6ndex) handler.ButtonComponentHandler {
 			return errors.Wrap(err, "failed to get players from active draft")
 		}
 
+		rolls, err := c.DB.RollForPlayers(gid, 3)
+		if err != nil {
+			return errors.Wrap(err, "failed to roll for players")
+		}
+
 		pf := make([]discord.EmbedField, len(players))
-		for i, player := range players {
+		for i, roll := range rolls {
 			inline := true
-			pf[i] = getRollEmbedField(player, &inline)
+			pf[i] = getRollEmbedField(roll, &inline)
 		}
 
 		me, _ := c.Client.Caches().SelfUser()
@@ -118,10 +121,17 @@ func HandleConfirmRoll(c *Ci6ndex) handler.ButtonComponentHandler {
 	}
 }
 
-func getRollEmbedField(player generated.Player, inline *bool) discord.EmbedField {
+func getRollEmbedField(offer domain.Offering, inline *bool) discord.EmbedField {
+	var civs string
+	for _, leader := range offer.Leaders {
+		if leader.DiscordEmojiString.Valid {
+			civs += leader.DiscordEmojiString.String + " "
+		}
+		civs += leader.LeaderName + ": " + leader.CivName + "\n"
+	}
 	return discord.EmbedField{
-		Name:   player.Username,
-		Value:  "Aztecs\nSomeone else",
+		Name:   offer.Player.Username,
+		Value:  civs,
 		Inline: inline,
 	}
 }

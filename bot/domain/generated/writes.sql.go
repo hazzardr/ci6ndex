@@ -96,6 +96,15 @@ func (q *Queries) CreateActiveDraft(ctx context.Context) (Draft, error) {
 	return i, err
 }
 
+const deletePoolsForDraftId = `-- name: DeletePoolsForDraftId :exec
+DELETE FROM pool WHERE draft_id = ?
+`
+
+func (q *Queries) DeletePoolsForDraftId(ctx context.Context, draftID int64) error {
+	_, err := q.db.ExecContext(ctx, deletePoolsForDraftId, draftID)
+	return err
+}
+
 const removePlayersFromDraft = `-- name: RemovePlayersFromDraft :exec
 DELETE FROM draft_registry WHERE draft_id = ?
 `
