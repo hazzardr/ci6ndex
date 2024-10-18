@@ -5,6 +5,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"math/rand/v2"
+	"slices"
 )
 
 // OfferPool is a struct that holds a pool of leaders that are valid for a given player
@@ -71,9 +72,11 @@ func (dbo *DatabaseOperations) RollForPlayers(guildId uint64, poolSize int) erro
 func tryPickLeader(p OfferPool, alreadyPicked []generated.Leader) (generated.Leader, error) {
 	i := rand.IntN(len(p.leaders)) - 1
 	randPick := p.leaders[i]
-	if !containsLeader(randPick, alreadyPicked) {
-		return randPick, nil
+	if containsLeader(randPick, alreadyPicked) {
+		p.leaders = slices.Delete(p.leaders, i, i+1)
+		l, err := tryPickLeader(p, alreadyPicked)
 	}
+	return randPick, nil
 }
 
 func containsLeader(pick generated.Leader, alreadyPicked []generated.Leader) bool {
