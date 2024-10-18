@@ -28,9 +28,10 @@ CREATE TABLE draft_registry
 
 CREATE TABLE pool
 (
-    player TEXT,
+    player_id INTEGER NOT NULL,
     draft_id INTEGER NOT NULL,
     leader INTEGER NOT NULL,
+    FOREIGN KEY (player_id) REFERENCES players (id),
     FOREIGN KEY (draft_id) REFERENCES drafts (id),
     FOREIGN KEY (leader) REFERENCES leaders (id)
 );

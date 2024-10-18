@@ -42,7 +42,7 @@ type Player struct {
 }
 
 type Pool struct {
-	Player  sql.NullString
-	DraftID int64
-	Leader  int64
+	PlayerID int64
+	DraftID  int64
+	Leader   int64
 }

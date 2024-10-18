@@ -62,6 +62,27 @@ func (q *Queries) AddPlayerToDraft(ctx context.Context, arg AddPlayerToDraftPara
 	return i, err
 }
 
+const addPool = `-- name: AddPool :exec
+INSERT INTO pool (
+    player_id,
+    draft_id,
+    leader
+) VALUES (
+    ?, ?, ?
+)
+`
+
+type AddPoolParams struct {
+	PlayerID int64
+	DraftID  int64
+	Leader   int64
+}
+
+func (q *Queries) AddPool(ctx context.Context, arg AddPoolParams) error {
+	_, err := q.db.ExecContext(ctx, addPool, arg.PlayerID, arg.DraftID, arg.Leader)
+	return err
+}
+
 const createActiveDraft = `-- name: CreateActiveDraft :one
 INSERT INTO drafts (
     active

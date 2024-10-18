@@ -26,3 +26,12 @@ INSERT INTO players (
     username = EXCLUDED.username,
     global_name = EXCLUDED.global_name,
     discord_avatar = EXCLUDED.discord_avatar;
+
+-- name: AddPool :exec
+INSERT INTO pool (
+    player_id,
+    draft_id,
+    leader
+) VALUES (
+    ?, ?, ?
+);
