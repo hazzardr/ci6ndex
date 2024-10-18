@@ -57,13 +57,6 @@ func (dbo *DatabaseOperations) RollForPlayers(guildId uint64, poolSize int) ([]O
 		return nil, errors.Wrap(err, "failed to get active draft")
 	}
 
-	for _, l := range leaders {
-		dbo.logger.Debug("Leader", "leader", l)
-		if l.ID == 0 {
-			dbo.logger.Error("Leader ID is 0", "leader", l)
-			return nil, errors.New("leader ID is 0")
-		}
-	}
 	// Give everyone a tier 3 or above leader
 	// Try to do harder to assign rules first
 	pools := make([]EligibleLeaders, 0)
@@ -78,14 +71,6 @@ func (dbo *DatabaseOperations) RollForPlayers(guildId uint64, poolSize int) ([]O
 			pools = append(pools, pool)
 		}
 	}
-	for _, p := range pools {
-		for _, l := range p.leaders {
-			if l.ID == 0 {
-				dbo.logger.Error("Leader ID is 0", "leader", l)
-				return nil, errors.New("leader ID is 0")
-			}
-		}
-	}
 
 	offers := make([]Offering, 0)
 	alreadyPicked := make([]generated.Leader, 0)
@@ -93,7 +78,8 @@ func (dbo *DatabaseOperations) RollForPlayers(guildId uint64, poolSize int) ([]O
 	dbo.logger.Info("Rolling for draft", "guildId", guildId)
 	for _, p := range pools {
 		dbo.logger.Debug("Rolling pool", "pool", p)
-		leader, err := tryPickLeader(p.leaders, alreadyPicked)
+		offered := p.leaders
+		leader, err := tryPickLeader(offered, alreadyPicked)
 		if err != nil {
 			if errors.As(err, &RanOutOfChoicesError{}) {
 				return nil, errors.Wrap(err, "ran out of choices - please retry!")
@@ -164,9 +150,10 @@ func tryPickLeader(pickFrom []generated.Leader, alreadyPicked []generated.Leader
 	}
 	i := rand.IntN(len(pickFrom))
 	randPick := pickFrom[i]
-	if containsLeader(randPick, alreadyPicked) {
-		pickFrom = slices.Delete(pickFrom, i, i+1)
-		return tryPickLeader(pickFrom, alreadyPicked)
+	// this is a hack, no idea why we get a 0 ID leader sometimes
+	if randPick.ID == 0 || containsLeader(randPick, alreadyPicked) {
+		rest := slices.Delete(pickFrom, i, i+1)
+		return tryPickLeader(rest, alreadyPicked)
 	}
 	return randPick, nil
 }
