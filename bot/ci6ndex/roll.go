@@ -88,6 +88,10 @@ func HandlePlayerSelect(c *Ci6ndex) handler.SelectMenuComponentHandler {
 func HandleConfirmRoll(c *Ci6ndex) handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
 		c.Logger.Info("event received", "guild", e.GuildID(), "")
+		err := e.DeferCreateMessage(false)
+		if err != nil {
+			return err
+		}
 		gid, err := parseGuildId(e.GuildID().String())
 		if err != nil {
 			return errors.Wrap(err, "failed to parse guild id from event")
@@ -109,15 +113,18 @@ func HandleConfirmRoll(c *Ci6ndex) handler.ButtonComponentHandler {
 		}
 
 		me, _ := c.Client.Caches().SelfUser()
-		return e.UpdateMessage(discord.NewMessageUpdateBuilder().
+		_, err = e.CreateFollowupMessage(discord.NewMessageCreateBuilder().
 			SetEmbeds(discord.NewEmbedBuilder().
 				SetTitle("Rolls:").
 				SetThumbnail(me.EffectiveAvatarURL()).
 				AddFields(pf...).
 				Build()).
-			ClearContainerComponents().
 			Build(),
 		)
+		if err != nil {
+			return err
+		}
+		return err
 	}
 }
 
