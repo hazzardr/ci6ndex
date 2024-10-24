@@ -4,7 +4,7 @@ import { PositionLoggerNode } from './PositionLoggerNode.tsx';
 import { AppNode } from './types.ts';
 
 export const initialNodes: AppNode[] = [
-  { id: 'a', type: 'input', position: { x: 0, y: 0 }, data: { label: 'wire' } },
+  { id: 'a', draggable: false, type: 'input', position: { x: 0, y: 0 }, data: { label: 'wire' } },
   {
     id: 'b',
     type: 'position-logger',
