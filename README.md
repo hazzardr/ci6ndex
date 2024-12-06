@@ -3,24 +3,27 @@
 ### What is it?
 
 This repository is a tool for managing our weekly civ 6 games. Features include:
-* Google Sheets integration to import rankings from Nick's sheet
 * Discord bot to manage drafts and roll civs
 
-### Local development
+## Libraries and Tools Used
 
-#### Needed locally:
-* gcloud_oauth2.json file for authenticating with gsheets api
+- **Go**: The main programming language used for the project.
+- **viper**: A library for creating powerful modern CLI applications.
+- **sqlc**: A SQL compiler for generating type-safe Go code from SQL queries.
+- **SQLite**: The database engine used for storing data.
+- **Disgo**: A Discord library for Go.
+
+## Local development
+
+### Needed locally:
 * .env
   * `DISCORD_API_TOKEN`
-  * `GCLOUD_CREDS_LOC`
-  * `POSTGRES_USER`
-  * `POSTGRES_PASSWORD`
-  * `POSTGRES_DB`
-  * `POSTGRES_SCHEMA`
+  * `DISCORD_BOT_APPLICATION_ID`
+  * `GUILD_IDS`
 
-```
-make build bot
-```
+### How do I get set up?
 
-### TODO:
+`make` will provide a list of commands to run.
+
+## TODO:
 * https://github.com/hazzardr/ci6ndex/issues

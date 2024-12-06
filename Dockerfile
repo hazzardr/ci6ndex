@@ -1,17 +1,18 @@
-# Build stage
 FROM golang:1.23.1-alpine as build
+RUN apk add build-base
 
+RUN mkdir /app
 WORKDIR /app
-ADD .. /app
-
+COPY go.mod go.sum ./
 RUN go mod download
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -o ci6ndex ./main.go
+
+COPY . .
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -o bot .
 
 # Run stage
 FROM alpine
 
 WORKDIR /app
-COPY --from=build /app/ci6ndex /app/ci6ndex
-COPY --from=build /app/templates /app/templates
+COPY --from=build /app/bot /app/ci6ndex
 
-CMD ["/app/ci6ndex", "discord", "start"]
+CMD ["/app/ci6ndex"]

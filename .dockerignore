@@ -1,0 +1,12 @@
+.git
+.env
+*.env
+.gitignore
+.dockerignore
+Dockerfile
+README.md
+.idea/
+docker-compose.yml
+.github/
+Makefile
+sqlc.yaml

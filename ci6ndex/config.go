@@ -6,7 +6,6 @@ type AppConfig struct {
 	DiscordToken     string `mapstructure:"DISCORD_API_TOKEN"`
 	BotApplicationID string `mapstructure:"DISCORD_BOT_APPLICATION_ID"`
 	GuildIds         string `mapstructure:"GUILD_IDS"`
-	DatabaseUrl      string `mapstructure:"SQLITE_DB_URL"`
 }
 
 func LoadConfig() (*AppConfig, error) {

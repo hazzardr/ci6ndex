@@ -1,5 +1,5 @@
 PROJECT_NAME := "ci6ndex"
-EXEC_NAME := ci6ndex
+EXEC_NAME := bot
 
 .PHONY: help ## print this
 help:
@@ -31,10 +31,6 @@ doctor:
 		echo "GOPATH/bin is not in PATH. Please add it to your PATH variable."; \
 		exit 1; \
 	fi
-	@if ! command -v cobra-cli &> /dev/null; then \
-		echo "Cobra-cli is not installed. Please run 'make deps'."; \
-		exit 1; \
-	fi
 	@if ! command -v sqlc &> /dev/null; then \
 		echo "`sqlc` is not installed. Please run 'make deps'."; \
 		exit 1; \
@@ -52,7 +48,7 @@ doctor:
 build:
 	$(MAKE) generate
 	@echo "Building..."
-	@go build -o $(EXEC_NAME) ./main.go
+	@go build -o $(EXEC_NAME) .
 	@echo "Done!"
 
 .PHONY: clean ## delete generated code
@@ -66,3 +62,8 @@ generate:
 	@echo "Generating database models..."
 	@sqlc generate -f sqlc.yaml
 	@echo "Done!"
+
+.PHONY: run ## run the project
+run:
+	$(MAKE) build
+	@./$(EXEC_NAME)

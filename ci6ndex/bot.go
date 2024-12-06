@@ -70,7 +70,7 @@ func (c *Ci6ndex) GracefulShutdown() {
 }
 
 func (c *Ci6ndex) OnReady(_ *events.Ready) {
-	c.Logger.Info("Ci6ndex ready! Listening for new events...")
+	c.Logger.Info("Ci6ndex is ready! Listening for new events...")
 	err := c.Client.SetPresence(context.Background(),
 		gateway.WithListeningActivity("Ian and Alex arguing"),
 		gateway.WithOnlineStatus(discord.OnlineStatusOnline),
