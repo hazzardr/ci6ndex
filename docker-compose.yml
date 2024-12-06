@@ -1,17 +1,16 @@
-version: '3.8'
 services:
   ci6ndex:
-    build: .
+    restart: unless-stopped
+    image: ghcr.io/hazzardr/ci6ndex:0.1.0-prerelease1
+    depends_on: []
     env_file:
       - .env
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 200M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 100M
-    # Optional: Mount as read-only volume
-    # volumes:
-    #   - ./.env:/app/.env:ro
+networks: {}

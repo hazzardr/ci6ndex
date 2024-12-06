@@ -1,6 +1,9 @@
 package ci6ndex
 
-import "github.com/spf13/viper"
+import (
+	"errors"
+	"github.com/spf13/viper"
+)
 
 type AppConfig struct {
 	DiscordToken     string `mapstructure:"DISCORD_API_TOKEN"`
@@ -10,18 +13,21 @@ type AppConfig struct {
 
 func LoadConfig() (*AppConfig, error) {
 	var config AppConfig
-	viper.SetConfigFile(".env")
-	viper.SetConfigType("env")
 
 	viper.AutomaticEnv()
 
+	viper.SetConfigFile(".env")
+	viper.SetConfigType("env")
+	// Read the .env file if it exists
 	err := viper.ReadInConfig()
 	if err != nil {
-		return nil, err
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if !errors.As(err, &configFileNotFoundError) {
+			return nil, err
+		}
 	}
 
 	err = viper.Unmarshal(&config)
-
 	if err != nil {
 		return nil, err
 	}

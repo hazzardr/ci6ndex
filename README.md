@@ -8,7 +8,7 @@ This repository is a tool for managing our weekly civ 6 games. Features include:
 ## Libraries and Tools Used
 
 - **Go**: The main programming language used for the project.
-- **viper**: A library for creating powerful modern CLI applications.
+- **viper**: A library for configuration management.
 - **sqlc**: A SQL compiler for generating type-safe Go code from SQL queries.
 - **SQLite**: The database engine used for storing data.
 - **Disgo**: A Discord library for Go.
