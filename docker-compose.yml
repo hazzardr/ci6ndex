@@ -1,9 +1,17 @@
 version: '3.8'
 services:
-  app:
+  ci6ndex:
     build: .
     env_file:
       - .env
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 200M
+        reservations:
+          cpus: '0.25'
+          memory: 100M
     # Optional: Mount as read-only volume
     # volumes:
     #   - ./.env:/app/.env:ro
