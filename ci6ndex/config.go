@@ -1,7 +1,6 @@
 package ci6ndex
 
 import (
-	"errors"
 	"github.com/spf13/viper"
 )
 
@@ -16,18 +15,7 @@ func LoadConfig() (*AppConfig, error) {
 
 	viper.AutomaticEnv()
 
-	viper.SetConfigFile(".env")
-	viper.SetConfigType("env")
-	// Read the .env file if it exists
-	err := viper.ReadInConfig()
-	if err != nil {
-		var configFileNotFoundError viper.ConfigFileNotFoundError
-		if !errors.As(err, &configFileNotFoundError) {
-			return nil, err
-		}
-	}
-
-	err = viper.Unmarshal(&config)
+	err := viper.Unmarshal(&config)
 	if err != nil {
 		return nil, err
 	}
