@@ -22,6 +22,7 @@ type DB struct {
 type DatabaseOperations struct {
 	logger      *log.Logger
 	connections map[uint64]*DB
+	path        string
 }
 
 func NewDBOperations(embedFileSystem embed.FS, logger *log.Logger) *DatabaseOperations {
@@ -36,11 +37,12 @@ func NewDBOperations(embedFileSystem embed.FS, logger *log.Logger) *DatabaseOper
 	return &DatabaseOperations{
 		logger:      logger,
 		connections: connections,
+		path:        "./data/",
 	}
 }
 
 func (dbo *DatabaseOperations) openNewConnection(guildId uint64) (*DB, error) {
-	dbUrl := "file:" + strconv.FormatUint(guildId, 10) + ".db"
+	dbUrl := "file:" + dbo.path + strconv.FormatUint(guildId, 10) + ".db"
 	_, err := os.Stat(strconv.FormatUint(guildId, 10) + ".db")
 	if os.IsNotExist(err) {
 		dbo.logger.Info("no database exists, creating new one...", "guildId", guildId)
