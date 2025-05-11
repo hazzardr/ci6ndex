@@ -1,13 +1,13 @@
-package domain
+package ci6ndex
 
 import (
-	"ci6ndex-bot/domain/generated"
+	"ci6ndex/ci6ndex/generated"
 	"database/sql"
 	"embed"
 	"fmt"
-	"github.com/charmbracelet/log"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
+	"github.com/pressly/goose/v3"
 	"os"
 	"strconv"
 )
@@ -19,33 +19,13 @@ type DB struct {
 	Writes    *generated.Queries
 }
 
-type DatabaseOperations struct {
-	logger      *log.Logger
-	connections map[uint64]*DB
-	path        string
-}
+func (c *Ci6ndex) openNewConnection(path string, guildId uint64) (*DB, error) {
+	dbUrl := "file:" + path + strconv.FormatUint(guildId, 10) + ".db"
 
-func NewDBOperations(embedFileSystem embed.FS, logger *log.Logger) *DatabaseOperations {
-	connections := make(map[uint64]*DB)
-	err := configureMigrationTool(embedFileSystem)
-	if err != nil {
-		logger.Error(
-			"Failed to configure migrations. Will not be able to create any new databases!",
-			"error", err,
-		)
-	}
-	return &DatabaseOperations{
-		logger:      logger,
-		connections: connections,
-		path:        "./data/",
-	}
-}
-
-func (dbo *DatabaseOperations) openNewConnection(guildId uint64) (*DB, error) {
-	dbUrl := "file:" + dbo.path + strconv.FormatUint(guildId, 10) + ".db"
 	_, err := os.Stat(strconv.FormatUint(guildId, 10) + ".db")
+
 	if os.IsNotExist(err) {
-		dbo.logger.Info("no database exists, creating new one...", "guildId", guildId)
+		c.Logger.Info("no database exists, creating new one...", "guildId", guildId)
 		db, err := sql.Open("sqlite3", dbUrl)
 		if err != nil {
 			return nil, errors.Wrap(
@@ -53,7 +33,8 @@ func (dbo *DatabaseOperations) openNewConnection(guildId uint64) (*DB, error) {
 				fmt.Sprintf("failed to create new database file for guild %d", guildId),
 			)
 		}
-		err = dbo.migrateUp(db)
+
+		err = c.migrateUp(db)
 		if err != nil {
 			return nil, errors.Wrap(
 				err,
@@ -61,7 +42,6 @@ func (dbo *DatabaseOperations) openNewConnection(guildId uint64) (*DB, error) {
 			)
 		}
 	}
-
 	readConn, err := sql.Open("sqlite3", dbUrl)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to initialize database connection.")
@@ -71,7 +51,7 @@ func (dbo *DatabaseOperations) openNewConnection(guildId uint64) (*DB, error) {
 		return nil, errors.Wrap(err, "failed to initialize database connection.")
 	}
 
-	// sqlite does not support multiple write connections
+	// sqlite does not support multiple write Connections
 	writeConn.SetMaxOpenConns(1)
 	return &DB{
 		ReadConn:  readConn,
@@ -81,23 +61,23 @@ func (dbo *DatabaseOperations) openNewConnection(guildId uint64) (*DB, error) {
 	}, nil
 }
 
-func (dbo *DatabaseOperations) getDB(guildId uint64) (*DB, error) {
+func (c *Ci6ndex) getDB(guildId uint64) (*DB, error) {
 	var db *DB
-	db, exists := dbo.connections[guildId]
+	db, exists := c.Connections[guildId]
 	if !exists {
 		var err error
-		db, err = dbo.openNewConnection(guildId)
+		db, err = c.openNewConnection(c.Path, guildId)
 		if err != nil {
 			return nil, err
 		}
-		dbo.connections[guildId] = db
+		c.Connections[guildId] = db
 	}
 	return db, nil
 }
 
-func (dbo *DatabaseOperations) Health() []error {
+func (c *Ci6ndex) Health() []error {
 	var errs = make([]error, 0)
-	for _, db := range dbo.connections {
+	for _, db := range c.Connections {
 		if err := db.ReadConn.Ping(); err != nil {
 			errs = append(errs, err)
 		}
@@ -108,8 +88,8 @@ func (dbo *DatabaseOperations) Health() []error {
 	return errs
 }
 
-func (dbo *DatabaseOperations) Close() {
-	for _, db := range dbo.connections {
+func (c *Ci6ndex) Close() {
+	for _, db := range c.Connections {
 		db.ReadConn.Close()
 		db.WriteConn.Close()
 	}
@@ -125,4 +105,22 @@ func ResolveOptionalString(s *string) sql.NullString {
 		String: *s,
 		Valid:  true,
 	}
+}
+
+func ConfigureMigrationTool(embedMigrations embed.FS) error {
+	goose.SetBaseFS(embedMigrations)
+	err := goose.SetDialect("sqlite3")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Ci6ndex) migrateUp(db *sql.DB) error {
+	c.Logger.Info("running migrations...", "database", db.Stats())
+	err := goose.Up(db, "sql/migrations")
+	if err != nil {
+		return err
+	}
+	return nil
 }

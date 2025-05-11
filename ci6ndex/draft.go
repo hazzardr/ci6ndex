@@ -1,15 +1,15 @@
-package domain
+package ci6ndex
 
 import (
-	"ci6ndex-bot/domain/generated"
+	"ci6ndex/ci6ndex/generated"
 	"context"
 	"database/sql"
 	"github.com/pkg/errors"
 	"sync"
 )
 
-func (dbo *DatabaseOperations) GetOrCreateActiveDraft(guildId uint64) (generated.Draft, error) {
-	db, err := dbo.getDB(guildId)
+func (c *Ci6ndex) GetOrCreateActiveDraft(guildId uint64) (generated.Draft, error) {
+	db, err := c.getDB(guildId)
 	if err != nil {
 		return generated.Draft{}, err
 	}
@@ -27,9 +27,9 @@ func (dbo *DatabaseOperations) GetOrCreateActiveDraft(guildId uint64) (generated
 	return d, nil
 }
 
-func (dbo *DatabaseOperations) SetPlayersForDraft(guildId uint64, draftId int64,
+func (c *Ci6ndex) SetPlayersForDraft(guildId uint64, draftId int64,
 	players []generated.AddPlayerParams) []error {
-	db, err := dbo.getDB(guildId)
+	db, err := c.getDB(guildId)
 	if err != nil {
 		return []error{err}
 	}
@@ -39,7 +39,7 @@ func (dbo *DatabaseOperations) SetPlayersForDraft(guildId uint64, draftId int64,
 	}
 
 	if len(players) == 0 {
-		dbo.logger.Debug("removed all players from draft", "draftId", draftId)
+		c.Logger.Debug("removed all players from draft", "draftId", draftId)
 		return nil
 	}
 
@@ -86,8 +86,8 @@ func (dbo *DatabaseOperations) SetPlayersForDraft(guildId uint64, draftId int64,
 	return nil
 }
 
-func (dbo *DatabaseOperations) GetPlayersFromActiveDraft(guildId uint64) ([]generated.Player, error) {
-	db, err := dbo.getDB(guildId)
+func (c *Ci6ndex) GetPlayersFromActiveDraft(guildId uint64) ([]generated.Player, error) {
+	db, err := c.getDB(guildId)
 	if err != nil {
 		return nil, err
 	}
@@ -101,9 +101,9 @@ func (dbo *DatabaseOperations) GetPlayersFromActiveDraft(guildId uint64) ([]gene
 	return players, nil
 }
 
-func (dbo *DatabaseOperations) GetPlayersFromDraft(guildId uint64,
+func (c *Ci6ndex) GetPlayersFromDraft(guildId uint64,
 	draftId int64) ([]generated.Player, error) {
-	db, err := dbo.getDB(guildId)
+	db, err := c.getDB(guildId)
 	if err != nil {
 		return nil, err
 	}
@@ -115,4 +115,18 @@ func (dbo *DatabaseOperations) GetPlayersFromDraft(guildId uint64,
 		return nil, err
 	}
 	return players, nil
+}
+
+func (c *Ci6ndex) SetPlayersForReRoll(guildId uint64, playerIds []int64) error {
+	db, err := c.getDB(guildId)
+	if err != nil {
+		return err
+	}
+	for _, playerId := range playerIds {
+		err = db.Writes.SetPlayerForReRole(context.Background(), playerId)
+		if err != nil {
+			return errors.Wrap(err, "failed to remove player from draft")
+		}
+	}
+	return nil
 }

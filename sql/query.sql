@@ -22,3 +22,9 @@ SELECT * FROM leaders WHERE banned = false;
 
 -- name: GetOffersByDraftId :many
 SELECT * FROM pool WHERE draft_id = ?;
+
+-- name: GetPlayersForReRoll :many
+SELECT * FROM rerolls;
+
+-- name: GetPlayers :many
+SELECT * FROM players;

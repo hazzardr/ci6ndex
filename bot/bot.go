@@ -1,8 +1,9 @@
-package ci6ndex
+package bot
 
 import (
-	"ci6ndex-bot/domain"
+	"ci6ndex/ci6ndex"
 	"context"
+	"github.com/caarlos0/env/v11"
 	"github.com/charmbracelet/log"
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
@@ -17,23 +18,23 @@ import (
 	"strings"
 )
 
-type Ci6ndex struct {
-	Client bot.Client
-	Logger log.Logger
-	DB     *domain.DatabaseOperations
-	Config AppConfig
+type Bot struct {
+	Client  bot.Client
+	Logger  log.Logger
+	Ci6ndex *ci6ndex.Ci6ndex
+	Config  Config
 }
 
-func New(config AppConfig, db *domain.DatabaseOperations, log log.Logger) *Ci6ndex {
-	return &Ci6ndex{
-		Config: config,
-		Logger: log,
-		DB:     db,
+func New(config Config, c *ci6ndex.Ci6ndex, log log.Logger) *Bot {
+	return &Bot{
+		Config:  config,
+		Logger:  log,
+		Ci6ndex: c,
 	}
 }
 
-func (c *Ci6ndex) Configure(r handler.Router) error {
-	c.Logger.Info("Configuring Ci6ndex...")
+func Configure(c *Bot, r handler.Router) error {
+	c.Logger.Info("Configuring Discord Bot...")
 	var err error
 	c.Client, err = disgo.New(c.Config.DiscordToken,
 		bot.WithGatewayConfigOpts(
@@ -53,8 +54,8 @@ func (c *Ci6ndex) Configure(r handler.Router) error {
 	return nil
 }
 
-func (c *Ci6ndex) Start() error {
-	c.Logger.Info("Starting Ci6ndex...")
+func Start(c *Bot) error {
+	c.Logger.Info("Starting Bot...")
 
 	if err := c.Client.OpenGateway(context.Background()); err != nil {
 		c.Logger.Errorf("Failed to connect to discord gateway: %s", err)
@@ -63,14 +64,14 @@ func (c *Ci6ndex) Start() error {
 	return nil
 }
 
-func (c *Ci6ndex) GracefulShutdown() {
-	c.Logger.Info("Shutting down Ci6ndex...")
+func GracefulShutdown(c *Bot) {
+	c.Logger.Info("Shutting down Bot...")
 	c.Client.Close(context.Background())
-	c.DB.Close()
+	c.Ci6ndex.Close()
 }
 
-func (c *Ci6ndex) OnReady(_ *events.Ready) {
-	c.Logger.Info("Ci6ndex is ready! Listening for new events...")
+func (c *Bot) OnReady(_ *events.Ready) {
+	c.Logger.Info("Bot is ready! Listening for new events...")
 	err := c.Client.SetPresence(context.Background(),
 		gateway.WithListeningActivity("Ian and Alex arguing"),
 		gateway.WithOnlineStatus(discord.OnlineStatusOnline),
@@ -80,7 +81,7 @@ func (c *Ci6ndex) OnReady(_ *events.Ready) {
 	}
 }
 
-func (c *Ci6ndex) SyncCommands() {
+func (c *Bot) SyncCommands() {
 	c.Logger.Info("Syncing commands...")
 	ids := strings.Split(c.Config.GuildIds, ",")
 
@@ -94,6 +95,21 @@ func (c *Ci6ndex) SyncCommands() {
 			c.Logger.Errorf("Failed to sync commands: %v", err)
 		}
 	}
+}
+
+type Config struct {
+	DiscordToken     string `env:"DISCORD_API_TOKEN"`
+	BotApplicationID string `env:"DISCORD_BOT_APPLICATION_ID"`
+	GuildIds         string `env:"GUILD_IDS"`
+}
+
+func LoadConfig() (*Config, error) {
+	var config Config
+	err := env.Parse(&config)
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
 }
 
 func parseGuildId(guild string) (uint64, error) {

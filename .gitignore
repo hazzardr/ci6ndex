@@ -21,11 +21,10 @@
 go.work
 
 # local def
-ci6ndex-bot
-bot
 .env
 build/
 gcloud_oauth2.json
 .idea/
 token.json
 *.db
+bin/

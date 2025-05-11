@@ -1,5 +1,5 @@
 PROJECT_NAME := "ci6ndex"
-EXEC_NAME := bot
+EXEC_NAME := ci6ndex
 
 .PHONY: help ## print this
 help:
@@ -48,13 +48,14 @@ doctor:
 build:
 	$(MAKE) generate
 	@echo "Building..."
-	@go build -o $(EXEC_NAME) .
+	@go build -o ./bin/$(EXEC_NAME) .
 	@echo "Done!"
 
 .PHONY: clean ## delete generated code
 clean:
 	@echo "Deleting generated code..."
-	@rm -rf generated
+	@rm -rf ci6ndex/generated/
+	@rm -rf bin/
 	@echo "Done!"
 
 .PHONY: generate ## generate server and database code
@@ -66,4 +67,4 @@ generate:
 .PHONY: run ## run the project
 run:
 	$(MAKE) build
-	@./$(EXEC_NAME)
+	@(export $$(cat .env | xargs) && ./bin/$(EXEC_NAME))

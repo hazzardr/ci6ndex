@@ -1,7 +1,7 @@
-package domain
+package ci6ndex
 
 import (
-	"ci6ndex-bot/domain/generated"
+	"ci6ndex/ci6ndex/generated"
 	"fmt"
 )
 

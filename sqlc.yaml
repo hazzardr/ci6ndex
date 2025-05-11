@@ -1,16 +1,16 @@
 version: "2"
 sql:
   - engine: "sqlite"
-    queries: "db/query.sql"
-    schema: "db/migrations/001_schema.sql"
+    queries: "sql/query.sql"
+    schema: "sql/migrations"
     gen:
       go:
         package: "generated"
-        out: "domain/generated"
+        out: "ci6ndex/generated"
   - engine: "sqlite"
-    queries: "db/writes.sql"
-    schema: "db/migrations/001_schema.sql"
+    queries: "sql/writes.sql"
+    schema: "sql/migrations"
     gen:
       go:
         package: "generated"
-        out: "domain/generated"
+        out: "ci6ndex/generated"

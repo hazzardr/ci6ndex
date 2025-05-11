@@ -1,4 +1,4 @@
-package ci6ndex
+package bot
 
 import (
 	"github.com/disgoorg/disgo/discord"

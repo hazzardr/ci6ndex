@@ -96,6 +96,22 @@ func (q *Queries) CreateActiveDraft(ctx context.Context) (Draft, error) {
 	return i, err
 }
 
+const deletePoolForPlayer = `-- name: DeletePoolForPlayer :exec
+DELETE FROM pool
+       WHERE player_id = ?
+        AND draft_id = ?
+`
+
+type DeletePoolForPlayerParams struct {
+	PlayerID int64
+	DraftID  int64
+}
+
+func (q *Queries) DeletePoolForPlayer(ctx context.Context, arg DeletePoolForPlayerParams) error {
+	_, err := q.db.ExecContext(ctx, deletePoolForPlayer, arg.PlayerID, arg.DraftID)
+	return err
+}
+
 const deletePoolsForDraftId = `-- name: DeletePoolsForDraftId :exec
 DELETE FROM pool WHERE draft_id = ?
 `
@@ -111,5 +127,32 @@ DELETE FROM draft_registry WHERE draft_id = ?
 
 func (q *Queries) RemovePlayersFromDraft(ctx context.Context, draftID int64) error {
 	_, err := q.db.ExecContext(ctx, removePlayersFromDraft, draftID)
+	return err
+}
+
+const returnOffering = `-- name: ReturnOffering :exec
+DELETE FROM pool
+   WHERE player_id = ?
+    AND draft_id = ?
+`
+
+type ReturnOfferingParams struct {
+	PlayerID int64
+	DraftID  int64
+}
+
+func (q *Queries) ReturnOffering(ctx context.Context, arg ReturnOfferingParams) error {
+	_, err := q.db.ExecContext(ctx, returnOffering, arg.PlayerID, arg.DraftID)
+	return err
+}
+
+const setPlayerForReRole = `-- name: SetPlayerForReRole :exec
+INSERT INTO rerolls (
+    player_id
+) VALUES (?)
+`
+
+func (q *Queries) SetPlayerForReRole(ctx context.Context, playerID int64) error {
+	_, err := q.db.ExecContext(ctx, setPlayerForReRole, playerID)
 	return err
 }

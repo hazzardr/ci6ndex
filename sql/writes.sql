@@ -38,3 +38,18 @@ INSERT INTO pool (
 
 -- name: DeletePoolsForDraftId :exec
 DELETE FROM pool WHERE draft_id = ?;
+
+-- name: DeletePoolForPlayer :exec
+DELETE FROM pool
+       WHERE player_id = ?
+        AND draft_id = ?;
+
+-- name: SetPlayerForReRole :exec
+INSERT INTO rerolls (
+    player_id
+) VALUES (?);
+
+-- name: ReturnOffering :exec
+DELETE FROM pool
+   WHERE player_id = ?
+    AND draft_id = ?;

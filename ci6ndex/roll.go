@@ -1,144 +1,286 @@
 package ci6ndex
 
 import (
-	"ci6ndex-bot/domain"
-	"ci6ndex-bot/domain/generated"
-	"github.com/disgoorg/disgo/discord"
-	"github.com/disgoorg/disgo/handler"
+	"ci6ndex/ci6ndex/generated"
+	"context"
+	"database/sql"
 	"github.com/pkg/errors"
+	"math/rand/v2"
+	"slices"
 )
 
-var rollCivsCommand = discord.SlashCommandCreate{
-	Name:        "roll",
-	Description: "Rolls a random set of civilizations",
-	//Options: []discord.ApplicationCommandOption{
-	//	discord.ApplicationCommandOptionInt{
-	//		Name:        "pool-size",
-	//		Description: "The number of civilizations a player will have to choose from",
-	//		Required:    true,
-	//	},
-	//	discord.ApplicationCommandOptionBool{
-	//		Name:        "randomize",
-	//		Description: "Whether or not to randomize picked civs",
-	//		Required:    true,
-	//	},
-	//},
+// EligibleLeaders is a struct that holds a pool of leaders that are valid for a given player
+// The leaders are mapped from a rule to a list of leaders that satisfy the rule
+type EligibleLeaders struct {
+	leaders []generated.Leader
+	rule    Rule
+	player  generated.Player
 }
 
-func HandleRollCivs(c *Ci6ndex) handler.CommandHandler {
-	return func(e *handler.CommandEvent) error {
-		var minPlayers int
-		minPlayers = 1
-		maxPlayers := 14
-		return e.CreateMessage(discord.NewMessageCreateBuilder().
-			SetContent("Add Users to draft").
-			AddActionRow(
-				discord.UserSelectMenuComponent{
-					CustomID:  "select-player",
-					MinValues: &minPlayers,
-					MaxValues: maxPlayers,
-				}).
-			AddActionRow(
-				discord.ButtonComponent{
-					Style:    discord.ButtonStylePrimary,
-					Label:    "Confirm Players! \U0001F3B2",
-					CustomID: "confirm-roll",
-				}).
-			SetEphemeral(true).
-			Build(),
-		)
+type Offering struct {
+	Player  generated.Player
+	Leaders []generated.Leader
+	DraftId int64
+}
+
+// NewPool creates a pool of leaders to be offered to a player after filtering based on the rule
+func NewPool(player generated.Player, rule Rule, leaders []generated.Leader) EligibleLeaders {
+	filteredLeaders := rule.evaluate(player, leaders)
+	zeroed := 0
+	for _, l := range filteredLeaders {
+		if l.ID == 0 {
+			zeroed++
+		}
+	}
+	return EligibleLeaders{
+		leaders: filteredLeaders,
+		rule:    rule,
+		player:  player,
 	}
 }
 
-func HandlePlayerSelect(c *Ci6ndex) handler.SelectMenuComponentHandler {
-	return func(data discord.SelectMenuInteractionData, e *handler.ComponentEvent) error {
-		c.Logger.Info("event received", "guild", e.GuildID(), "eventId", e.ID())
-		users := data.(discord.UserSelectMenuInteractionData)
+func (c *Ci6ndex) RollForPlayers(guildId uint64, poolSize int) ([]Offering, error) {
+	ctx := context.TODO()
+	db, err := c.getDB(guildId)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get database connection")
+	}
+	players, err := c.GetPlayersFromActiveDraft(guildId)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get players from active draft")
+	}
+	leaders, err := db.Queries.GetEligibleLeaders(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get eligible leaders")
+	}
+	d, err := db.Queries.GetActiveDraft(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get active draft")
+	}
 
-		guild, err := parseGuildId(e.GuildID().String())
-		if err != nil {
-			return errors.Wrap(err, "failed to parse guild id from event")
+	// Give everyone a tier 3 or above leader
+	// Try to do harder to assign rules first
+	pools := make([]EligibleLeaders, 0)
+	for _, player := range players {
+		pool := NewPool(player, &MinTierRule{minTier: 3.0}, leaders)
+		pools = append(pools, pool)
+	}
+	for i := 1; i < poolSize; i++ {
+		for _, player := range players {
+			// Get the pool for the player
+			pool := NewPool(player, &NoOpRule{}, leaders)
+			pools = append(pools, pool)
 		}
-		d, err := c.DB.GetOrCreateActiveDraft(guild)
-		aurl := e.User().EffectiveAvatarURL()
+	}
+
+	offers := make([]Offering, 0)
+	alreadyPicked := make([]generated.Leader, 0)
+
+	c.Logger.Info("Rolling for draft", "guildId", guildId)
+	for _, p := range pools {
+		c.Logger.Debug("Rolling pool", "pool", p)
+		offered := p.leaders
+		leader, err := tryPickLeader(offered, alreadyPicked)
 		if err != nil {
-			return errors.Wrap(err, "failed to get active draft")
+			if errors.As(err, &RanOutOfChoicesError{}) {
+				return nil, errors.Wrap(err, "ran out of choices - please retry!")
+			}
+			return nil, errors.Wrapf(err, "failed to pick leader for pool=%v", p)
 		}
-		var players []generated.AddPlayerParams
-		for id, user := range users.Resolved.Users {
-			gn := domain.ResolveOptionalString(user.GlobalName)
-			av := domain.ResolveOptionalString(&aurl)
-			players = append(players, generated.AddPlayerParams{
-				ID:            int64(id),
-				Username:      user.Username,
-				GlobalName:    gn,
-				DiscordAvatar: av,
+		offers = append(offers, Offering{
+			Player:  p.player,
+			Leaders: []generated.Leader{leader},
+			DraftId: d.ID,
+		})
+		alreadyPicked = append(alreadyPicked, leader)
+	}
+
+	offers = flattenOffers(offers, d.ID)
+	c.Logger.Info("Finished rolling for draft", "guildId", guildId, "offers", offers)
+
+	// Wipe existing pools
+	err = db.Writes.DeletePoolsForDraftId(ctx, d.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to delete existing pools. "+
+			"Roll succeeded but metadata failed to update")
+	}
+
+	for _, o := range offers {
+		for _, leader := range o.Leaders {
+			err := db.Writes.AddPool(ctx, generated.AddPoolParams{
+				PlayerID: o.Player.ID,
+				DraftID:  d.ID,
+				Leader:   leader.ID,
 			})
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to add pool to database")
+			}
 		}
-
-		errs := c.DB.SetPlayersForDraft(guild, d.ID, players)
-		if len(errs) > 0 {
-			c.Client.Logger().Error("failed to add players to draft", "errors", errs)
-			return errors.New("failed to add players to draft")
-		}
-		return e.DeferUpdateMessage()
 	}
+	c.Logger.Info("Finished adding pools to database", "guildId", guildId)
+	return offers, nil
 }
 
-func HandleConfirmRoll(c *Ci6ndex) handler.ButtonComponentHandler {
-	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		c.Logger.Info("event received", "guild", e.GuildID(), "")
-		err := e.DeferCreateMessage(false)
-		if err != nil {
-			return err
-		}
-		gid, err := parseGuildId(e.GuildID().String())
-		if err != nil {
-			return errors.Wrap(err, "failed to parse guild id from event")
-		}
-		players, err := c.DB.GetPlayersFromActiveDraft(gid)
-		if err != nil {
-			return errors.Wrap(err, "failed to get players from active draft")
-		}
-
-		rolls, err := c.DB.RollForPlayers(gid, 3)
-		if err != nil {
-			return errors.Wrap(err, "failed to roll for players")
-		}
-
-		pf := make([]discord.EmbedField, len(players))
-		for i, roll := range rolls {
-			inline := true
-			pf[i] = getRollEmbedField(roll, &inline)
-		}
-
-		me, _ := c.Client.Caches().SelfUser()
-		_, err = e.CreateFollowupMessage(discord.NewMessageCreateBuilder().
-			SetEmbeds(discord.NewEmbedBuilder().
-				SetTitle("Rolls:").
-				SetThumbnail(me.EffectiveAvatarURL()).
-				AddFields(pf...).
-				Build()).
-			Build(),
-		)
-		if err != nil {
-			return err
-		}
-		return err
+func (c *Ci6ndex) ReRollForPlayers(guildId uint64, poolSize int) ([]Offering, error) {
+	ctx := context.TODO()
+	db, err := c.getDB(guildId)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get database connection")
 	}
+	players, err := c.GetPlayersForReRoll(guildId)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get players from reroll")
+	}
+
+	d, err := db.Queries.GetActiveDraft(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get active draft")
+	}
+	for _, p := range players {
+		err := db.Writes.ReturnOffering(ctx, generated.ReturnOfferingParams{
+			PlayerID: p.ID,
+			DraftID:  d.ID,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	leaders, err := db.Queries.GetEligibleLeaders(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get eligible leaders")
+	}
+
+	// Give everyone a tier 3 or above leader
+	// Try to do harder to assign rules first
+	pools := make([]EligibleLeaders, 0)
+	for _, player := range players {
+		pool := NewPool(player, &MinTierRule{minTier: 3.0}, leaders)
+		pools = append(pools, pool)
+	}
+	for i := 1; i < poolSize; i++ {
+		for _, player := range players {
+			// Get the pool for the player
+			pool := NewPool(player, &NoOpRule{}, leaders)
+			pools = append(pools, pool)
+		}
+	}
+
+	offers := make([]Offering, 0)
+	alreadyPicked := make([]generated.Leader, 0)
+
+	c.Logger.Info("Rolling for draft", "guildId", guildId)
+	for _, p := range pools {
+		c.Logger.Debug("Rolling pool", "pool", p)
+		offered := p.leaders
+		leader, err := tryPickLeader(offered, alreadyPicked)
+		if err != nil {
+			if errors.As(err, &RanOutOfChoicesError{}) {
+				return nil, errors.Wrap(err, "ran out of choices - please retry!")
+			}
+			return nil, errors.Wrapf(err, "failed to pick leader for pool=%v", p)
+		}
+		offers = append(offers, Offering{
+			Player:  p.player,
+			Leaders: []generated.Leader{leader},
+			DraftId: d.ID,
+		})
+		alreadyPicked = append(alreadyPicked, leader)
+	}
+
+	offers = flattenOffers(offers, d.ID)
+	c.Logger.Info("Finished rolling for draft", "guildId", guildId, "offers", offers)
+
+	// Wipe existing pools
+	err = db.Writes.DeletePoolsForDraftId(ctx, d.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to delete existing pools. "+
+			"Roll succeeded but metadata failed to update")
+	}
+
+	for _, o := range offers {
+		for _, leader := range o.Leaders {
+			err := db.Writes.AddPool(ctx, generated.AddPoolParams{
+				PlayerID: o.Player.ID,
+				DraftID:  d.ID,
+				Leader:   leader.ID,
+			})
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to add pool to database")
+			}
+		}
+	}
+	c.Logger.Info("Finished adding pools to database", "guildId", guildId)
+	return offers, nil
 }
 
-func getRollEmbedField(offer domain.Offering, inline *bool) discord.EmbedField {
-	var civs string
-	for _, leader := range offer.Leaders {
-		if leader.DiscordEmojiString.Valid {
-			civs += leader.DiscordEmojiString.String + " "
+func flattenOffers(offers []Offering, draftId int64) []Offering {
+	offerMap := make(map[int64][]generated.Leader)
+	userData := make(map[int64]generated.Player)
+	for _, o := range offers {
+		offerMap[o.Player.ID] = append(offerMap[o.Player.ID], o.Leaders...)
+		userData[o.Player.ID] = o.Player
+	}
+	flattenedOffers := make([]Offering, 0)
+	for playerId, leaders := range offerMap {
+		flattenedOffers = append(flattenedOffers, Offering{
+			Player:  userData[playerId],
+			Leaders: leaders,
+			DraftId: draftId,
+		})
+	}
+	return flattenedOffers
+}
+
+type RanOutOfChoicesError struct{}
+
+func (e RanOutOfChoicesError) Error() string {
+	return "no leaders left to pick from"
+}
+
+func tryPickLeader(pickFrom []generated.Leader, alreadyPicked []generated.Leader) (generated.Leader, error) {
+	if len(pickFrom) == 0 {
+		return generated.Leader{}, RanOutOfChoicesError{}
+	}
+	i := rand.IntN(len(pickFrom))
+	randPick := pickFrom[i]
+	// this is a hack, no idea why we get a 0 ID leader sometimes
+	if randPick.ID == 0 || containsLeader(randPick, alreadyPicked) {
+		rest := slices.Delete(pickFrom, i, i+1)
+		return tryPickLeader(rest, alreadyPicked)
+	}
+
+	return randPick, nil
+}
+
+func containsLeader(pick generated.Leader, alreadyPicked []generated.Leader) bool {
+	for _, p := range alreadyPicked {
+		if p.ID == pick.ID {
+			return true
 		}
-		civs += leader.LeaderName + ": " + leader.CivName + "\n"
 	}
-	return discord.EmbedField{
-		Name:   offer.Player.Username,
-		Value:  civs,
-		Inline: inline,
+	return false
+}
+
+func (c *Ci6ndex) GetPlayersForReRoll(guildId uint64) ([]generated.Player, error) {
+	db, err := c.getDB(guildId)
+	if err != nil {
+		return nil, err
 	}
+	playerIds, err := db.Queries.GetPlayersForReRoll(context.TODO())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return make([]generated.Player, 0), nil
+		}
+		return nil, err
+	}
+	var returnPlayers []generated.Player
+	players, err := db.Queries.GetPlayers(context.TODO())
+	for i, p := range players {
+		for _, id := range playerIds {
+			if p.ID == id {
+				returnPlayers = append(returnPlayers, players[i])
+			}
+		}
+	}
+	return players, nil
 }
