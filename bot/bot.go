@@ -19,7 +19,7 @@ import (
 )
 
 type Bot struct {
-	Client  bot.Client
+	Client  *bot.Client
 	Logger  log.Logger
 	Ci6ndex *ci6ndex.Ci6ndex
 	Config  Config
@@ -86,7 +86,7 @@ func (c *Bot) SyncCommands() {
 	ids := strings.Split(c.Config.GuildIds, ",")
 
 	for _, id := range ids {
-		_, err := c.Client.Rest().SetGuildCommands(
+		_, err := c.Client.Rest.SetGuildCommands(
 			snowflake.MustParse(c.Config.BotApplicationID),
 			snowflake.MustParse(id),
 			Commands,

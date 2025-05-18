@@ -78,7 +78,7 @@ func HandlePlayerSelect(c *Bot) handler.SelectMenuComponentHandler {
 
 		errs := c.Ci6ndex.SetPlayersForDraft(guild, d.ID, players)
 		if len(errs) > 0 {
-			c.Client.Logger().Error("failed to add players to draft", "errors", errs)
+			c.Client.Logger.Error("failed to add players to draft", "errors", errs)
 			return errors.New("failed to add players to draft")
 		}
 		return e.DeferUpdateMessage()
@@ -112,7 +112,7 @@ func HandleConfirmRoll(c *Bot) handler.ButtonComponentHandler {
 			pf[i] = getRollEmbedField(roll, &inline)
 		}
 
-		me, _ := c.Client.Caches().SelfUser()
+		me, _ := c.Client.Caches.SelfUser()
 		_, err = e.CreateFollowupMessage(discord.NewMessageCreateBuilder().
 			SetEmbeds(discord.NewEmbedBuilder().
 				SetTitle("Rolls:").

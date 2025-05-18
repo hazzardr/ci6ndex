@@ -1,11 +1,13 @@
 module ci6ndex
 
-go 1.23.1
+go 1.24
+
+toolchain go1.24.3
 
 require (
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/charmbracelet/log v0.4.1
-	github.com/disgoorg/disgo v0.18.15
+	github.com/disgoorg/disgo v0.18.17-0.20250518002213-750617a899bc
 	github.com/disgoorg/snowflake/v2 v2.0.3
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/pkg/errors v0.9.1
@@ -20,7 +22,8 @@ require (
 	github.com/charmbracelet/x/cellbuf v0.0.13 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/disgoorg/json v1.2.0 // indirect
+	github.com/disgoorg/json/v2 v2.0.0 // indirect
+	github.com/disgoorg/omit v1.0.0 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect

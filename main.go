@@ -56,7 +56,6 @@ func main() {
 	commandHandler.Command("/ping", bot.HandlePing)
 	commandHandler.Command("/roll", bot.HandleRollCivs(b))
 	commandHandler.SelectMenuComponent("/select-player", bot.HandlePlayerSelect(b))
-	commandHandler.SelectMenuComponent("/select-reroll-player", bot.HandlePlayerSelectReRoll(b))
 	commandHandler.ButtonComponent("/confirm-roll", bot.HandleConfirmRoll(b))
 	err = bot.Configure(b, commandHandler)
 	if err != nil {

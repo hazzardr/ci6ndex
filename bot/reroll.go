@@ -11,28 +11,6 @@ var rerollCivsCommand = discord.SlashCommandCreate{
 	Description: "Re-rolls a random set of civilizations for the given players",
 }
 
-func HandlePlayerSelectReRoll(c *Bot) handler.SelectMenuComponentHandler {
-	return func(data discord.SelectMenuInteractionData, e *handler.ComponentEvent) error {
-		c.Logger.Info("event received", "guild", e.GuildID(), "eventId", e.ID())
-		users := data.(discord.UserSelectMenuInteractionData)
-
-		guild, err := parseGuildId(e.GuildID().String())
-		if err != nil {
-			return errors.Wrap(err, "failed to parse guild id from event")
-		}
-		var playerIds []int64
-		for id, _ := range users.Resolved.Users {
-			playerIds = append(playerIds, int64(id))
-		}
-		err = c.Ci6ndex.SetPlayersForReRoll(guild, playerIds)
-		if err != nil {
-			c.Client.Logger().Error("failed to add players to draft", "errors", err)
-			return errors.New("failed to add players to draft")
-		}
-		return e.DeferUpdateMessage()
-	}
-}
-
 func HandleReRollCivs(c *Bot) handler.CommandHandler {
 	return func(e *handler.CommandEvent) error {
 		var minPlayers int
@@ -81,7 +59,7 @@ func HandleConfirmReRoll(c *Bot) handler.ButtonComponentHandler {
 			pf[i] = getRollEmbedField(roll, &inline)
 		}
 
-		me, _ := c.Client.Caches().SelfUser()
+		me, _ := c.Client.Caches.SelfUser()
 		_, err = e.CreateFollowupMessage(discord.NewMessageCreateBuilder().
 			SetEmbeds(discord.NewEmbedBuilder().
 				SetTitle("ReRolls:").
