@@ -2,18 +2,11 @@ package ci6ndex
 
 import (
 	"ci6ndex/ci6ndex/generated"
-	"fmt"
 )
 
-type FullPoolError struct{}
-
-func (e FullPoolError) Error() string {
-	return fmt.Sprint("attempted to add rule to full pool")
-}
-
+// Rule is a method of filtering leaders based on player metadata
 type Rule interface {
 	isValid(player generated.Player, leader generated.Leader) bool
-	// Evaluate should
 	evaluate(player generated.Player, leaders []generated.Leader) []generated.Leader
 }
 
@@ -36,10 +29,6 @@ func (r *MinTierRule) evaluate(player generated.Player, leaders []generated.Lead
 		}
 	}
 	return filtered
-}
-
-func remove(slice []generated.Leader, s int) []generated.Leader {
-	return append(slice[:s], slice[s+1:]...)
 }
 
 type NoOpRule struct{}

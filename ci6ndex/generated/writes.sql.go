@@ -145,14 +145,3 @@ func (q *Queries) ReturnOffering(ctx context.Context, arg ReturnOfferingParams) 
 	_, err := q.db.ExecContext(ctx, returnOffering, arg.PlayerID, arg.DraftID)
 	return err
 }
-
-const setPlayerForReRole = `-- name: SetPlayerForReRole :exec
-INSERT INTO rerolls (
-    player_id
-) VALUES (?)
-`
-
-func (q *Queries) SetPlayerForReRole(ctx context.Context, playerID int64) error {
-	_, err := q.db.ExecContext(ctx, setPlayerForReRole, playerID)
-	return err
-}

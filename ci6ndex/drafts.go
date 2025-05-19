@@ -53,20 +53,11 @@ func (c *Ci6ndex) SetPlayersForDraft(guildId uint64, draftId int64,
 			ctx := context.Background()
 			_, err := db.Writes.AddPlayerToDraft(ctx, generated.AddPlayerToDraftParams{
 				DraftID:  draftId,
-				PlayerID: p.ID,
+				PlayerID: player.ID,
 			})
 			if err != nil {
 				errChan <- errors.Wrapf(err, "failed to register player=%d for draft=%d", player.ID,
 					draftId)
-			} else {
-				err = db.Writes.AddPlayer(ctx, player)
-				if err != nil {
-					errChan <- errors.Wrapf(
-						err,
-						"failed to add details for player=%d to database",
-						player.ID,
-					)
-				}
 			}
 		}(p)
 	}
@@ -83,50 +74,5 @@ func (c *Ci6ndex) SetPlayersForDraft(guildId uint64, draftId int64,
 		return errs
 	}
 
-	return nil
-}
-
-func (c *Ci6ndex) GetPlayersFromActiveDraft(guildId uint64) ([]generated.Player, error) {
-	db, err := c.getDB(guildId)
-	if err != nil {
-		return nil, err
-	}
-	players, err := db.Queries.GetPlayersFromActiveDraft(context.TODO())
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return make([]generated.Player, 0), nil
-		}
-		return nil, err
-	}
-	return players, nil
-}
-
-func (c *Ci6ndex) GetPlayersFromDraft(guildId uint64,
-	draftId int64) ([]generated.Player, error) {
-	db, err := c.getDB(guildId)
-	if err != nil {
-		return nil, err
-	}
-	players, err := db.Queries.GetPlayersFromDraft(context.Background(), draftId)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return make([]generated.Player, 0), nil
-		}
-		return nil, err
-	}
-	return players, nil
-}
-
-func (c *Ci6ndex) SetPlayersForReRoll(guildId uint64, playerIds []int64) error {
-	db, err := c.getDB(guildId)
-	if err != nil {
-		return err
-	}
-	for _, playerId := range playerIds {
-		err = db.Writes.SetPlayerForReRole(context.Background(), playerId)
-		if err != nil {
-			return errors.Wrap(err, "failed to remove player from draft")
-		}
-	}
 	return nil
 }

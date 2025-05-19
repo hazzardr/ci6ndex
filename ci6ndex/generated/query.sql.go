@@ -131,33 +131,6 @@ func (q *Queries) GetPlayers(ctx context.Context) ([]Player, error) {
 	return items, nil
 }
 
-const getPlayersForReRoll = `-- name: GetPlayersForReRoll :many
-SELECT player_id FROM rerolls
-`
-
-func (q *Queries) GetPlayersForReRoll(ctx context.Context) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getPlayersForReRoll)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []int64
-	for rows.Next() {
-		var player_id int64
-		if err := rows.Scan(&player_id); err != nil {
-			return nil, err
-		}
-		items = append(items, player_id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getPlayersFromActiveDraft = `-- name: GetPlayersFromActiveDraft :many
 SELECT p.id, p.username, p.global_name, p.discord_avatar
 FROM draft_registry dr

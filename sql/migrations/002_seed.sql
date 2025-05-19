@@ -42,7 +42,7 @@ VALUES
     ('HUNGARY', 'MATTHIAS CORVINUS','<:Matthias_Corvinus_Civ6:1229393222061785098>',false,1.86),
     ('INCA', 'PACHACUTI','<:Pachacuti_Civ6:1229393648571912212>',false,3.2),
     ('INDIA', 'CHANDRAGUPTA','<:Chandragupta_Civ6:1229388764158234624>', false, 5.4),
-    ('INDIA', 'GHANDI','<:Gandhi_Civ6:1229388944014049300>',false, 6),
+    ('INDIA', 'GANDHI','<:Gandhi_Civ6:1229388944014049300>',false, 6),
     ('INDONESIA', 'GITARJA','<:Gitarja_Civ6:1229388953434718290>',false, 2.6),
     ('JAPAN', 'HOJO TOKIMUNE','<:Hojo_Tokimune_Civ6:1229388968827551795>',false,1.13),
     ('JAPAN', 'TOKUGAWA','<:Tokugawa_Civ6:1229599582682349692>',false,1.25),

@@ -1,7 +1,7 @@
 -- +goose Up
 CREATE TABLE leaders
 (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY, -- Use database-native auto-increment
     civ_name TEXT NOT NULL,
     leader_name TEXT NOT NULL,
     discord_emoji_string TEXT,
@@ -13,7 +13,7 @@ CREATE UNIQUE INDEX leaders_civ_name_leader_name_uindex ON leaders (civ_name, le
 
 CREATE TABLE drafts
 (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY, -- Use database-native auto-increment
     active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
@@ -31,6 +31,7 @@ CREATE TABLE pool
     player_id INTEGER NOT NULL,
     draft_id INTEGER NOT NULL,
     leader INTEGER NOT NULL,
+    PRIMARY KEY (player_id, draft_id, leader), -- Add composite primary key
     FOREIGN KEY (player_id) REFERENCES players (id),
     FOREIGN KEY (draft_id) REFERENCES drafts (id),
     FOREIGN KEY (leader) REFERENCES leaders (id)
@@ -55,10 +56,15 @@ CREATE TABLE players
     discord_avatar TEXT
 );
 
+-- Add useful indexes
+CREATE INDEX idx_pool_draft_id ON pool (draft_id);
+CREATE INDEX idx_picks_draft_id ON picks (draft_id);
+CREATE INDEX idx_draft_registry_draft_id ON draft_registry (draft_id);
+
 -- +goose Down
-DROP TABLE leaders;
-DROP TABLE drafts;
-DROP TABLE pool;
-DROP TABLE picks;
-DROP TABLE players;
-DROP TABLE draft_registry;
+DROP TABLE IF EXISTS leaders;
+DROP TABLE IF EXISTS drafts;
+DROP TABLE IF EXISTS pool;
+DROP TABLE IF EXISTS picks;
+DROP TABLE IF EXISTS players;
+DROP TABLE IF EXISTS draft_registry;

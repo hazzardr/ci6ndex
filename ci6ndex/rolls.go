@@ -3,7 +3,6 @@ package ci6ndex
 import (
 	"ci6ndex/ci6ndex/generated"
 	"context"
-	"database/sql"
 	"github.com/pkg/errors"
 	"math/rand/v2"
 	"slices"
@@ -39,115 +38,17 @@ func NewPool(player generated.Player, rule Rule, leaders []generated.Leader) Eli
 	}
 }
 
+// TODO: rewrite
 func (c *Ci6ndex) RollForPlayers(guildId uint64, poolSize int) ([]Offering, error) {
 	ctx := context.TODO()
 	db, err := c.getDB(guildId)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get database connection")
-	}
 	players, err := c.GetPlayersFromActiveDraft(guildId)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get players from active draft")
 	}
-	leaders, err := db.Queries.GetEligibleLeaders(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get eligible leaders")
-	}
 	d, err := db.Queries.GetActiveDraft(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get active draft")
-	}
-
-	// Give everyone a tier 3 or above leader
-	// Try to do harder to assign rules first
-	pools := make([]EligibleLeaders, 0)
-	for _, player := range players {
-		pool := NewPool(player, &MinTierRule{minTier: 3.0}, leaders)
-		pools = append(pools, pool)
-	}
-	for i := 1; i < poolSize; i++ {
-		for _, player := range players {
-			// Get the pool for the player
-			pool := NewPool(player, &NoOpRule{}, leaders)
-			pools = append(pools, pool)
-		}
-	}
-
-	offers := make([]Offering, 0)
-	alreadyPicked := make([]generated.Leader, 0)
-
-	c.Logger.Info("Rolling for draft", "guildId", guildId)
-	for _, p := range pools {
-		c.Logger.Debug("Rolling pool", "pool", p)
-		offered := p.leaders
-		leader, err := tryPickLeader(offered, alreadyPicked)
-		if err != nil {
-			if errors.As(err, &RanOutOfChoicesError{}) {
-				return nil, errors.Wrap(err, "ran out of choices - please retry!")
-			}
-			return nil, errors.Wrapf(err, "failed to pick leader for pool=%v", p)
-		}
-		offers = append(offers, Offering{
-			Player:  p.player,
-			Leaders: []generated.Leader{leader},
-			DraftId: d.ID,
-		})
-		alreadyPicked = append(alreadyPicked, leader)
-	}
-
-	offers = flattenOffers(offers, d.ID)
-	c.Logger.Info("Finished rolling for draft", "guildId", guildId, "offers", offers)
-
-	// Wipe existing pools
-	err = db.Writes.DeletePoolsForDraftId(ctx, d.ID)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to delete existing pools. "+
-			"Roll succeeded but metadata failed to update")
-	}
-
-	for _, o := range offers {
-		for _, leader := range o.Leaders {
-			err := db.Writes.AddPool(ctx, generated.AddPoolParams{
-				PlayerID: o.Player.ID,
-				DraftID:  d.ID,
-				Leader:   leader.ID,
-			})
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to add pool to database")
-			}
-		}
-	}
-	c.Logger.Info("Finished adding pools to database", "guildId", guildId)
-	return offers, nil
-}
-
-func (c *Ci6ndex) ReRollForPlayers(guildId uint64, poolSize int) ([]Offering, error) {
-	ctx := context.TODO()
-	db, err := c.getDB(guildId)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get database connection")
-	}
-	players, err := c.GetPlayersForReRoll(guildId)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get players from reroll")
-	}
-
-	d, err := db.Queries.GetActiveDraft(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get active draft")
-	}
-	for _, p := range players {
-		err := db.Writes.ReturnOffering(ctx, generated.ReturnOfferingParams{
-			PlayerID: p.ID,
-			DraftID:  d.ID,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	leaders, err := db.Queries.GetEligibleLeaders(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get eligible leaders")
 	}
 
 	// Give everyone a tier 3 or above leader
@@ -259,28 +160,4 @@ func containsLeader(pick generated.Leader, alreadyPicked []generated.Leader) boo
 		}
 	}
 	return false
-}
-
-func (c *Ci6ndex) GetPlayersForReRoll(guildId uint64) ([]generated.Player, error) {
-	db, err := c.getDB(guildId)
-	if err != nil {
-		return nil, err
-	}
-	playerIds, err := db.Queries.GetPlayersForReRoll(context.TODO())
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return make([]generated.Player, 0), nil
-		}
-		return nil, err
-	}
-	var returnPlayers []generated.Player
-	players, err := db.Queries.GetPlayers(context.TODO())
-	for i, p := range players {
-		for _, id := range playerIds {
-			if p.ID == id {
-				returnPlayers = append(returnPlayers, players[i])
-			}
-		}
-	}
-	return players, nil
 }

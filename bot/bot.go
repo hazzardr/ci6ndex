@@ -25,18 +25,24 @@ type Bot struct {
 	Config  Config
 }
 
-func New(config Config, c *ci6ndex.Ci6ndex, log log.Logger) *Bot {
+func New(config Config, c *ci6ndex.Ci6ndex) *Bot {
 	return &Bot{
 		Config:  config,
-		Logger:  log,
+		Logger:  *c.Logger,
 		Ci6ndex: c,
 	}
 }
 
-func Configure(c *Bot, r handler.Router) error {
-	c.Logger.Info("Configuring Discord Bot...")
+func Configure(b *Bot, r handler.Router) error {
+	b.Logger.Info("Configuring Discord Bot...")
+
+	r.Command("/ping", HandlePing)
+	r.Command("/roll", HandleRollCivs(b))
+	r.SelectMenuComponent("/select-player", HandlePlayerSelect(b))
+	r.ButtonComponent("/confirm-roll", HandleConfirmRoll(b))
+
 	var err error
-	c.Client, err = disgo.New(c.Config.DiscordToken,
+	b.Client, err = disgo.New(b.Config.DiscordToken,
 		bot.WithGatewayConfigOpts(
 			gateway.WithIntents(gateway.IntentGuildMessages),
 			gateway.WithCompress(true),
@@ -44,9 +50,9 @@ func Configure(c *Bot, r handler.Router) error {
 				gateway.WithPlayingActivity("loading..."),
 			),
 		),
-		bot.WithEventListenerFunc(c.OnReady),
+		bot.WithEventListenerFunc(b.OnReady),
 		bot.WithEventListeners(r),
-		bot.WithLogger(slog.New(&c.Logger)),
+		bot.WithLogger(slog.New(&b.Logger)),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create discord client")
@@ -54,45 +60,45 @@ func Configure(c *Bot, r handler.Router) error {
 	return nil
 }
 
-func Start(c *Bot) error {
-	c.Logger.Info("Starting Bot...")
+func Start(b *Bot) error {
+	b.Logger.Info("Starting Bot...")
 
-	if err := c.Client.OpenGateway(context.Background()); err != nil {
-		c.Logger.Errorf("Failed to connect to discord gateway: %s", err)
+	if err := b.Client.OpenGateway(context.Background()); err != nil {
+		b.Logger.Errorf("Failed to connect to discord gateway: %s", err)
 		return err
 	}
 	return nil
 }
 
-func GracefulShutdown(c *Bot) {
-	c.Logger.Info("Shutting down Bot...")
-	c.Client.Close(context.Background())
-	c.Ci6ndex.Close()
+func GracefulShutdown(b *Bot) {
+	b.Logger.Info("Shutting down Bot...")
+	b.Client.Close(context.Background())
+	b.Ci6ndex.Close()
 }
 
-func (c *Bot) OnReady(_ *events.Ready) {
-	c.Logger.Info("Bot is ready! Listening for new events...")
-	err := c.Client.SetPresence(context.Background(),
-		gateway.WithListeningActivity("Ian and Alex arguing"),
+func (b *Bot) OnReady(_ *events.Ready) {
+	b.Logger.Info("Bot is ready! Listening for new events...")
+	err := b.Client.SetPresence(context.Background(),
+		gateway.WithListeningActivity("Counting Tiles Between Cities..."),
 		gateway.WithOnlineStatus(discord.OnlineStatusOnline),
 	)
 	if err != nil {
-		c.Logger.Errorf("Failed to set presence: %s", err)
+		b.Logger.Errorf("Failed to set presence: %s", err)
 	}
 }
 
-func (c *Bot) SyncCommands() {
-	c.Logger.Info("Syncing commands...")
-	ids := strings.Split(c.Config.GuildIds, ",")
+func (b *Bot) SyncCommands() {
+	b.Logger.Info("Syncing commands...")
+	ids := strings.Split(b.Config.GuildIds, ",")
 
 	for _, id := range ids {
-		_, err := c.Client.Rest.SetGuildCommands(
-			snowflake.MustParse(c.Config.BotApplicationID),
+		_, err := b.Client.Rest.SetGuildCommands(
+			snowflake.MustParse(b.Config.BotApplicationID),
 			snowflake.MustParse(id),
 			Commands,
 		)
 		if err != nil {
-			c.Logger.Errorf("Failed to sync commands: %v", err)
+			b.Logger.Errorf("Failed to sync commands: %v", err)
 		}
 	}
 }

@@ -46,7 +46,3 @@ type Pool struct {
 	DraftID  int64
 	Leader   int64
 }
-
-type Reroll struct {
-	PlayerID int64
-}
