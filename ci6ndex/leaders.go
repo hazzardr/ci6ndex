@@ -16,6 +16,6 @@ func (c *Ci6ndex) GetLeaders(playerID uint64, guildId uint64, rule Rule) ([]gene
 	}
 
 	leaders, err := db.Queries.GetEligibleLeaders(ctx)
-	filtered := rule.evaluate(player, leaders)
+	filtered := rule.Filter(player, leaders)
 	return filtered, nil
 }

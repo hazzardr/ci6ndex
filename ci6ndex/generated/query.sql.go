@@ -54,22 +54,38 @@ func (q *Queries) GetEligibleLeaders(ctx context.Context) ([]Leader, error) {
 	return items, nil
 }
 
-const getLeaders = `-- name: GetLeaders :one
+const getLeaders = `-- name: GetLeaders :many
 SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM leaders
 `
 
-func (q *Queries) GetLeaders(ctx context.Context) (Leader, error) {
-	row := q.db.QueryRowContext(ctx, getLeaders)
-	var i Leader
-	err := row.Scan(
-		&i.ID,
-		&i.CivName,
-		&i.LeaderName,
-		&i.DiscordEmojiString,
-		&i.Banned,
-		&i.Tier,
-	)
-	return i, err
+func (q *Queries) GetLeaders(ctx context.Context) ([]Leader, error) {
+	rows, err := q.db.QueryContext(ctx, getLeaders)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Leader
+	for rows.Next() {
+		var i Leader
+		if err := rows.Scan(
+			&i.ID,
+			&i.CivName,
+			&i.LeaderName,
+			&i.DiscordEmojiString,
+			&i.Banned,
+			&i.Tier,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getOffersByDraftId = `-- name: GetOffersByDraftId :many

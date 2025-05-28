@@ -1,4 +1,4 @@
--- name: GetLeaders :one
+-- name: GetLeaders :many
 SELECT * FROM leaders;
 
 -- name: GetActiveDraft :one
