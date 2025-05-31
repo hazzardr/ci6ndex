@@ -13,6 +13,7 @@ const getActiveDraft = `-- name: GetActiveDraft :one
 SELECT id, active FROM drafts WHERE active = true
 `
 
+// BEGIN DRAFTS
 func (q *Queries) GetActiveDraft(ctx context.Context) (Draft, error) {
 	row := q.db.QueryRowContext(ctx, getActiveDraft)
 	var i Draft
@@ -58,6 +59,7 @@ const getLeaders = `-- name: GetLeaders :many
 SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM leaders
 `
 
+// BEGIN LEADERS
 func (q *Queries) GetLeaders(ctx context.Context) ([]Leader, error) {
 	rows, err := q.db.QueryContext(ctx, getLeaders)
 	if err != nil {
@@ -115,10 +117,30 @@ func (q *Queries) GetOffersByDraftId(ctx context.Context, draftID int64) ([]Pool
 	return items, nil
 }
 
+const getPlayer = `-- name: GetPlayer :one
+SELECT id, username, global_name, discord_avatar
+FROM players
+WHERE id = ?
+`
+
+func (q *Queries) GetPlayer(ctx context.Context, id int64) (Player, error) {
+	row := q.db.QueryRowContext(ctx, getPlayer, id)
+	var i Player
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.GlobalName,
+		&i.DiscordAvatar,
+	)
+	return i, err
+}
+
 const getPlayers = `-- name: GetPlayers :many
+
 SELECT id, username, global_name, discord_avatar FROM players
 `
 
+// BEGIN PLAYERS
 func (q *Queries) GetPlayers(ctx context.Context) ([]Player, error) {
 	rows, err := q.db.QueryContext(ctx, getPlayers)
 	if err != nil {

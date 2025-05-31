@@ -62,6 +62,8 @@ func getPools(
 	}
 	return pools, nil
 }
+
+// RollForPlayers rolls leaders for a set of players based on the provided rules.
 func (c *Ci6ndex) RollForPlayers(
 	guildId uint64,
 	playerIds []int64,

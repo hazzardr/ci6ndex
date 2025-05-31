@@ -1,20 +1,17 @@
 package bot
 
-import (
-	"github.com/disgoorg/disgo/discord"
-)
-
-var randomTeamsCommand = discord.SlashCommandCreate{
-	Name:        "teams",
-	Description: "Create and assign random teams",
-	Options: []discord.ApplicationCommandOption{
-		discord.ApplicationCommandOptionInt{
-			Name:        "teamSize",
-			Description: "The number of players per team",
-			Required:    true,
-		},
-	},
-}
+//
+//var randomTeamsCommand = discord.SlashCommandCreate{
+//	Name:        "teams",
+//	Description: "Create and assign random teams",
+//	Options: []discord.ApplicationCommandOption{
+//		discord.ApplicationCommandOptionInt{
+//			Name:        "teamSize",
+//			Description: "The number of players per team",
+//			Required:    true,
+//		},
+//	},
+//}
 
 //
 //func HandleRandomizeTeams(c *Bot) handler.CommandHandler {

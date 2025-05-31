@@ -6,8 +6,8 @@ toolchain go1.24.3
 
 require (
 	github.com/caarlos0/env/v11 v11.3.1
-	github.com/charmbracelet/log v0.4.1
-	github.com/disgoorg/disgo v0.18.17-0.20250518002213-750617a899bc
+	github.com/charmbracelet/log v0.4.2
+	github.com/disgoorg/disgo v0.18.17-0.20250527183904-16a465752876
 	github.com/disgoorg/snowflake/v2 v2.0.3
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/pkg/errors v0.9.1
@@ -15,6 +15,7 @@ require (
 )
 
 require (
+	github.com/alecthomas/kong v1.11.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/colorprofile v0.3.1 // indirect
 	github.com/charmbracelet/lipgloss v1.1.0 // indirect

@@ -8,22 +8,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-var rollCivsCommand = discord.SlashCommandCreate{
-	Name:        "roll",
-	Description: "Rolls a random set of civilizations",
-	//Options: []discord.ApplicationCommandOption{
-	//	discord.ApplicationCommandOptionInt{
-	//		Name:        "pool-size",
-	//		Description: "The number of civilizations a player will have to choose from",
-	//		Required:    true,
-	//	},
-	//	discord.ApplicationCommandOptionBool{
-	//		Name:        "randomize",
-	//		Description: "Whether or not to randomize picked civs",
-	//		Required:    true,
-	//	},
-	//},
-}
+const (
+	DefaultPoolSize = 3
+)
 
 func HandleRollCivs(c *Bot) handler.CommandHandler {
 	return func(e *handler.CommandEvent) error {
@@ -100,14 +87,23 @@ func HandleConfirmRoll(c *Bot) handler.ButtonComponentHandler {
 		if err != nil {
 			return errors.Wrap(err, "failed to get players from active draft")
 		}
+		var pids = make([]int64, 0)
+		for _, player := range players {
+			pids = append(pids, player.ID)
+		}
 
-		reRolls, err := c.Ci6ndex.RollForPlayers(gid, 3)
+		var rules = make([]ci6ndex.Rule, DefaultPoolSize)
+		rules[0] = &ci6ndex.MinTierRule{MinTier: 3}
+		for i := 1; i < DefaultPoolSize; i++ {
+			rules[i] = &ci6ndex.NoOpRule{} // No additional rules for now
+		}
+		rolls, err := c.Ci6ndex.RollForPlayers(gid, pids, rules)
 		if err != nil {
 			return errors.Wrap(err, "failed to roll for players")
 		}
 
 		pf := make([]discord.EmbedField, len(players))
-		for i, roll := range reRolls {
+		for i, roll := range rolls {
 			inline := true
 			pf[i] = getRollEmbedField(roll, &inline)
 		}

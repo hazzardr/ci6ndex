@@ -6,11 +6,6 @@ import (
 	"time"
 )
 
-var pingCommand = discord.SlashCommandCreate{
-	Name:        "ping",
-	Description: "Replies with pong",
-}
-
 func HandlePing(e *handler.CommandEvent) error {
 	var gatewayPing string
 	if e.Client().HasGateway() {

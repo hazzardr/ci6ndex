@@ -28,3 +28,4 @@ gcloud_oauth2.json
 token.json
 *.db
 bin/
+civ

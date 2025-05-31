@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"bytes"
 	"ci6ndex/ci6ndex"
 	"context"
 	"github.com/caarlos0/env/v11"
@@ -11,6 +12,8 @@ import (
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/disgo/handler"
+	"github.com/disgoorg/disgo/rest"
+	"github.com/disgoorg/json/v2"
 	"github.com/disgoorg/snowflake/v2"
 	"github.com/pkg/errors"
 	"log/slog"
@@ -37,7 +40,7 @@ func Configure(b *Bot, r handler.Router) error {
 	b.Logger.Info("Configuring Discord Bot...")
 
 	r.Command("/ping", HandlePing)
-	r.Command("/roll", HandleRollCivs(b))
+	r.Command("/draft", HandleManageDraft(b))
 	r.SelectMenuComponent("/select-player", HandlePlayerSelect(b))
 	r.ButtonComponent("/confirm-roll", HandleConfirmRoll(b))
 
@@ -87,20 +90,31 @@ func (b *Bot) OnReady(_ *events.Ready) {
 	}
 }
 
-func (b *Bot) SyncCommands() {
+func (b *Bot) SyncCommands() error {
 	b.Logger.Info("Syncing commands...")
 	ids := strings.Split(b.Config.GuildIds, ",")
-
-	for _, id := range ids {
-		_, err := b.Client.Rest.SetGuildCommands(
-			snowflake.MustParse(b.Config.BotApplicationID),
-			snowflake.MustParse(id),
-			Commands,
-		)
-		if err != nil {
-			b.Logger.Errorf("Failed to sync commands: %v", err)
-		}
+	var guildIds = make([]snowflake.ID, len(ids))
+	for i, id := range ids {
+		guildIds[i] = snowflake.MustParse(id)
 	}
+
+	err := handler.SyncCommands(b.Client, Commands, guildIds)
+	if err != nil {
+		var restErr rest.Error
+		if errors.As(err, &restErr) {
+			if err != nil {
+				b.Logger.Error("Failed to sync commands", "error", err)
+				return err
+			}
+		} else {
+			b.Logger.Error("Failed to sync commands", "error", err)
+			return err
+
+		}
+		b.Logger.Errorf("Failed to sync commands: %v", err)
+	}
+	b.Logger.Info("Done!")
+	return nil
 }
 
 type Config struct {
@@ -124,4 +138,26 @@ func parseGuildId(guild string) (uint64, error) {
 		return 0, errors.Wrap(err, "failed to parse guild id")
 	}
 	return id, nil
+}
+
+func errorDescription(err error) (string, bool) {
+	if err == nil {
+		return "", false
+	}
+	var restErr rest.Error
+	if errors.As(err, &restErr) {
+		if len(restErr.Errors) == 0 {
+			return string(restErr.RsBody), true
+		}
+
+		// Pretty format the JSON
+		var prettyJSON bytes.Buffer
+		if json.Indent(&prettyJSON, restErr.Errors, "", "  ") == nil {
+			return prettyJSON.String(), true
+		}
+
+		// Fallback to the original string if formatting fails
+		return string(restErr.Errors), true
+	}
+	return err.Error(), true
 }

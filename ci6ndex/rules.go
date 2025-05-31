@@ -20,11 +20,11 @@ type Rule interface {
 
 // MinTierRule filters leaders based on a minimum tier requirement.
 type MinTierRule struct {
-	minTier float64
+	MinTier float64
 }
 
 func (r *MinTierRule) IsValid(player generated.Player, leader generated.Leader) bool {
-	if leader.Tier <= r.minTier {
+	if leader.Tier <= r.MinTier {
 		return true
 	}
 	return false

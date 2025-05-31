@@ -1,5 +1,5 @@
 PROJECT_NAME := "ci6ndex"
-EXEC_NAME := ci6ndex
+EXEC_NAME := civ
 
 .PHONY: help ## print this
 help:
@@ -67,4 +67,9 @@ generate:
 .PHONY: run ## run the project
 run:
 	$(MAKE) build
-	@(export $$(cat .env | xargs) && ./bin/$(EXEC_NAME))
+	@(export $$(cat .env | xargs) && ./bin/$(EXEC_NAME) bot serve)
+
+.PHONY: sync ## sync discord commands with API
+sync:
+	$(MAKE) build
+	@(export $$(cat .env | xargs) && ./bin/$(EXEC_NAME) bot sync)
