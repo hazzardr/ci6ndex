@@ -1,64 +1,131 @@
 package bot
 
 import (
-	"context"
+	"bytes"
 	"errors"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
 )
 
+func draftScreen(b *Bot) ([]discord.LayoutComponent, error) {
+	me, _ := b.Client.Caches.SelfUser()
+
+	var draftHeader, recentGames bytes.Buffer
+	err := renderMainScreen(&draftHeader, &recentGames)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to draft card"))
+	}
+
+	return []discord.LayoutComponent{discord.NewContainer(
+		discord.NewSection(
+			discord.NewTextDisplay(draftHeader.String()),
+		).WithAccessory(discord.NewThumbnail(me.EffectiveAvatarURL())),
+		discord.NewLargeSeparator(),
+		discord.NewSection().WithComponents(
+			discord.NewTextDisplay(recentGames.String()),
+		).WithAccessory(
+			discord.NewPrimaryButton("Details", "/game/latest").AsDisabled().WithEmoji(discord.ComponentEmoji{
+				Name: magnifyingGlass,
+			})),
+		discord.NewLargeSeparator(),
+		discord.NewActionRow(
+			discord.NewPrimaryButton("New Draft", "/create-draft").WithEmoji(discord.ComponentEmoji{
+				Name: crossedSwords,
+			}),
+		),
+	).WithAccentColor(0x5c5fea),
+	}, nil
+}
+
 func HandleManageDraft(b *Bot) handler.CommandHandler {
 	return func(e *handler.CommandEvent) error {
-		var guildId uint64
 		if e.GuildID() == nil {
 			b.Logger.Errorf("missing guild ID %v", e)
 			return errors.New("missing guild id on event")
 		}
-		guildId = uint64(*e.GuildID())
+		// Create "form" for rolling settings
+		flags := discord.MessageFlagIsComponentsV2
+		flags = flags.Add(discord.MessageFlagEphemeral)
+		draft, err := draftScreen(b)
+		if err != nil {
+			return err
+		}
 
-		switch data := e.Data.(type) {
-		case discord.SlashCommandInteractionData:
-			ctx := context.TODO()
-			// Create "form" for rolling settings
-			flags := discord.MessageFlagIsComponentsV2
-			if ephemeral, ok := data.OptBool("ephemeral"); !ok || ephemeral {
-				flags = flags.Add(discord.MessageFlagEphemeral)
+		if err := e.CreateMessage(discord.MessageCreate{
+			Flags:      flags,
+			Components: draft,
+		}); err != nil {
+			b.Logger.Error("Failed to create test message", "error", err)
+			desc, ok := errorDescription(err)
+			if ok {
+				b.Logger.Error(desc)
 			}
-			me, _ := b.Client.Caches.SelfUser()
-			members, err := b.Ci6ndex.GetPlayers(ctx, guildId)
-			if err != nil {
-				b.Logger.Error("failed to fetch member", err)
+		}
+
+		return nil
+	}
+}
+
+func HandleManageDraftButton(b *Bot) handler.ButtonComponentHandler {
+	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
+		b.Logger.Info("HandleCreateDraft")
+
+		if e.GuildID() == nil {
+			b.Logger.Errorf("missing guild ID %v", e)
+			return errors.New("missing guild id on event")
+		}
+		// Create "form" for rolling settings
+		flags := discord.MessageFlagIsComponentsV2
+		flags = flags.Add(discord.MessageFlagEphemeral)
+		draft, err := draftScreen(b)
+		if err != nil {
+			return err
+		}
+
+		if err := e.UpdateMessage(discord.MessageUpdate{
+			Components: &draft,
+		}); err != nil {
+			b.Logger.Error("Failed to create test message", "error", err)
+			desc, ok := errorDescription(err)
+			if ok {
+				b.Logger.Error(desc)
 			}
-			b.Logger.Info("fetched members: ", members)
-			if err := e.CreateMessage(discord.MessageCreate{
-				Flags: flags,
-				Components: []discord.LayoutComponent{
+		}
+		return nil
+	}
+}
+
+func HandleCreateDraft(b *Bot) handler.ButtonComponentHandler {
+	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
+		b.Logger.Info("HandleCreateDraft")
+		err := e.UpdateMessage(
+			discord.MessageUpdate{
+				Components: &[]discord.LayoutComponent{
 					discord.NewContainer(
-						discord.NewSection(
-							discord.NewTextDisplay(`# Ci6ndex Draft Manager
-Civ (VI) Index helps manage drafts and stores match history.
-`,
-							),
-						).WithAccessory(discord.NewThumbnail(me.EffectiveAvatarURL())),
-						discord.NewLargeSeparator(),
-						discord.NewSection(
-							discord.NewTextDisplay(`## Recent Games
-abc123
-`),
+						discord.NewTextDisplay("## Create a Draft"),
+						discord.NewSmallSeparator(),
+						discord.NewActionRow().WithComponents(
+							discord.NewUserSelectMenu("/select-player", "Select users").
+								WithMinValues(2).
+								WithMaxValues(12),
 						),
-						discord.NewActionRow(
-							discord.NewUserSelectMenu("user-select", "Select a user").
-								WithMinValues(1).
-								WithMaxValues(14),
+						discord.NewActionRow().WithComponents(
+							discord.NewPrimaryButton("Back", "/draft").WithEmoji(discord.ComponentEmoji{
+								Name: backArrow,
+							}),
+							discord.NewPrimaryButton("Roll!", "/confirm-roll-draft").WithEmoji(discord.ComponentEmoji{
+								Name: crossedSwords,
+							}),
 						),
 					).WithAccentColor(0x5c5fea),
 				},
-			}); err != nil {
-				b.Logger.Error("Failed to create test message", "error", err)
-				desc, ok := errorDescription(err)
-				if ok {
-					b.Logger.Error(desc)
-				}
+			},
+		)
+		if err != nil {
+			b.Logger.Error("Failed to create test message", "error", err)
+			desc, ok := errorDescription(err)
+			if ok {
+				b.Logger.Error(desc)
 			}
 		}
 		return nil

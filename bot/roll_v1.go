@@ -3,6 +3,8 @@ package bot
 import (
 	"ci6ndex/ci6ndex"
 	"ci6ndex/ci6ndex/generated"
+	"context"
+	"database/sql"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
 	"github.com/pkg/errors"
@@ -37,16 +39,16 @@ func HandleRollCivs(c *Bot) handler.CommandHandler {
 	}
 }
 
-func HandlePlayerSelect(c *Bot) handler.SelectMenuComponentHandler {
+func HandlePlayerSelect(b *Bot) handler.SelectMenuComponentHandler {
 	return func(data discord.SelectMenuInteractionData, e *handler.ComponentEvent) error {
-		c.Logger.Info("event received", "guild", e.GuildID(), "eventId", e.ID())
+		b.Logger.Info("event received", "guild", e.GuildID(), "eventId", e.ID())
 		users := data.(discord.UserSelectMenuInteractionData)
 
 		guild, err := parseGuildId(e.GuildID().String())
 		if err != nil {
 			return errors.Wrap(err, "failed to parse guild id from event")
 		}
-		d, err := c.Ci6ndex.GetOrCreateActiveDraft(guild)
+		d, err := b.Ci6ndex.GetOrCreateActiveDraft(guild)
 		aurl := e.User().EffectiveAvatarURL()
 		if err != nil {
 			return errors.Wrap(err, "failed to get active draft")
@@ -55,17 +57,27 @@ func HandlePlayerSelect(c *Bot) handler.SelectMenuComponentHandler {
 		for id, user := range users.Resolved.Users {
 			gn := ci6ndex.ResolveOptionalString(user.GlobalName)
 			av := ci6ndex.ResolveOptionalString(&aurl)
-			players = append(players, generated.AddPlayerParams{
+			params := generated.AddPlayerParams{
 				ID:            int64(id),
 				Username:      user.Username,
 				GlobalName:    gn,
 				DiscordAvatar: av,
-			})
+			}
+			_, err := b.Ci6ndex.GetPlayer(context.TODO(), guild, int64(id))
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					err := b.Ci6ndex.AddPlayer(context.TODO(), guild, params)
+					if err != nil {
+						return errors.Wrap(err, "failed to add player")
+					}
+				}
+			}
+			players = append(players, params)
 		}
 
-		errs := c.Ci6ndex.SetPlayersForDraft(guild, d.ID, players)
+		errs := b.Ci6ndex.SetPlayersForDraft(guild, d.ID, players)
 		if len(errs) > 0 {
-			c.Client.Logger.Error("failed to add players to draft", "errors", errs)
+			b.Client.Logger.Error("failed to add players to draft", "errors", errs)
 			return errors.New("failed to add players to draft")
 		}
 		return e.DeferUpdateMessage()
@@ -74,7 +86,7 @@ func HandlePlayerSelect(c *Bot) handler.SelectMenuComponentHandler {
 
 func HandleConfirmRoll(c *Bot) handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		c.Logger.Info("event received", "guild", e.GuildID(), "")
+		c.Logger.Info("event received", "guild", e.GuildID())
 		err := e.DeferCreateMessage(false)
 		if err != nil {
 			return err

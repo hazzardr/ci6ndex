@@ -41,8 +41,12 @@ func Configure(b *Bot, r handler.Router) error {
 
 	r.Command("/ping", HandlePing)
 	r.Command("/draft", HandleManageDraft(b))
+	r.ButtonComponent("/draft", HandleManageDraftButton(b))
+	r.ButtonComponent("/create-draft", HandleCreateDraft(b))
+	//r.ButtonComponent("/game/latest", HandleViewLatestCompletedGame(b))
 	r.SelectMenuComponent("/select-player", HandlePlayerSelect(b))
 	r.ButtonComponent("/confirm-roll", HandleConfirmRoll(b))
+	r.ButtonComponent("/confirm-roll-draft", HandleConfirmRollDraft(b))
 
 	var err error
 	b.Client, err = disgo.New(b.Config.DiscordToken,

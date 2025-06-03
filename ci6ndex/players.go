@@ -68,3 +68,15 @@ func (c *Ci6ndex) GetPlayers(ctx context.Context, guildId uint64) ([]generated.P
 	}
 	return players, nil
 }
+
+func (c *Ci6ndex) AddPlayer(ctx context.Context, guildId uint64, params generated.AddPlayerParams) error {
+	db, err := c.getDB(guildId)
+	if err != nil {
+		return errors.Join(err, errors.New("failed to get db"))
+	}
+	err = db.Writes.AddPlayer(ctx, params)
+	if err != nil {
+		return errors.Join(err, errors.New("failed to add player"))
+	}
+	return nil
+}

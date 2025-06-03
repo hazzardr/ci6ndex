@@ -46,7 +46,7 @@ func getPools(
 		return nil, errors.Wrap(err, "failed to get players from active draft")
 	}
 
-	leaders, err := db.Queries.GetLeaders(ctx)
+	leaders, err := db.Queries.GetEligibleLeaders(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get leaders")
 	}
