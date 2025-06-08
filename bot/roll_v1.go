@@ -8,6 +8,7 @@ import (
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
 	"github.com/pkg/errors"
+	"log/slog"
 )
 
 const (
@@ -39,9 +40,9 @@ func HandleRollCivs(c *Bot) handler.CommandHandler {
 	}
 }
 
-func HandlePlayerSelect(b *Bot) handler.SelectMenuComponentHandler {
+func (b *Bot) HandlePlayerSelect() handler.SelectMenuComponentHandler {
 	return func(data discord.SelectMenuInteractionData, e *handler.ComponentEvent) error {
-		b.Logger.Info("event received", "guild", e.GuildID(), "eventId", e.ID())
+		slog.Info("event received", "guild", e.GuildID(), "eventId", e.ID())
 		users := data.(discord.UserSelectMenuInteractionData)
 
 		guild, err := parseGuildId(e.GuildID().String())
@@ -84,9 +85,9 @@ func HandlePlayerSelect(b *Bot) handler.SelectMenuComponentHandler {
 	}
 }
 
-func HandleConfirmRoll(c *Bot) handler.ButtonComponentHandler {
+func (b *Bot) HandleConfirmRoll() handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		c.Logger.Info("event received", "guild", e.GuildID())
+		slog.Info("event received", "guild", e.GuildID())
 		err := e.DeferCreateMessage(false)
 		if err != nil {
 			return err
@@ -95,7 +96,7 @@ func HandleConfirmRoll(c *Bot) handler.ButtonComponentHandler {
 		if err != nil {
 			return errors.Wrap(err, "failed to parse guild id from event")
 		}
-		players, err := c.Ci6ndex.GetPlayersFromActiveDraft(gid)
+		players, err := b.Ci6ndex.GetPlayersFromActiveDraft(gid)
 		if err != nil {
 			return errors.Wrap(err, "failed to get players from active draft")
 		}
@@ -109,7 +110,7 @@ func HandleConfirmRoll(c *Bot) handler.ButtonComponentHandler {
 		for i := 1; i < DefaultPoolSize; i++ {
 			rules[i] = &ci6ndex.NoOpRule{} // No additional rules for now
 		}
-		rolls, err := c.Ci6ndex.RollForPlayers(gid, pids, rules)
+		rolls, err := b.Ci6ndex.RollForPlayers(gid, pids, rules)
 		if err != nil {
 			return errors.Wrap(err, "failed to roll for players")
 		}
@@ -120,7 +121,7 @@ func HandleConfirmRoll(c *Bot) handler.ButtonComponentHandler {
 			pf[i] = getRollEmbedField(roll, &inline)
 		}
 
-		me, _ := c.Client.Caches.SelfUser()
+		me, _ := b.Client.Caches.SelfUser()
 		_, err = e.CreateFollowupMessage(discord.NewMessageCreateBuilder().
 			SetEmbeds(discord.NewEmbedBuilder().
 				SetTitle("Rolls:").

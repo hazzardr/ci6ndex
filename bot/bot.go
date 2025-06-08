@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"ci6ndex/ci6ndex"
 	"context"
-	"github.com/caarlos0/env/v11"
-	"github.com/charmbracelet/log"
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
@@ -22,34 +20,36 @@ import (
 )
 
 type Bot struct {
-	Client  *bot.Client
-	Logger  log.Logger
-	Ci6ndex *ci6ndex.Ci6ndex
-	Config  Config
+	Client       *bot.Client
+	Ci6ndex      *ci6ndex.Ci6ndex
+	discordToken string
+	guildIDs     string
 }
 
-func New(config Config, c *ci6ndex.Ci6ndex) *Bot {
+func New(c *ci6ndex.Ci6ndex, discordToken, guildIDs string) *Bot {
 	return &Bot{
-		Config:  config,
-		Logger:  *c.Logger,
-		Ci6ndex: c,
+		Ci6ndex:      c,
+		discordToken: discordToken,
+		guildIDs:     guildIDs,
 	}
 }
 
-func Configure(b *Bot, r handler.Router) error {
-	b.Logger.Info("Configuring Discord Bot...")
-
-	r.Command("/ping", HandlePing)
-	r.Command("/draft", HandleManageDraft(b))
-	r.ButtonComponent("/draft", HandleManageDraftButton(b))
-	r.ButtonComponent("/create-draft", HandleCreateDraft(b))
+func (b *Bot) Configure() error {
+	slog.Info("configuring Discord Bot...")
+	r := handler.New()
+	r.SlashCommand("/ping", HandlePing)
+	r.SlashCommand("/draft", b.HandleManageDraft())
+	r.ButtonComponent("/draft", b.HandleManageDraftButton())
+	r.ButtonComponent("/create-draft", b.HandleCreateDraft())
 	//r.ButtonComponent("/game/latest", HandleViewLatestCompletedGame(b))
-	r.SelectMenuComponent("/select-player", HandlePlayerSelect(b))
-	r.ButtonComponent("/confirm-roll", HandleConfirmRoll(b))
-	r.ButtonComponent("/confirm-roll-draft", HandleConfirmRollDraft(b))
+	r.ButtonComponent("/confirm-roll", b.HandleConfirmRoll())
+	r.ButtonComponent("/confirm-roll-draft", b.HandleConfirmRollDraft())
+	r.ButtonComponent("/leaders", b.HandleManageLeaders())
+	r.ButtonComponent("/leaders/{leaderId}", b.HandleManageLeaders())
+	r.SelectMenuComponent("/select-player", b.HandlePlayerSelect())
 
 	var err error
-	b.Client, err = disgo.New(b.Config.DiscordToken,
+	b.Client, err = disgo.New(b.discordToken,
 		bot.WithGatewayConfigOpts(
 			gateway.WithIntents(gateway.IntentGuildMessages),
 			gateway.WithCompress(true),
@@ -59,7 +59,6 @@ func Configure(b *Bot, r handler.Router) error {
 		),
 		bot.WithEventListenerFunc(b.OnReady),
 		bot.WithEventListeners(r),
-		bot.WithLogger(slog.New(&b.Logger)),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create discord client")
@@ -68,35 +67,35 @@ func Configure(b *Bot, r handler.Router) error {
 }
 
 func Start(b *Bot) error {
-	b.Logger.Info("Starting Bot...")
+	slog.Info("Starting Bot...")
 
 	if err := b.Client.OpenGateway(context.Background()); err != nil {
-		b.Logger.Errorf("Failed to connect to discord gateway: %s", err)
+		slog.Error("failed to connect to discord gateway", slog.Any("err", err))
 		return err
 	}
 	return nil
 }
 
 func GracefulShutdown(b *Bot) {
-	b.Logger.Info("Shutting down Bot...")
+	slog.Info("Shutting down Bot...")
 	b.Client.Close(context.Background())
 	b.Ci6ndex.Close()
 }
 
 func (b *Bot) OnReady(_ *events.Ready) {
-	b.Logger.Info("Bot is ready! Listening for new events...")
+	slog.Info("Bot is ready! Listening for new events...")
 	err := b.Client.SetPresence(context.Background(),
 		gateway.WithListeningActivity("Counting Tiles Between Cities..."),
 		gateway.WithOnlineStatus(discord.OnlineStatusOnline),
 	)
 	if err != nil {
-		b.Logger.Errorf("Failed to set presence: %s", err)
+		slog.Error("Failed to set presence: ", slog.Any("err", err))
 	}
 }
 
 func (b *Bot) SyncCommands() error {
-	b.Logger.Info("Syncing commands...")
-	ids := strings.Split(b.Config.GuildIds, ",")
+	slog.Info("Syncing commands...")
+	ids := strings.Split(b.guildIDs, ",")
 	var guildIds = make([]snowflake.ID, len(ids))
 	for i, id := range ids {
 		guildIds[i] = snowflake.MustParse(id)
@@ -107,33 +106,18 @@ func (b *Bot) SyncCommands() error {
 		var restErr rest.Error
 		if errors.As(err, &restErr) {
 			if err != nil {
-				b.Logger.Error("Failed to sync commands", "error", err)
+				slog.Error("failed to sync commands", "error", err)
 				return err
 			}
 		} else {
-			b.Logger.Error("Failed to sync commands", "error", err)
+			slog.Error("failed to sync commands", "err", slog.Any("err", err))
 			return err
 
 		}
-		b.Logger.Errorf("Failed to sync commands: %v", err)
+		slog.Error("failed to sync commands: ", slog.Any("err", err))
 	}
-	b.Logger.Info("Done!")
+	slog.Info("Done!")
 	return nil
-}
-
-type Config struct {
-	DiscordToken     string `env:"DISCORD_API_TOKEN"`
-	BotApplicationID string `env:"DISCORD_BOT_APPLICATION_ID"`
-	GuildIds         string `env:"GUILD_IDS"`
-}
-
-func LoadConfig() (*Config, error) {
-	var config Config
-	err := env.Parse(&config)
-	if err != nil {
-		return nil, err
-	}
-	return &config, nil
 }
 
 func parseGuildId(guild string) (uint64, error) {

@@ -13,7 +13,6 @@ const getActiveDraft = `-- name: GetActiveDraft :one
 SELECT id, active FROM drafts WHERE active = true
 `
 
-// BEGIN DRAFTS
 func (q *Queries) GetActiveDraft(ctx context.Context) (Draft, error) {
 	row := q.db.QueryRowContext(ctx, getActiveDraft)
 	var i Draft
@@ -59,9 +58,50 @@ const getLeaders = `-- name: GetLeaders :many
 SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM leaders
 `
 
-// BEGIN LEADERS
 func (q *Queries) GetLeaders(ctx context.Context) ([]Leader, error) {
 	rows, err := q.db.QueryContext(ctx, getLeaders)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Leader
+	for rows.Next() {
+		var i Leader
+		if err := rows.Scan(
+			&i.ID,
+			&i.CivName,
+			&i.LeaderName,
+			&i.DiscordEmojiString,
+			&i.Banned,
+			&i.Tier,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLeadersByLimitAndOffset = `-- name: GetLeadersByLimitAndOffset :many
+SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier
+FROM leaders l
+ORDER BY l.leader_name
+LIMIT ? OFFSET ?
+`
+
+type GetLeadersByLimitAndOffsetParams struct {
+	Limit  int64
+	Offset int64
+}
+
+func (q *Queries) GetLeadersByLimitAndOffset(ctx context.Context, arg GetLeadersByLimitAndOffsetParams) ([]Leader, error) {
+	rows, err := q.db.QueryContext(ctx, getLeadersByLimitAndOffset, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -136,11 +176,9 @@ func (q *Queries) GetPlayer(ctx context.Context, id int64) (Player, error) {
 }
 
 const getPlayers = `-- name: GetPlayers :many
-
 SELECT id, username, global_name, discord_avatar FROM players
 `
 
-// BEGIN PLAYERS
 func (q *Queries) GetPlayers(ctx context.Context) ([]Player, error) {
 	rows, err := q.db.QueryContext(ctx, getPlayers)
 	if err != nil {

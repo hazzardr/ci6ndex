@@ -13,7 +13,7 @@ CREATE UNIQUE INDEX leaders_civ_name_leader_name_uindex ON leaders (civ_name, le
 
 CREATE TABLE drafts
 (
-    id INTEGER PRIMARY KEY, -- Use database-native auto-increment
+    id INTEGER PRIMARY KEY,
     active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
@@ -42,7 +42,6 @@ CREATE TABLE picks
     player TEXT NOT NULL,
     draft_id INTEGER NOT NULL,
     pick INTEGER NOT NULL,
-    offered TEXT, -- comma-delimited list of leader ids
     PRIMARY KEY (player, draft_id),
     FOREIGN KEY (pick) REFERENCES leaders (id),
     FOREIGN KEY (draft_id) REFERENCES drafts (id)
@@ -56,15 +55,40 @@ CREATE TABLE players
     discord_avatar TEXT
 );
 
+CREATE TABLE ranks
+(
+    id INTEGER PRIMARY KEY,
+    leader_id INTEGER NOT NULL,
+    player_id INTEGER NOT NULL,
+    tier FLOAT NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (leader_id) references leaders (id),
+    FOREIGN KEY (player_id) references players (id)
+);
+
+CREATE TRIGGER update_ranks_timestamp
+    AFTER UPDATE ON ranks
+    FOR EACH ROW
+BEGIN
+    UPDATE ranks SET updated_at = CURRENT_TIMESTAMP WHERE id = old.id;
+END;
+
+
 -- Add useful indexes
 CREATE INDEX idx_pool_draft_id ON pool (draft_id);
 CREATE INDEX idx_picks_draft_id ON picks (draft_id);
 CREATE INDEX idx_draft_registry_draft_id ON draft_registry (draft_id);
 
 -- +goose Down
-DROP TABLE IF EXISTS leaders;
-DROP TABLE IF EXISTS drafts;
-DROP TABLE IF EXISTS pool;
+DROP TRIGGER IF EXISTS update_ranks_timestamp;
+DROP TABLE IF EXISTS ranks;
 DROP TABLE IF EXISTS picks;
-DROP TABLE IF EXISTS players;
+DROP TABLE IF EXISTS pool;
 DROP TABLE IF EXISTS draft_registry;
+DROP TABLE IF EXISTS players;
+DROP TABLE IF EXISTS drafts;
+DROP TABLE IF EXISTS leaders;
+DROP INDEX IF EXISTS leaders_civ_name_leader_name_uindex;
+DROP INDEX IF EXISTS idx_pool_draft_id;
+DROP INDEX IF EXISTS idx_picks_draft_id;
+DROP INDEX IF EXISTS idx_draft_registry_draft_id;

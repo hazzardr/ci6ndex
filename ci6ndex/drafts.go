@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/pkg/errors"
+	"log/slog"
 	"sync"
 )
 
@@ -39,7 +40,7 @@ func (c *Ci6ndex) SetPlayersForDraft(guildId uint64, draftId int64,
 	}
 
 	if len(players) == 0 {
-		c.Logger.Debug("removed all players from draft", "draftId", draftId)
+		slog.Debug("removed all players from draft", "draftId", draftId)
 		return nil
 	}
 

@@ -6,6 +6,7 @@ package generated
 
 import (
 	"database/sql"
+	"time"
 )
 
 type Draft struct {
@@ -31,7 +32,6 @@ type Pick struct {
 	Player  string
 	DraftID int64
 	Pick    int64
-	Offered sql.NullString
 }
 
 type Player struct {
@@ -45,4 +45,12 @@ type Pool struct {
 	PlayerID int64
 	DraftID  int64
 	Leader   int64
+}
+
+type Rank struct {
+	ID        int64
+	LeaderID  int64
+	PlayerID  int64
+	Tier      float64
+	UpdatedAt time.Time
 }

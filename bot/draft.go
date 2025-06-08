@@ -5,13 +5,16 @@ import (
 	"errors"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
+	md "github.com/nao1215/markdown"
+	"io"
+	"log/slog"
 )
 
-func draftScreen(b *Bot) ([]discord.LayoutComponent, error) {
+func (b *Bot) draftScreen() ([]discord.LayoutComponent, error) {
 	me, _ := b.Client.Caches.SelfUser()
 
 	var draftHeader, recentGames bytes.Buffer
-	err := renderMainScreen(&draftHeader, &recentGames)
+	err := renderDraftMainScreen(&draftHeader, &recentGames)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to draft card"))
 	}
@@ -32,21 +35,24 @@ func draftScreen(b *Bot) ([]discord.LayoutComponent, error) {
 			discord.NewPrimaryButton("New Draft", "/create-draft").WithEmoji(discord.ComponentEmoji{
 				Name: crossedSwords,
 			}),
+			discord.NewPrimaryButton("Leaders", "/leaders").WithEmoji(discord.ComponentEmoji{
+				Name: notebook,
+			}),
 		),
 	).WithAccentColor(0x5c5fea),
 	}, nil
 }
 
-func HandleManageDraft(b *Bot) handler.CommandHandler {
-	return func(e *handler.CommandEvent) error {
+func (b *Bot) HandleManageDraft() handler.SlashCommandHandler {
+	return func(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
 		if e.GuildID() == nil {
-			b.Logger.Errorf("missing guild ID %v", e)
+			slog.Error("missing guild ID ", slog.Any("vars", e))
 			return errors.New("missing guild id on event")
 		}
 		// Create "form" for rolling settings
 		flags := discord.MessageFlagIsComponentsV2
 		flags = flags.Add(discord.MessageFlagEphemeral)
-		draft, err := draftScreen(b)
+		draft, err := b.draftScreen()
 		if err != nil {
 			return err
 		}
@@ -55,10 +61,10 @@ func HandleManageDraft(b *Bot) handler.CommandHandler {
 			Flags:      flags,
 			Components: draft,
 		}); err != nil {
-			b.Logger.Error("Failed to create test message", "error", err)
+			slog.Error("Failed to create test message", "error", err)
 			desc, ok := errorDescription(err)
 			if ok {
-				b.Logger.Error(desc)
+				slog.Error(desc)
 			}
 		}
 
@@ -66,18 +72,18 @@ func HandleManageDraft(b *Bot) handler.CommandHandler {
 	}
 }
 
-func HandleManageDraftButton(b *Bot) handler.ButtonComponentHandler {
+func (b *Bot) HandleManageDraftButton() handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		b.Logger.Info("HandleCreateDraft")
+		slog.Info("HandleCreateDraft")
 
 		if e.GuildID() == nil {
-			b.Logger.Errorf("missing guild ID %v", e)
+			slog.Error("missing guild ID ", slog.Any("vars", e))
 			return errors.New("missing guild id on event")
 		}
 		// Create "form" for rolling settings
 		flags := discord.MessageFlagIsComponentsV2
 		flags = flags.Add(discord.MessageFlagEphemeral)
-		draft, err := draftScreen(b)
+		draft, err := b.draftScreen()
 		if err != nil {
 			return err
 		}
@@ -85,19 +91,19 @@ func HandleManageDraftButton(b *Bot) handler.ButtonComponentHandler {
 		if err := e.UpdateMessage(discord.MessageUpdate{
 			Components: &draft,
 		}); err != nil {
-			b.Logger.Error("Failed to create test message", "error", err)
+			slog.Error("Failed to create test message", "error", err)
 			desc, ok := errorDescription(err)
 			if ok {
-				b.Logger.Error(desc)
+				slog.Error(desc)
 			}
 		}
 		return nil
 	}
 }
 
-func HandleCreateDraft(b *Bot) handler.ButtonComponentHandler {
+func (b *Bot) HandleCreateDraft() handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		b.Logger.Info("HandleCreateDraft")
+		slog.Info("HandleCreateDraft")
 		err := e.UpdateMessage(
 			discord.MessageUpdate{
 				Components: &[]discord.LayoutComponent{
@@ -122,12 +128,37 @@ func HandleCreateDraft(b *Bot) handler.ButtonComponentHandler {
 			},
 		)
 		if err != nil {
-			b.Logger.Error("Failed to create test message", "error", err)
+			slog.Error("Failed to create test message", "error", err)
 			desc, ok := errorDescription(err)
 			if ok {
-				b.Logger.Error(desc)
+				slog.Error(desc)
 			}
 		}
 		return nil
 	}
+}
+
+func renderDraftMainScreen(header, previousGame io.Writer) error {
+	err := renderDraftHeader(header)
+	if err != nil {
+		return errors.Join(err, errors.New("failed to render draft header"))
+	}
+	err = renderPreviousGameSummary(previousGame)
+	if err != nil {
+		return errors.Join(err, errors.New("failed to render recent games"))
+	}
+	return nil
+}
+
+func renderDraftHeader(header io.Writer) error {
+	return md.NewMarkdown(header).H1("Ci6ndex Draft Manager").
+		PlainText("Civ (VI) Index helps manage drafts and stores match history.").
+		Build()
+}
+
+func renderPreviousGameSummary(output io.Writer) error {
+	return md.NewMarkdown(output).H2("Previous Game").
+		H3f("**%s Winner:** <:Nzinga_Mbande_Civ6:1229393600790663220> <@135218870494429184>",
+			partyEmoji).
+		Build()
 }

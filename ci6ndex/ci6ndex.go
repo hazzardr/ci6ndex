@@ -8,7 +8,6 @@ import (
 )
 
 type Ci6ndex struct {
-	Logger      *log.Logger
 	Connections map[uint64]*DB
 	Path        string
 }
@@ -30,7 +29,6 @@ func New(embedMigrations embed.FS) (*Ci6ndex, error) {
 	}
 
 	return &Ci6ndex{
-		Logger:      logger,
 		Connections: connections,
 		Path:        "./data/",
 	}, nil

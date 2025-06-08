@@ -8,13 +8,14 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"github.com/pressly/goose/v3"
+	"log/slog"
 	"os"
 	"strconv"
 )
 
 type DB struct {
-	ReadConn  *sql.DB
-	WriteConn *sql.DB
+	readConn  *sql.DB
+	writeConn *sql.DB
 	Queries   *generated.Queries
 	Writes    *generated.Queries
 }
@@ -22,10 +23,10 @@ type DB struct {
 func (c *Ci6ndex) openNewConnection(path string, guildId uint64) (*DB, error) {
 	dbUrl := "file:" + path + strconv.FormatUint(guildId, 10) + ".db"
 
-	_, err := os.Stat(strconv.FormatUint(guildId, 10) + ".db")
+	_, err := os.Stat(c.Path + strconv.FormatUint(guildId, 10) + ".db")
 
 	if os.IsNotExist(err) {
-		c.Logger.Info("no database exists, creating new one...", "guildId", guildId)
+		slog.Info("no database exists, creating new one...", "guildId", guildId)
 		db, err := sql.Open("sqlite3", dbUrl)
 		if err != nil {
 			return nil, errors.Wrap(
@@ -54,8 +55,8 @@ func (c *Ci6ndex) openNewConnection(path string, guildId uint64) (*DB, error) {
 	// sqlite does not support multiple write Connections
 	writeConn.SetMaxOpenConns(1)
 	return &DB{
-		ReadConn:  readConn,
-		WriteConn: writeConn,
+		readConn:  readConn,
+		writeConn: writeConn,
 		Queries:   generated.New(readConn),
 		Writes:    generated.New(writeConn),
 	}, nil
@@ -78,10 +79,10 @@ func (c *Ci6ndex) getDB(guildId uint64) (*DB, error) {
 func (c *Ci6ndex) Health() []error {
 	var errs = make([]error, 0)
 	for _, db := range c.Connections {
-		if err := db.ReadConn.Ping(); err != nil {
+		if err := db.readConn.Ping(); err != nil {
 			errs = append(errs, err)
 		}
-		if err := db.WriteConn.Ping(); err != nil {
+		if err := db.writeConn.Ping(); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -90,8 +91,8 @@ func (c *Ci6ndex) Health() []error {
 
 func (c *Ci6ndex) Close() {
 	for _, db := range c.Connections {
-		db.ReadConn.Close()
-		db.WriteConn.Close()
+		db.readConn.Close()
+		db.writeConn.Close()
 	}
 }
 
@@ -117,7 +118,6 @@ func ConfigureMigrationTool(embedMigrations embed.FS) error {
 }
 
 func (c *Ci6ndex) migrateUp(db *sql.DB) error {
-	c.Logger.Info("running migrations...", "database", db.Stats())
 	err := goose.Up(db, "sql/migrations")
 	if err != nil {
 		return err

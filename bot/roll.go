@@ -5,17 +5,18 @@ import (
 	"fmt"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
+	"log/slog"
 )
 
-func HandleConfirmRollDraft(b *Bot) handler.ButtonComponentHandler {
+func (b *Bot) HandleConfirmRollDraft() handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		b.Logger.Info("HandleConfirmRollDraft")
+		slog.Info("HandleConfirmRollDraft")
 		err := e.DeferCreateMessage(true)
 		if err != nil {
-			b.Logger.Error("Failed to defer message", "error", err)
+			slog.Error("Failed to defer message", "error", err)
 			desc, ok := errorDescription(err)
 			if ok {
-				b.Logger.Error(desc)
+				slog.Error(desc)
 			}
 			return err
 		}
@@ -36,14 +37,14 @@ func HandleConfirmRollDraft(b *Bot) handler.ButtonComponentHandler {
 			rules,
 		)
 		if err != nil {
-			b.Logger.Error("Failed to roll for players", "error", err)
+			slog.Error("Failed to roll for players", "error", err)
 			desc, ok := errorDescription(err)
 			if ok {
-				b.Logger.Error(desc)
+				slog.Error(desc)
 			}
 			return err
 		}
-		b.Logger.Info("HandleConfirmRollDraft", "offers", offers)
+		slog.Info("HandleConfirmRollDraft", "offers", offers)
 		rows := make([]discord.ContainerSubComponent, len(offers))
 		for i, offer := range offers {
 			leaderStr := ""
@@ -68,10 +69,10 @@ func HandleConfirmRollDraft(b *Bot) handler.ButtonComponentHandler {
 			},
 		)
 		if err != nil {
-			b.Logger.Error("Failed to create test message", "error", err)
+			slog.Error("Failed to create test message", "error", err)
 			desc, ok := errorDescription(err)
 			if ok {
-				b.Logger.Error(desc)
+				slog.Error(desc)
 			}
 			return err
 		}
