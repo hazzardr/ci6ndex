@@ -37,16 +37,25 @@ func New(c *ci6ndex.Ci6ndex, discordToken, guildIDs string) *Bot {
 func (b *Bot) Configure() error {
 	slog.Info("configuring Discord Bot...")
 	r := handler.New()
+
 	r.SlashCommand("/ping", HandlePing)
-	r.SlashCommand("/draft", b.HandleManageDraft())
-	r.ButtonComponent("/draft", b.HandleManageDraftButton())
-	r.ButtonComponent("/create-draft", b.HandleCreateDraft())
+
+	r.Group(func(r handler.Router) {
+		r.SlashCommand("/draft", b.handleManageDraft())
+		r.ButtonComponent("/draft", b.handleManageDraftButton())
+		r.ButtonComponent("/create-draft", b.handleCreateDraft())
+	})
+	r.Group(func(r handler.Router) {
+		r.ButtonComponent("/confirm-roll", b.handleConfirmRoll())
+		r.ButtonComponent("/confirm-roll-draft", b.handleConfirmRollDraft())
+	})
+	r.Group(func(r handler.Router) {
+		r.ButtonComponent("/leaders", b.handleManageLeaders())
+		r.ButtonComponent("/leaders/{leaderId}", b.handleLeaderDetails())
+	})
+
+	r.SelectMenuComponent("/select-player", b.handlePlayerSelect())
 	//r.ButtonComponent("/game/latest", HandleViewLatestCompletedGame(b))
-	r.ButtonComponent("/confirm-roll", b.HandleConfirmRoll())
-	r.ButtonComponent("/confirm-roll-draft", b.HandleConfirmRollDraft())
-	r.ButtonComponent("/leaders", b.HandleManageLeaders())
-	r.ButtonComponent("/leaders/{leaderId}", b.HandleManageLeaders())
-	r.SelectMenuComponent("/select-player", b.HandlePlayerSelect())
 
 	var err error
 	b.Client, err = disgo.New(b.discordToken,
@@ -57,7 +66,7 @@ func (b *Bot) Configure() error {
 				gateway.WithPlayingActivity("loading..."),
 			),
 		),
-		bot.WithEventListenerFunc(b.OnReady),
+		bot.WithEventListenerFunc(b.onReady),
 		bot.WithEventListeners(r),
 	)
 	if err != nil {
@@ -82,7 +91,7 @@ func GracefulShutdown(b *Bot) {
 	b.Ci6ndex.Close()
 }
 
-func (b *Bot) OnReady(_ *events.Ready) {
+func (b *Bot) onReady(_ *events.Ready) {
 	slog.Info("Bot is ready! Listening for new events...")
 	err := b.Client.SetPresence(context.Background(),
 		gateway.WithListeningActivity("Counting Tiles Between Cities..."),

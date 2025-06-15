@@ -8,9 +8,9 @@ import (
 	"log/slog"
 )
 
-func (b *Bot) HandleConfirmRollDraft() handler.ButtonComponentHandler {
+func (b *Bot) handleConfirmRollDraft() handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		slog.Info("HandleConfirmRollDraft")
+		slog.Info("handleConfirmRollDraft")
 		err := e.DeferCreateMessage(true)
 		if err != nil {
 			slog.Error("Failed to defer message", "error", err)
@@ -44,7 +44,7 @@ func (b *Bot) HandleConfirmRollDraft() handler.ButtonComponentHandler {
 			}
 			return err
 		}
-		slog.Info("HandleConfirmRollDraft", "offers", offers)
+		slog.Info("handleConfirmRollDraft", "offers", offers)
 		rows := make([]discord.ContainerSubComponent, len(offers))
 		for i, offer := range offers {
 			leaderStr := ""

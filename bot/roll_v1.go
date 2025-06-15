@@ -40,7 +40,7 @@ func HandleRollCivs(c *Bot) handler.CommandHandler {
 	}
 }
 
-func (b *Bot) HandlePlayerSelect() handler.SelectMenuComponentHandler {
+func (b *Bot) handlePlayerSelect() handler.SelectMenuComponentHandler {
 	return func(data discord.SelectMenuInteractionData, e *handler.ComponentEvent) error {
 		slog.Info("event received", "guild", e.GuildID(), "eventId", e.ID())
 		users := data.(discord.UserSelectMenuInteractionData)
@@ -85,7 +85,7 @@ func (b *Bot) HandlePlayerSelect() handler.SelectMenuComponentHandler {
 	}
 }
 
-func (b *Bot) HandleConfirmRoll() handler.ButtonComponentHandler {
+func (b *Bot) handleConfirmRoll() handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
 		slog.Info("event received", "guild", e.GuildID())
 		err := e.DeferCreateMessage(false)

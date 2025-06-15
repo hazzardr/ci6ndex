@@ -43,7 +43,7 @@ func (b *Bot) draftScreen() ([]discord.LayoutComponent, error) {
 	}, nil
 }
 
-func (b *Bot) HandleManageDraft() handler.SlashCommandHandler {
+func (b *Bot) handleManageDraft() handler.SlashCommandHandler {
 	return func(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
 		if e.GuildID() == nil {
 			slog.Error("missing guild ID ", slog.Any("vars", e))
@@ -72,9 +72,9 @@ func (b *Bot) HandleManageDraft() handler.SlashCommandHandler {
 	}
 }
 
-func (b *Bot) HandleManageDraftButton() handler.ButtonComponentHandler {
+func (b *Bot) handleManageDraftButton() handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		slog.Info("HandleCreateDraft")
+		slog.Info("handleCreateDraft")
 
 		if e.GuildID() == nil {
 			slog.Error("missing guild ID ", slog.Any("vars", e))
@@ -101,9 +101,9 @@ func (b *Bot) HandleManageDraftButton() handler.ButtonComponentHandler {
 	}
 }
 
-func (b *Bot) HandleCreateDraft() handler.ButtonComponentHandler {
+func (b *Bot) handleCreateDraft() handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		slog.Info("HandleCreateDraft")
+		slog.Info("handleCreateDraft")
 		err := e.UpdateMessage(
 			discord.MessageUpdate{
 				Components: &[]discord.LayoutComponent{

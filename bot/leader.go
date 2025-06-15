@@ -12,16 +12,12 @@ import (
 	"strconv"
 )
 
-func (b *Bot) HandleManageLeaders() handler.ButtonComponentHandler {
+func (b *Bot) handleManageLeaders() handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		slog.Info("HandleManageLeaders", "path", bid.CustomID(), slog.Any("vars", e.Vars))
+		slog.Info("handleManageLeaders", "path", bid.CustomID())
 
-		lid, err := strconv.ParseInt(e.Vars["leaderId"], 10, 64)
-		if err == nil {
-			return b.HandleLeaderDetails(uint64(lid))(bid, e)
-		}
 		if e.GuildID() == nil {
-			slog.Error("missing guild ID ", slog.Any("err", err))
+			slog.Error("missing guild ID")
 			return errors.New("missing guild id on event")
 		}
 		gid, err := parseGuildId(e.GuildID().String())
@@ -49,15 +45,19 @@ func (b *Bot) HandleManageLeaders() handler.ButtonComponentHandler {
 	}
 }
 
-func (b *Bot) HandleLeaderDetails(lid uint64) handler.ButtonComponentHandler {
+func (b *Bot) handleLeaderDetails() handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		slog.Info("HandleLeaderDetails", slog.Uint64("lid", lid), slog.String("path", bid.CustomID()))
+		lid, err := strconv.ParseInt(e.Vars["leaderId"], 10, 64)
+		if err != nil {
+			return errors.Join(err, errors.New("failed to parse leaderId from event"))
+		}
+		slog.Info("handleLeaderDetails", slog.Uint64("lid", uint64(lid)), slog.String("path", bid.CustomID()))
 
 		if e.GuildID() == nil {
 			slog.Error("missing guild ID ", slog.Any("err", e))
 			return errors.New("missing guild id on event")
 		}
-		_, err := parseGuildId(e.GuildID().String())
+		_, err = parseGuildId(e.GuildID().String())
 		if err != nil {
 			return errors.Join(err, errors.New("failed to parse guild ID"))
 		}
@@ -111,7 +111,7 @@ func (b *Bot) rankScreen(guildId uint64) ([]discord.LayoutComponent, error) {
 			return nil, errors.Join(err, errors.New(fmt.Sprintf("failed to build leader: %v", leader)))
 		}
 
-		leaderRoute := fmt.Sprintf("/leaders/%d", leader.ID)
+		leaderRoute := fmt.Sprintf("leaders/%d", leader.ID)
 
 		leaderRows[i] = discord.NewSection(
 			discord.NewTextDisplay(
