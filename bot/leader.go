@@ -111,7 +111,7 @@ func (b *Bot) rankScreen(guildId uint64) ([]discord.LayoutComponent, error) {
 			return nil, errors.Join(err, errors.New(fmt.Sprintf("failed to build leader: %v", leader)))
 		}
 
-		leaderRoute := fmt.Sprintf("leaders/%d", leader.ID)
+		leaderRoute := fmt.Sprintf("/leaders/%d", leader.ID)
 
 		leaderRows[i] = discord.NewSection(
 			discord.NewTextDisplay(

@@ -10,6 +10,7 @@ import (
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/disgo/handler"
+	"github.com/disgoorg/disgo/handler/middleware"
 	"github.com/disgoorg/disgo/rest"
 	"github.com/disgoorg/json/v2"
 	"github.com/disgoorg/snowflake/v2"
@@ -49,9 +50,10 @@ func (b *Bot) Configure() error {
 		r.ButtonComponent("/confirm-roll", b.handleConfirmRoll())
 		r.ButtonComponent("/confirm-roll-draft", b.handleConfirmRollDraft())
 	})
-	r.Group(func(r handler.Router) {
-		r.ButtonComponent("/leaders", b.handleManageLeaders())
-		r.ButtonComponent("/leaders/{leaderId}", b.handleLeaderDetails())
+	r.Route("/leaders", func(r handler.Router) {
+		r.Use(middleware.Logger)
+		r.ButtonComponent("/", b.handleManageLeaders())
+		r.ButtonComponent("/{leaderId}", b.handleLeaderDetails())
 	})
 
 	r.SelectMenuComponent("/select-player", b.handlePlayerSelect())
