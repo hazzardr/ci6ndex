@@ -57,15 +57,9 @@ func (b *Bot) handleLeaderDetails() handler.ButtonComponentHandler {
 			slog.Error("missing guild ID ", slog.Any("err", e))
 			return errors.New("missing guild id on event")
 		}
-		_, err = parseGuildId(e.GuildID().String())
+		guildId, err := parseGuildId(e.GuildID().String())
 		if err != nil {
 			return errors.Join(err, errors.New("failed to parse guild ID"))
-		}
-
-		flags := discord.MessageFlagIsComponentsV2
-		flags = flags.Add(discord.MessageFlagEphemeral)
-		if err != nil {
-			return err
 		}
 
 		err = e.DeferUpdateMessage()
@@ -73,17 +67,75 @@ func (b *Bot) handleLeaderDetails() handler.ButtonComponentHandler {
 			return err
 		}
 
-		//if err := e.UpdateMessage(discord.MessageUpdate{
-		//	Components: &r,
-		//}); err != nil {
-		//	slog.Error("Failed to create rankings screen", "error", err)
-		//	desc, ok := errorDescription(err)
-		//	if ok {
-		//		slog.Error(desc)
-		//	}
-		//}
+		// Get leader details from database
+		leader, err := b.Ci6ndex.GetLeaderById(guildId, uint64(lid))
+		if err != nil {
+			return errors.Join(err, errors.New(fmt.Sprintf("failed to fetch leader with ID %d", lid)))
+		}
+
+		// Create components to display leader details
+		components, err := b.leaderDetailsScreen(leader, guildId)
+		if err != nil {
+			return err
+		}
+
+		if err := e.UpdateMessage(discord.MessageUpdate{
+			Components: &components,
+		}); err != nil {
+			slog.Error("Failed to create leader details screen", "error", err)
+			desc, ok := errorDescription(err)
+			if ok {
+				slog.Error(desc)
+			}
+		}
 		return nil
 	}
+}
+
+func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]discord.LayoutComponent, error) {
+	me, _ := b.Client.Caches.SelfUser()
+	
+	var detailsBuffer bytes.Buffer
+	err := renderLeaderDetails(&detailsBuffer, leader)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to render leader details"))
+	}
+	
+	layout := []discord.LayoutComponent{
+		discord.NewContainer().AddComponents(
+			discord.NewSection(
+				discord.NewTextDisplay(detailsBuffer.String()),
+			).WithAccessory(discord.NewThumbnail(me.EffectiveAvatarURL())),
+			discord.NewLargeSeparator(),
+			discord.NewActionRow().WithComponents(
+				discord.NewPrimaryButton("Back", "/leaders").WithEmoji(discord.ComponentEmoji{
+					Name: backArrow,
+				}),
+				discord.NewSecondaryButton("Edit Tier", fmt.Sprintf("/leaders/%d/edit", leader.ID)),
+			)).
+			WithAccentColor(colorSuccess),
+	}
+
+	return layout, nil
+}
+
+func renderLeaderDetails(buffer io.Writer, leader generated.Leader) error {
+	md := md.NewMarkdown(buffer)
+	
+	emoji := leader.DiscordEmojiString.String
+	if emoji == "" {
+		emoji = "👑"
+	}
+	
+	err := md.H1(emoji + " " + leader.LeaderName + " of " + leader.CivName).
+		PlainText("**Tier**: " + fmt.Sprintf("%.1f", leader.Tier)).
+		Build()
+	
+	if err != nil {
+		return errors.Join(err, errors.New("failed to build leader details markdown"))
+	}
+	
+	return nil
 }
 
 func (b *Bot) leadersScreen(guildId uint64) ([]discord.LayoutComponent, error) {
