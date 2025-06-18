@@ -2,14 +2,16 @@ package bot
 
 import (
 	"bytes"
+	"ci6ndex/ci6ndex/generated"
 	"errors"
 	"fmt"
-	"github.com/disgoorg/disgo/discord"
-	"github.com/disgoorg/disgo/handler"
-	md "github.com/nao1215/markdown"
 	"io"
 	"log/slog"
 	"strconv"
+
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/handler"
+	md "github.com/nao1215/markdown"
 )
 
 func (b *Bot) handleManageLeaders() handler.ButtonComponentHandler {
@@ -62,11 +64,6 @@ func (b *Bot) handleLeaderDetails() handler.ButtonComponentHandler {
 			return errors.Join(err, errors.New("failed to parse guild ID"))
 		}
 
-		err = e.DeferUpdateMessage()
-		if err != nil {
-			return err
-		}
-
 		// Get leader details from database
 		leader, err := b.Ci6ndex.GetLeaderById(guildId, uint64(lid))
 		if err != nil {
@@ -94,13 +91,13 @@ func (b *Bot) handleLeaderDetails() handler.ButtonComponentHandler {
 
 func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]discord.LayoutComponent, error) {
 	me, _ := b.Client.Caches.SelfUser()
-	
+
 	var detailsBuffer bytes.Buffer
 	err := renderLeaderDetails(&detailsBuffer, leader)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to render leader details"))
 	}
-	
+
 	layout := []discord.LayoutComponent{
 		discord.NewContainer().AddComponents(
 			discord.NewSection(
@@ -121,20 +118,20 @@ func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]di
 
 func renderLeaderDetails(buffer io.Writer, leader generated.Leader) error {
 	md := md.NewMarkdown(buffer)
-	
+
 	emoji := leader.DiscordEmojiString.String
 	if emoji == "" {
 		emoji = "👑"
 	}
-	
+
 	err := md.H1(emoji + " " + leader.LeaderName + " of " + leader.CivName).
 		PlainText("**Tier**: " + fmt.Sprintf("%.1f", leader.Tier)).
 		Build()
-	
+
 	if err != nil {
 		return errors.Join(err, errors.New("failed to build leader details markdown"))
 	}
-	
+
 	return nil
 }
 
