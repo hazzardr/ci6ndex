@@ -24,10 +24,10 @@ func (b *Bot) handleManageLeaders() handler.ButtonComponentHandler {
 		if err != nil {
 			return errors.Join(err, errors.New("failed to parse guild ID"))
 		}
-		// Create form for ranking leaders
+		// Create form for managing leaders
 		flags := discord.MessageFlagIsComponentsV2
 		flags = flags.Add(discord.MessageFlagEphemeral)
-		r, err := b.rankScreen(gid)
+		r, err := b.leadersScreen(gid)
 		if err != nil {
 			return err
 		}
@@ -35,7 +35,7 @@ func (b *Bot) handleManageLeaders() handler.ButtonComponentHandler {
 		if err := e.UpdateMessage(discord.MessageUpdate{
 			Components: &r,
 		}); err != nil {
-			slog.Error("Failed to create rankings screen", "error", slog.Any("err", err))
+			slog.Error("Failed to create leaders screen", "error", slog.Any("err", err))
 			desc, ok := errorDescription(err)
 			if ok {
 				slog.Error(desc)
@@ -86,11 +86,11 @@ func (b *Bot) handleLeaderDetails() handler.ButtonComponentHandler {
 	}
 }
 
-func (b *Bot) rankScreen(guildId uint64) ([]discord.LayoutComponent, error) {
+func (b *Bot) leadersScreen(guildId uint64) ([]discord.LayoutComponent, error) {
 	me, _ := b.Client.Caches.SelfUser()
 
-	var ranksHeader bytes.Buffer
-	err := renderRankMainScreen(&ranksHeader)
+	var leadersHeader bytes.Buffer
+	err := renderLeadersMainScreen(&leadersHeader)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to draft card"))
 	}
@@ -126,7 +126,7 @@ func (b *Bot) rankScreen(guildId uint64) ([]discord.LayoutComponent, error) {
 	layout := []discord.LayoutComponent{
 		discord.NewContainer().AddComponents(
 			discord.NewSection(
-				discord.NewTextDisplay(ranksHeader.String()),
+				discord.NewTextDisplay(leadersHeader.String()),
 			).WithAccessory(discord.NewThumbnail(me.EffectiveAvatarURL())),
 			discord.NewLargeSeparator()).
 			AddComponents(leaderRows...).
@@ -143,15 +143,15 @@ func (b *Bot) rankScreen(guildId uint64) ([]discord.LayoutComponent, error) {
 	return layout, nil
 }
 
-func renderRankMainScreen(header io.Writer) error {
-	err := renderRankHeader(header)
+func renderLeadersMainScreen(header io.Writer) error {
+	err := renderLeadersHeader(header)
 	if err != nil {
-		return errors.Join(err, errors.New("failed to render ranks header"))
+		return errors.Join(err, errors.New("failed to render leaders header"))
 	}
 	return nil
 }
 
-func renderRankHeader(header io.Writer) error {
+func renderLeadersHeader(header io.Writer) error {
 	return md.NewMarkdown(header).H1("Browse Civs").
 		PlainText("View statistics about each leader, and optionally update your personal rank of them.").
 		Build()
