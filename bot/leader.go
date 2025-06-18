@@ -124,8 +124,21 @@ func renderLeaderDetails(buffer io.Writer, leader generated.Leader) error {
 		emoji = "👑"
 	}
 
+	// Create a more detailed leader profile
 	err := md.H1(emoji + " " + leader.LeaderName + " of " + leader.CivName).
 		PlainText("**Tier**: " + fmt.Sprintf("%.1f", leader.Tier)).
+		LineBreak().
+		LineBreak().
+		PlainText("**Status**: " + getBannedStatus(leader.Banned)).
+		LineBreak().
+		LineBreak().
+		PlainText("This leader represents the " + leader.CivName + " civilization in Civilization VI.").
+		LineBreak().
+		LineBreak().
+		PlainText("Each leader in the game has unique abilities and bonuses that affect gameplay.").
+		LineBreak().
+		LineBreak().
+		PlainText("**ID**: " + fmt.Sprintf("%d", leader.ID)).
 		Build()
 
 	if err != nil {
@@ -133,6 +146,13 @@ func renderLeaderDetails(buffer io.Writer, leader generated.Leader) error {
 	}
 
 	return nil
+}
+
+func getBannedStatus(banned bool) string {
+	if banned {
+		return "❌ Banned from drafts"
+	}
+	return "✅ Available for drafts"
 }
 
 func (b *Bot) leadersScreen(guildId uint64) ([]discord.LayoutComponent, error) {
