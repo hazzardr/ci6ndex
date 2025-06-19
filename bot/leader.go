@@ -120,13 +120,10 @@ func renderLeaderDetails(buffer io.Writer, leader generated.Leader) error {
 	md := md.NewMarkdown(buffer)
 
 	emoji := leader.DiscordEmojiString.String
-	if emoji == "" {
-		emoji = "👑"
-	}
 
 	// Create a more detailed leader profile
-	err := md.H1(emoji + " " + leader.LeaderName + " of " + leader.CivName).
-		PlainText("**Tier**: " + fmt.Sprintf("%.1f", leader.Tier)).
+	err := md.H1(emoji+" "+leader.LeaderName+" of "+leader.CivName).
+		H2f("**Tier**: %.1f", leader.Tier).
 		PlainText("\n**Status**: " + getBannedStatus(leader.Banned)).
 		Build()
 
@@ -139,9 +136,9 @@ func renderLeaderDetails(buffer io.Writer, leader generated.Leader) error {
 
 func getBannedStatus(banned bool) string {
 	if banned {
-		return "❌ Banned from drafts"
+		return "🧑‍⚖️ Banned from drafts"
 	}
-	return "✅ Available for drafts"
+	return "✅ Available for draft"
 }
 
 func (b *Bot) leadersScreen(guildId uint64) ([]discord.LayoutComponent, error) {
