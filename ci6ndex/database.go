@@ -7,7 +7,7 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
-	"github.com/pressly/goose/v3"
+	goose "github.com/pressly/goose/v3"
 	"log/slog"
 	"os"
 	"strconv"
@@ -91,8 +91,12 @@ func (c *Ci6ndex) Health() []error {
 
 func (c *Ci6ndex) Close() {
 	for _, db := range c.Connections {
-		db.readConn.Close()
-		db.writeConn.Close()
+		if err := db.readConn.Close(); err != nil {
+			slog.Error("failed to close read connection", "error", err)
+		}
+		if err := db.writeConn.Close(); err != nil {
+			slog.Error("failed to close write connection", "error", err)
+		}
 	}
 }
 

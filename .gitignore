@@ -29,3 +29,5 @@ token.json
 *.db
 bin/
 civ
+.aider*
+.crush/

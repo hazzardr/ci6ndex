@@ -22,7 +22,14 @@ func (b *Bot) handleConfirmRollDraft() handler.ButtonComponentHandler {
 		}
 
 		guild, err := parseGuildId(e.GuildID().String())
+		if err != nil {
+			return err
+		}
+		
 		players, err := b.Ci6ndex.GetPlayersFromActiveDraft(guild)
+		if err != nil {
+			return err
+		}
 		var playerIds = make([]int64, len(players))
 		for i, player := range players {
 			playerIds[i] = player.ID

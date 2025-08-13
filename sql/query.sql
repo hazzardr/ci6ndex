@@ -1,6 +1,11 @@
 -- name: GetLeaders :many
 SELECT * FROM leaders;
 
+-- name: GetLeaderById :one
+SELECT *
+FROM leaders l
+WHERE l.id = ?;
+
 -- name: GetEligibleLeaders :many
 SELECT * FROM leaders WHERE banned = false;
 

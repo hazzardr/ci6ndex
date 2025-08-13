@@ -1,0 +1,22 @@
+version: 2
+
+run:
+  go: '1.24'
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - ineffassign
+    - staticcheck
+    - sloglint
+    - whitespace
+    - errname
+    - errorlint
+    - importas
+
+linters-settings:
+  govet:
+    check-shadowing: true
+  staticcheck:
+    go: "1.24"

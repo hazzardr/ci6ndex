@@ -4,6 +4,10 @@ import (
 	"bytes"
 	"ci6ndex/ci6ndex"
 	"context"
+	"log/slog"
+	"strconv"
+	"strings"
+
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
@@ -12,12 +16,9 @@ import (
 	"github.com/disgoorg/disgo/handler"
 	"github.com/disgoorg/disgo/handler/middleware"
 	"github.com/disgoorg/disgo/rest"
-	"github.com/disgoorg/json/v2"
-	"github.com/disgoorg/snowflake/v2"
+	json "github.com/disgoorg/json/v2"
+	snowflake "github.com/disgoorg/snowflake/v2"
 	"github.com/pkg/errors"
-	"log/slog"
-	"strconv"
-	"strings"
 )
 
 type Bot struct {
@@ -53,6 +54,7 @@ func (b *Bot) Configure() error {
 	r.Route("/leaders", func(r handler.Router) {
 		r.Use(middleware.Logger)
 		r.ButtonComponent("/", b.handleManageLeaders())
+		r.ButtonComponent("/page/{page}", b.handleManageLeaders())
 		r.ButtonComponent("/{leaderId}", b.handleLeaderDetails())
 	})
 

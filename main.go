@@ -40,7 +40,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	cmd.Exec(b)
+	if err := cmd.Exec(b); err != nil {
+		slog.Error("Failed to execute command", slog.Any("err", err))
+		os.Exit(1)
+	}
 }
 
 func configureLog() {

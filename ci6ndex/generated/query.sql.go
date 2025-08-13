@@ -54,6 +54,26 @@ func (q *Queries) GetEligibleLeaders(ctx context.Context) ([]Leader, error) {
 	return items, nil
 }
 
+const getLeaderById = `-- name: GetLeaderById :one
+SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier
+FROM leaders l
+WHERE l.id = ?
+`
+
+func (q *Queries) GetLeaderById(ctx context.Context, id int64) (Leader, error) {
+	row := q.db.QueryRowContext(ctx, getLeaderById, id)
+	var i Leader
+	err := row.Scan(
+		&i.ID,
+		&i.CivName,
+		&i.LeaderName,
+		&i.DiscordEmojiString,
+		&i.Banned,
+		&i.Tier,
+	)
+	return i, err
+}
+
 const getLeaders = `-- name: GetLeaders :many
 SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM leaders
 `

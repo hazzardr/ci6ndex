@@ -7,12 +7,18 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net/url"
 	"strconv"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
 	md "github.com/nao1215/markdown"
+)
+
+var (
+	// 1 based page number. equivalent to offset+1
+	defaultPage uint64 = 1
+	// How many items to fetch per page
+	pageLimit uint64 = 10
 )
 
 func (b *Bot) handleManageLeaders() handler.ButtonComponentHandler {
@@ -27,40 +33,22 @@ func (b *Bot) handleManageLeaders() handler.ButtonComponentHandler {
 		if err != nil {
 			return errors.Join(err, errors.New("failed to parse guild ID"))
 		}
-		// Create form for managing leaders
-		flags := discord.MessageFlagIsComponentsV2
-		flags = flags.Add(discord.MessageFlagEphemeral)
 
-		var currentOffset uint64 = 1 // Default offset (1-indexed)
-		var currentLimit uint64 = 10 // Default items per page
-
-		parsedURL, pErr := url.Parse(bid.CustomID())
-		if pErr == nil { // Path could be /leaders or /leaders?offset=...
-			queryParams := parsedURL.Query()
-			if offsetStr := queryParams.Get("offset"); offsetStr != "" {
-				if parsedOffset, errConv := strconv.ParseUint(offsetStr, 10, 64); errConv == nil {
-					if parsedOffset < 1 {
-						currentOffset = 1 // Ensure offset is at least 1
-					} else {
-						currentOffset = parsedOffset
-					}
-				} else {
-					slog.Warn("Failed to parse offset from CustomID", "offsetStr", offsetStr, "error", errConv)
-				}
+		var currentPage uint64
+		if pageStr := e.Vars["page"]; pageStr != "" {
+			if parsedPage, errConv := strconv.ParseUint(pageStr, 10, 64); errConv == nil {
+				currentPage = parsedPage
+			} else {
+				slog.Debug("failed to parse page", "pageStr", pageStr, "error", errConv)
+				currentPage = defaultPage
 			}
-			if limitStr := queryParams.Get("limit"); limitStr != "" {
-				if parsedLimit, errConv := strconv.ParseUint(limitStr, 10, 64); errConv == nil && parsedLimit > 0 {
-					currentLimit = parsedLimit
-				} else if errConv != nil {
-					slog.Warn("Failed to parse limit from CustomID", "limitStr", limitStr, "error", errConv)
-				}
-			}
-		} else if bid.CustomID() != "/leaders" { // Allow initial call with /leaders
-			// Log error only if CustomID is not the base path and parsing failed
-			slog.Warn("Failed to parse CustomID for pagination", "customID", bid.CustomID(), "error", pErr)
+		} else {
+			slog.Debug("unable to parse page", "pageStr", pageStr)
+			currentPage = defaultPage
 		}
 
-		r, err := b.leadersScreen(gid, currentOffset, currentLimit)
+		offset := (currentPage - 1) * pageLimit
+		r, err := b.leadersScreen(gid, offset, pageLimit)
 		if err != nil {
 			return err
 		}
@@ -98,7 +86,7 @@ func (b *Bot) handleLeaderDetails() handler.ButtonComponentHandler {
 		// Get leader details from database
 		leader, err := b.Ci6ndex.GetLeaderById(guildId, uint64(lid))
 		if err != nil {
-			return errors.Join(err, errors.New(fmt.Sprintf("failed to fetch leader with ID %d", lid)))
+			return errors.Join(err, fmt.Errorf("failed to fetch leader with ID %d", lid))
 		}
 
 		// Create components to display leader details
@@ -184,7 +172,7 @@ func (b *Bot) leadersScreen(guildId uint64, currentOffset uint64, limit uint64) 
 	// Assuming GetLeadersInRange expects a 1-based offset and a limit (number of items)
 	leads, err := b.Ci6ndex.GetLeadersInRange(guildId, currentOffset, limit)
 	if err != nil {
-		return nil, errors.Join(err, errors.New(fmt.Sprintf("failed to fetch leaders with offset %d, limit %d", currentOffset, limit)))
+		return nil, errors.Join(err, fmt.Errorf("failed to fetch leaders with offset %d, limit %d", currentOffset, limit))
 	}
 
 	leaderRows := make([]discord.ContainerSubComponent, len(leads))
@@ -194,7 +182,7 @@ func (b *Bot) leadersScreen(guildId uint64, currentOffset uint64, limit uint64) 
 			H1(leader.DiscordEmojiString.String + fmt.Sprintf(" %s ", leader.LeaderName)).
 			Build()
 		if err != nil {
-			return nil, errors.Join(err, errors.New(fmt.Sprintf("failed to build leader: %v", leader)))
+			return nil, errors.Join(err, fmt.Errorf("failed to build leader: %v", leader))
 		}
 
 		leaderRoute := fmt.Sprintf("/leaders/%d", leader.ID)
@@ -241,29 +229,24 @@ func renderLeadersHeader(header io.Writer) error {
 }
 
 func (b *Bot) createLeaderPaginationActionRow(currentOffset, limit uint64, numLeadsFetched int) discord.ActionRowComponent {
-	// Previous Button
-	prevButtonOffset := currentOffset - limit
-	if prevButtonOffset < 1 {
-		prevButtonOffset = 1 // Ensure offset doesn't go below 1
-	}
-	prevButton := discord.NewSecondaryButton("Previous", fmt.Sprintf("/leaders?offset=%d&limit=%d", prevButtonOffset, limit)).
+	prevPage := (currentOffset / limit)
+	prevButton := discord.NewSecondaryButton("Previous", fmt.Sprintf("/leaders/page/%d", prevPage)).
 		WithEmoji(discord.ComponentEmoji{Name: "⬅️"})
 	if currentOffset <= 1 {
 		prevButton = prevButton.WithDisabled(true)
 	}
 
-	// Next Button
-	nextButtonOffset := currentOffset + limit
-	nextButton := discord.NewSecondaryButton("Next", fmt.Sprintf("/leaders?offset=%d&limit=%d", nextButtonOffset, limit)).
+	nextPage := (currentOffset / limit) + 2
+
+	nextButton := discord.NewSecondaryButton("Next", fmt.Sprintf("/leaders/page/%d", nextPage)).
 		WithEmoji(discord.ComponentEmoji{Name: "➡️"})
 	if numLeadsFetched < int(limit) {
 		nextButton = nextButton.WithDisabled(true)
 	}
-
 	// Back Button (to draft menu)
 	backToDraftButton := discord.NewPrimaryButton("Back", "/draft").WithEmoji(discord.ComponentEmoji{
-		Name: backArrow,
+		Name: crossedSwords,
 	})
 
-	return discord.NewActionRow().WithComponents(prevButton, nextButton, backToDraftButton)
+	return discord.NewActionRow().WithComponents(backToDraftButton, prevButton, nextButton)
 }

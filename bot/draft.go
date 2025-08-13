@@ -3,11 +3,12 @@ package bot
 import (
 	"bytes"
 	"errors"
+	"io"
+	"log/slog"
+
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
 	md "github.com/nao1215/markdown"
-	"io"
-	"log/slog"
 )
 
 func (b *Bot) draftScreen() ([]discord.LayoutComponent, error) {
