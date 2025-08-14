@@ -18,22 +18,47 @@ var (
 	// 1 based page number. equivalent to offset+1
 	defaultPage uint64 = 1
 	// How many items to fetch per page
-	pageLimit uint64 = 10
+	pageLimit     uint64 = 10
+	maxNumLeaders int64  = 78
 )
 
-func (b *Bot) handleManageLeaders() handler.ButtonComponentHandler {
-	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		slog.Info("handleManageLeaders", "path", bid.CustomID())
-
-		if e.GuildID() == nil {
-			slog.Error("missing guild ID")
-			return errors.New("missing guild id on event")
+func (b *Bot) handleManageLeadersSlashCommand() handler.SlashCommandHandler {
+	return func(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
+		guildID := e.GuildID()
+		if guildID == nil {
+			return fmt.Errorf("event missing guild ID")
 		}
-		gid, err := parseGuildId(e.GuildID().String())
+		var currentPage uint64 = 0
+		components, err := b.handleManageLeaders("/leaders", guildID.String(), currentPage)
+
 		if err != nil {
-			return errors.Join(err, errors.New("failed to parse guild ID"))
+			return err
 		}
 
+		flags := discord.MessageFlagIsComponentsV2
+		flags = flags.Add(discord.MessageFlagEphemeral)
+
+		if err := e.CreateMessage(discord.MessageCreate{
+			Flags:      flags,
+			Components: *components,
+		}); err != nil {
+			slog.Error("failed to create leaders screen", "error", slog.Any("err", err))
+			desc, ok := errorDescription(err)
+			if ok {
+				slog.Error(desc)
+			}
+			return err
+		}
+		return nil
+	}
+}
+
+func (b *Bot) handleManageLeadersButtonCommand() handler.ButtonComponentHandler {
+	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
+		guildID := e.GuildID()
+		if guildID == nil {
+			return fmt.Errorf("event missing guild ID ")
+		}
 		var currentPage uint64
 		if pageStr := e.Vars["page"]; pageStr != "" {
 			if parsedPage, errConv := strconv.ParseUint(pageStr, 10, 64); errConv == nil {
@@ -47,26 +72,52 @@ func (b *Bot) handleManageLeaders() handler.ButtonComponentHandler {
 			currentPage = defaultPage
 		}
 
-		offset := (currentPage - 1) * pageLimit
-		r, err := b.leadersScreen(gid, offset, pageLimit)
+		components, err := b.handleManageLeaders(bid.CustomID(), guildID.String(), currentPage)
+
 		if err != nil {
 			return err
 		}
 
 		if err := e.UpdateMessage(discord.MessageUpdate{
-			Components: &r,
+			Components: components,
 		}); err != nil {
 			slog.Error("Failed to create leaders screen", "error", slog.Any("err", err))
 			desc, ok := errorDescription(err)
 			if ok {
 				slog.Error(desc)
 			}
+			return err
 		}
 		return nil
 	}
 }
 
-func (b *Bot) handleLeaderDetails() handler.ButtonComponentHandler {
+func (b *Bot) handleManageLeaders(id, guildID string, page uint64) (*[]discord.LayoutComponent, error) {
+	slog.Info("handleManageLeaders", "path", id)
+	gid, err := strconv.ParseUint(guildID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse guildID")
+	}
+	offset := (page - 1) * pageLimit
+	r, err := b.leadersScreen(gid, offset, pageLimit)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+func (b *Bot) handleGetLeaderSlashCommand() handler.SlashCommandHandler {
+	return func(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
+		searchTerm := data.String("search")
+
+		if searchTerm == "" {
+			return errors.New("search term not provided")
+		}
+		return nil
+		// todo:
+	}
+}
+func (b *Bot) handleLeaderDetailsButtonCommand() handler.ButtonComponentHandler {
 	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
 		lid, err := strconv.ParseInt(e.Vars["leaderId"], 10, 64)
 		if err != nil {
@@ -117,6 +168,18 @@ func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]di
 		return nil, errors.Join(err, errors.New("failed to render leader details"))
 	}
 
+	prevLeaderID := leader.ID - 1
+	prevButton := discord.NewSecondaryButton("Previous", fmt.Sprintf("/leaders/%d", prevLeaderID)).
+		WithEmoji(discord.ComponentEmoji{Name: "⬅️"})
+	if prevLeaderID == 0 {
+		prevButton = prevButton.WithDisabled(true)
+	}
+	nextLeaderID := leader.ID + 1
+	nextButton := discord.NewSecondaryButton("Next", fmt.Sprintf("/leaders/%d", nextLeaderID)).
+		WithEmoji(discord.ComponentEmoji{Name: "➡️"})
+	if nextLeaderID > maxNumLeaders {
+		nextButton = nextButton.WithDisabled(true)
+	}
 	layout := []discord.LayoutComponent{
 		discord.NewContainer().AddComponents(
 			discord.NewSection(
@@ -124,10 +187,9 @@ func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]di
 			).WithAccessory(discord.NewThumbnail(me.EffectiveAvatarURL())),
 			discord.NewLargeSeparator(),
 			discord.NewActionRow().WithComponents(
-				discord.NewPrimaryButton("Back", "/leaders").WithEmoji(discord.ComponentEmoji{
-					Name: backArrow,
-				}),
-				discord.NewSecondaryButton("Edit Tier", fmt.Sprintf("/leaders/%d/edit", leader.ID)),
+				discord.NewPrimaryButton("Back", "/leaders"),
+				prevButton,
+				nextButton,
 			)).
 			WithAccentColor(colorSuccess),
 	}
@@ -141,11 +203,13 @@ func renderLeaderDetails(buffer io.Writer, leader generated.Leader) error {
 	emoji := leader.DiscordEmojiString.String
 
 	// Create a more detailed leader profile
-	err := md.H1(emoji+" "+leader.LeaderName+" of "+leader.CivName).
-		H2f("**Tier**: %.1f", leader.Tier).
-		PlainText("\n**Status**: " + getBannedStatus(leader.Banned)).
-		Build()
+	mdBuilder := md.H1(emoji+" "+leader.LeaderName+" OF "+leader.CivName).
+		H2f("**Tier**: %.1f", leader.Tier)
+	if leader.Banned {
+		mdBuilder.PlainText("\n**Status**: " + getBannedStatus(leader.Banned))
+	}
 
+	err := mdBuilder.Build()
 	if err != nil {
 		return errors.Join(err, errors.New("failed to build leader details markdown"))
 	}
@@ -244,7 +308,7 @@ func (b *Bot) createLeaderPaginationActionRow(currentOffset, limit uint64, numLe
 		nextButton = nextButton.WithDisabled(true)
 	}
 	// Back Button (to draft menu)
-	backToDraftButton := discord.NewPrimaryButton("Back", "/draft").WithEmoji(discord.ComponentEmoji{
+	backToDraftButton := discord.NewPrimaryButton("Drafts", "/draft").WithEmoji(discord.ComponentEmoji{
 		Name: crossedSwords,
 	})
 

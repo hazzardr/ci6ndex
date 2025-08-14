@@ -62,7 +62,7 @@ func (b *Bot) handleManageDraft() handler.SlashCommandHandler {
 			Flags:      flags,
 			Components: draft,
 		}); err != nil {
-			slog.Error("Failed to create test message", "error", err)
+			slog.Error("failed to create draft screen", "error", err)
 			desc, ok := errorDescription(err)
 			if ok {
 				slog.Error(desc)
@@ -82,8 +82,6 @@ func (b *Bot) handleManageDraftButton() handler.ButtonComponentHandler {
 			return errors.New("missing guild id on event")
 		}
 		// Create "form" for rolling settings
-		flags := discord.MessageFlagIsComponentsV2
-		flags = flags.Add(discord.MessageFlagEphemeral)
 		draft, err := b.draftScreen()
 		if err != nil {
 			return err
@@ -159,7 +157,7 @@ func renderDraftHeader(header io.Writer) error {
 
 func renderPreviousGameSummary(output io.Writer) error {
 	return md.NewMarkdown(output).H2("Previous Game").
-		H3f("**%s Winner:** <:Nzinga_Mbande_Civ6:1229393600790663220> <@135218870494429184>",
+		H3f("**%s Winner:** <:Philip_II_Civ6:1229599116388991006> <@170687411720945664>",
 			partyEmoji).
 		Build()
 }

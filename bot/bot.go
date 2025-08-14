@@ -41,6 +41,7 @@ func (b *Bot) Configure() error {
 	r := handler.New()
 
 	r.SlashCommand("/ping", HandlePing)
+	r.SlashCommand("/leader", b.handleGetLeaderSlashCommand())
 
 	r.Group(func(r handler.Router) {
 		r.SlashCommand("/draft", b.handleManageDraft())
@@ -53,9 +54,10 @@ func (b *Bot) Configure() error {
 	})
 	r.Route("/leaders", func(r handler.Router) {
 		r.Use(middleware.Logger)
-		r.ButtonComponent("/", b.handleManageLeaders())
-		r.ButtonComponent("/page/{page}", b.handleManageLeaders())
-		r.ButtonComponent("/{leaderId}", b.handleLeaderDetails())
+		r.SlashCommand("/", b.handleManageLeadersSlashCommand())
+		r.ButtonComponent("/", b.handleManageLeadersButtonCommand())
+		r.ButtonComponent("/page/{page}", b.handleManageLeadersButtonCommand())
+		r.ButtonComponent("/{leaderId}", b.handleLeaderDetailsButtonCommand())
 	})
 
 	r.SelectMenuComponent("/select-player", b.handlePlayerSelect())
@@ -125,7 +127,6 @@ func (b *Bot) SyncCommands() error {
 		} else {
 			slog.Error("failed to sync commands", "err", slog.Any("err", err))
 			return err
-
 		}
 		slog.Error("failed to sync commands: ", slog.Any("err", err))
 	}
