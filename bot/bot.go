@@ -23,28 +23,31 @@ import (
 )
 
 type Bot struct {
-	Client       *bot.Client
-	Ci6ndex      *ci6ndex.Ci6ndex
-	discordToken string
-	guildIDs     string
-	leadersCache map[uint64][]generated.Leader
+	Client          *bot.Client
+	Ci6ndex         *ci6ndex.Ci6ndex
+	discordToken    string
+	guildIDs        string
+	listenToGuildID snowflake.ID
+	leadersCache    map[uint64][]generated.Leader
 }
 
-func New(c *ci6ndex.Ci6ndex, discordToken, guildIDs string) *Bot {
+func New(c *ci6ndex.Ci6ndex, discordToken, guildIDs string, listenToGuildID string) *Bot {
 	return &Bot{
-		Ci6ndex:      c,
-		discordToken: discordToken,
-		guildIDs:     guildIDs,
-		leadersCache: make(map[uint64][]generated.Leader),
+		Ci6ndex:         c,
+		discordToken:    discordToken,
+		guildIDs:        guildIDs,
+		listenToGuildID: snowflake.MustParse(listenToGuildID),
+		leadersCache:    make(map[uint64][]generated.Leader),
 	}
 }
 
 func (b *Bot) Configure() error {
 	slog.Info("configuring Discord Bot...")
 	r := handler.New()
-
 	r.SlashCommand("/ping", HandlePing)
 	r.SlashCommand("/leader", b.handleGetLeaderSlashCommand())
+
+	r.Use(FilterGuildMiddleware(b.listenToGuildID))
 
 	r.Group(func(r handler.Router) {
 		r.SlashCommand("/draft", b.handleManageDraft())
@@ -90,8 +93,8 @@ func (b *Bot) Configure() error {
 }
 
 func Start(b *Bot) error {
-	slog.Info("Starting Bot...", 
-		slog.String("guildIDs", b.guildIDs),
+	slog.Info("Starting Bot...",
+		slog.String("guildID", b.listenToGuildID.String()),
 		slog.Bool("tokenProvided", b.discordToken != ""),
 	)
 
@@ -174,4 +177,20 @@ func errorDescription(err error) (string, bool) {
 		return string(restErr.Errors), true
 	}
 	return err.Error(), true
+}
+
+func FilterGuildMiddleware(guildID snowflake.ID) handler.Middleware {
+	return func(next handler.Handler) handler.Handler {
+		return func(event *handler.InteractionEvent) error {
+			if event.GuildID() == nil {
+				slog.Debug("DROP event", "reason", "only serve guild messages", "event", event)
+				return nil
+			}
+			if !(*event.GuildID() == guildID) {
+				slog.Info("DROP event", "reason", "guild id does not match this deployment", "allowedGuildID", guildID, "event", event)
+				return nil
+			}
+			return next(event)
+		}
+	}
 }

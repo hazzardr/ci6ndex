@@ -74,7 +74,7 @@ generate:
 .PHONY: run ## run the project
 run:
 	$(MAKE) build
-	@(export $$(cat .env | xargs) && ./bin/$(EXEC_NAME) bot serve)
+	@(export $$(cat .env.dev | xargs) && ./bin/$(EXEC_NAME) bot serve)
 
 .PHONY: sync ## sync discord commands with API
 sync:

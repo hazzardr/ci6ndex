@@ -31,6 +31,7 @@ func main() {
 		c,
 		config.DiscordToken,
 		config.GuildIDs,
+		config.ListenToGuildID,
 	)
 	err = b.Configure()
 	if err != nil {
