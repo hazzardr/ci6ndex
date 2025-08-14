@@ -28,8 +28,18 @@ func New(embedMigrations embed.FS) (*Ci6ndex, error) {
 		)
 	}
 
+	// Ensure data directory exists
+	dataPath := "./data/"
+	if _, err := os.Stat(dataPath); os.IsNotExist(err) {
+		logger.Info("Creating data directory", "path", dataPath)
+		if err := os.MkdirAll(dataPath, 0755); err != nil {
+			logger.Error("Failed to create data directory", "error", err)
+			return nil, err
+		}
+	}
+
 	return &Ci6ndex{
 		Connections: connections,
-		Path:        "./data/",
+		Path:        dataPath,
 	}, nil
 }

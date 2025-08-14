@@ -26,6 +26,7 @@ func (b *Bot) Leaders(guildID uint64) ([]generated.Leader, error) {
 	if leaders := b.leadersCache[guildID]; leaders != nil {
 		return leaders, nil
 	} else {
+		slog.Info("cache miss on leader reference data", slog.Uint64("guildID", guildID))
 		leaders, err := b.Ci6ndex.GetLeaders(guildID)
 		if err != nil {
 			return nil, err

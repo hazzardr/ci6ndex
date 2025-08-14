@@ -69,7 +69,12 @@ func (b *Bot) Configure() error {
 	var err error
 	b.Client, err = disgo.New(b.discordToken,
 		bot.WithGatewayConfigOpts(
-			gateway.WithIntents(gateway.IntentGuildMessages),
+			gateway.WithIntents(
+				gateway.IntentGuildMessages,
+				gateway.IntentMessageContent,
+				gateway.IntentGuilds,
+				gateway.IntentDirectMessages,
+			),
 			gateway.WithCompress(true),
 			gateway.WithPresenceOpts(
 				gateway.WithPlayingActivity("loading..."),
@@ -85,12 +90,16 @@ func (b *Bot) Configure() error {
 }
 
 func Start(b *Bot) error {
-	slog.Info("Starting Bot...")
+	slog.Info("Starting Bot...", 
+		slog.String("guildIDs", b.guildIDs),
+		slog.Bool("tokenProvided", b.discordToken != ""),
+	)
 
 	if err := b.Client.OpenGateway(context.Background()); err != nil {
 		slog.Error("failed to connect to discord gateway", slog.Any("err", err))
 		return err
 	}
+	slog.Info("Successfully connected to Discord gateway")
 	return nil
 }
 

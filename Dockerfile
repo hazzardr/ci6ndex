@@ -1,4 +1,4 @@
-FROM golang:1.24.1-alpine AS build
+FROM golang:1.24.4-alpine AS build
 RUN apk add build-base
 
 RUN mkdir /app
@@ -15,4 +15,4 @@ FROM alpine
 WORKDIR /app
 COPY --from=build /app/bin/bot /app/ci6ndex
 
-CMD ["/app/ci6ndex"]
+CMD ["/app/ci6ndex", "bot", "serve"]

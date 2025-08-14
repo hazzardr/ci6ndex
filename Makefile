@@ -1,5 +1,7 @@
 PROJECT_NAME := "ci6ndex"
 EXEC_NAME := civ
+SSH_USER := ansible
+DEPLOY_TARGET_IP := 192.168.86.10
 
 .PHONY: help ## print this
 help:
@@ -51,6 +53,11 @@ build:
 	@go build -o ./bin/$(EXEC_NAME) .
 	@echo "Done!"
 
+.PHONY: docker ## build the docker image
+docker:
+	docker build -t $(PROJECT_NAME):latest .
+	@echo "Done! Image built as $(PROJECT_NAME):latest"
+	
 .PHONY: clean ## delete generated code
 clean:
 	@echo "Deleting generated code..."
@@ -73,3 +80,21 @@ run:
 sync:
 	$(MAKE) build
 	@(export $$(cat .env | xargs) && ./bin/$(EXEC_NAME) bot sync)
+
+.PHONY: prod/connect  ## Open ssh session on deploy target
+prod/connect:
+	ssh ${SSH_USER}@${DEPLOY_TARGET_IP}
+
+.PHONY: prod/env  ## Deploy env file to remote host
+prod/env:
+	rsync -P .env ${SSH_USER}@${DEPLOY_TARGET_IP}:~/docker/${PROJECT_NAME}/.env
+	ssh ${SSH_USER}@${DEPLOY_TARGET_IP} 'chmod 600 ~/docker/${PROJECT_NAME}/.env'
+
+.PHONY: prod/deploy  ## Deploy the stack
+prod/deploy:
+	rsync -P docker-compose.yaml ${SSH_USER}@${DEPLOY_TARGET_IP}:~/docker/${PROJECT_NAME}/docker-compose.yaml
+	ssh ${SSH_USER}@${DEPLOY_TARGET_IP} 'chmod 600 ~/docker/${PROJECT_NAME}/docker-compose.yaml'
+
+.PHONY: prod/logs  ## View logs from the deployed container
+prod/logs:
+	ssh ${SSH_USER}@${DEPLOY_TARGET_IP} 'cd ~/docker/${PROJECT_NAME} && docker compose logs -f'

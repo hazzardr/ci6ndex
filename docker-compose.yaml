@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  ci6ndex:
+    image: ghcr.io/hazzardr/ci6ndex:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    networks:
+      - ci6ndex-network
+    # Add logging configuration to help with debugging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  ci6ndex-network:
+    driver: bridge
