@@ -70,7 +70,7 @@ CREATE TRIGGER update_ranks_timestamp
     AFTER UPDATE ON ranks
     FOR EACH ROW
 BEGIN
-    UPDATE ranks SET updated_at = CURRENT_TIMESTAMP WHERE id = old.id;
+    UPDATE ranks SET updated_at = CURRENT_TIMESTAMP WHERE id = old.id
 END;
 
 
