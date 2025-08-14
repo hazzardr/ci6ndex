@@ -67,20 +67,12 @@ CREATE TABLE ranks
 );
 
 
-CREATE TRIGGER update_ranks_timestamp
-    AFTER UPDATE ON ranks
-    FOR EACH ROW
-BEGIN
-    UPDATE ranks SET updated_at = CURRENT_TIMESTAMP WHERE id = old.id;
-END;
-
 -- Add useful indexes
 CREATE INDEX idx_pool_draft_id ON pool (draft_id);
 CREATE INDEX idx_picks_draft_id ON picks (draft_id);
 CREATE INDEX idx_draft_registry_draft_id ON draft_registry (draft_id);
 
 -- +goose Down
-DROP TRIGGER IF EXISTS update_ranks_timestamp;
 DROP TABLE IF EXISTS ranks;
 DROP TABLE IF EXISTS picks;
 DROP TABLE IF EXISTS pool;
