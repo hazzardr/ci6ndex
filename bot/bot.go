@@ -3,6 +3,7 @@ package bot
 import (
 	"bytes"
 	"ci6ndex/ci6ndex"
+	"ci6ndex/ci6ndex/generated"
 	"context"
 	"log/slog"
 	"strconv"
@@ -26,6 +27,7 @@ type Bot struct {
 	Ci6ndex      *ci6ndex.Ci6ndex
 	discordToken string
 	guildIDs     string
+	leadersCache map[uint64][]generated.Leader
 }
 
 func New(c *ci6ndex.Ci6ndex, discordToken, guildIDs string) *Bot {
@@ -33,6 +35,7 @@ func New(c *ci6ndex.Ci6ndex, discordToken, guildIDs string) *Bot {
 		Ci6ndex:      c,
 		discordToken: discordToken,
 		guildIDs:     guildIDs,
+		leadersCache: make(map[uint64][]generated.Leader),
 	}
 }
 

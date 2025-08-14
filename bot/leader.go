@@ -18,9 +18,70 @@ var (
 	// 1 based page number. equivalent to offset+1
 	defaultPage uint64 = 1
 	// How many items to fetch per page
-	pageLimit     uint64 = 10
-	maxNumLeaders int64  = 78
+	pageLimit uint64 = 10
 )
+
+// Leaders returns a cached, alphabetized, list of leaders for the guildID. since we store these in memory, don't rely on them for non static data
+func (b *Bot) Leaders(guildID uint64) ([]generated.Leader, error) {
+	if leaders := b.leadersCache[guildID]; leaders != nil {
+		return leaders, nil
+	} else {
+		leaders, err := b.Ci6ndex.GetLeaders(guildID)
+		if err != nil {
+			return nil, err
+		}
+		b.leadersCache[guildID] = leaders
+		return leaders, nil
+	}
+}
+
+// getNextLeader returns the alphabetically "next" leader
+func (b *Bot) getNextLeader(guildID uint64, leader *generated.Leader) (*generated.Leader, error) {
+	leaders, err := b.Leaders(guildID)
+	if err != nil {
+		return nil, err
+	}
+
+	currentIndex := -1
+	for i, l := range leaders {
+		if l.ID == leader.ID {
+			currentIndex = i
+			break
+		}
+	}
+
+	if currentIndex == -1 {
+		return nil, fmt.Errorf("leader %s not found", leader.LeaderName)
+	}
+
+	// Get the next leader (cycling back to the beginning if needed)
+	nextIndex := (currentIndex + 1) % len(leaders)
+	return &leaders[nextIndex], nil
+}
+
+// getPrevLeader returns the alphabetically "previous" leader
+func (b *Bot) getPrevLeader(guildID uint64, leader *generated.Leader) (*generated.Leader, error) {
+	leaders, err := b.Leaders(guildID)
+	if err != nil {
+		return nil, err
+	}
+
+	currentIndex := -1
+	for i, l := range leaders {
+		if l.ID == leader.ID {
+			currentIndex = i
+			break
+		}
+	}
+
+	if currentIndex == -1 {
+		return nil, fmt.Errorf("leader %s not found", leader.LeaderName)
+	}
+
+	// Get the prev leader (cycling around if needed)
+	prevIndex := (currentIndex + len(leaders) - 1) % len(leaders)
+	return &leaders[prevIndex], nil
+}
 
 func (b *Bot) handleManageLeadersSlashCommand() handler.SlashCommandHandler {
 	return func(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
@@ -168,18 +229,19 @@ func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]di
 		return nil, errors.Join(err, errors.New("failed to render leader details"))
 	}
 
-	prevLeaderID := leader.ID - 1
-	prevButton := discord.NewSecondaryButton("Previous", fmt.Sprintf("/leaders/%d", prevLeaderID)).
+	prev, err := b.getPrevLeader(guildId, &leader)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to get previous leader"))
+	}
+	prevButton := discord.NewSecondaryButton("Previous", fmt.Sprintf("/leaders/%d", prev.ID)).
 		WithEmoji(discord.ComponentEmoji{Name: "⬅️"})
-	if prevLeaderID == 0 {
-		prevButton = prevButton.WithDisabled(true)
+
+	next, err := b.getNextLeader(guildId, &leader)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to get next leader"))
 	}
-	nextLeaderID := leader.ID + 1
-	nextButton := discord.NewSecondaryButton("Next", fmt.Sprintf("/leaders/%d", nextLeaderID)).
+	nextButton := discord.NewSecondaryButton("Next", fmt.Sprintf("/leaders/%d", next.ID)).
 		WithEmoji(discord.ComponentEmoji{Name: "➡️"})
-	if nextLeaderID > maxNumLeaders {
-		nextButton = nextButton.WithDisabled(true)
-	}
 	layout := []discord.LayoutComponent{
 		discord.NewContainer().AddComponents(
 			discord.NewSection(
