@@ -7,12 +7,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -o ./bin/bot .
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -o ./bin/civ .
 
 # Run stage
 FROM alpine
 
 WORKDIR /app
-COPY --from=build /app/bin/bot /app/ci6ndex
+COPY --from=build /app/bin/civ /app/ci6ndex
 
 CMD ["/app/ci6ndex", "bot", "serve"]
