@@ -66,10 +66,13 @@ CREATE TABLE ranks
     FOREIGN KEY (player_id) references players (id)
 );
 
+
 CREATE TRIGGER update_ranks_timestamp
     AFTER UPDATE ON ranks
     FOR EACH ROW
+BEGIN
     UPDATE ranks SET updated_at = CURRENT_TIMESTAMP WHERE id = old.id;
+END;
 
 -- Add useful indexes
 CREATE INDEX idx_pool_draft_id ON pool (draft_id);

@@ -1,6 +1,3 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package main
 
 import (
@@ -8,10 +5,11 @@ import (
 	"ci6ndex/ci6ndex"
 	"ci6ndex/cmd"
 	"embed"
-	"github.com/charmbracelet/log"
 	"log/slog"
 	"os"
 	"time"
+
+	"github.com/charmbracelet/log"
 )
 
 //go:embed sql/migrations/*.sql
