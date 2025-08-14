@@ -69,10 +69,7 @@ CREATE TABLE ranks
 CREATE TRIGGER update_ranks_timestamp
     AFTER UPDATE ON ranks
     FOR EACH ROW
-BEGIN
-    UPDATE ranks SET updated_at = CURRENT_TIMESTAMP WHERE id = old.id
-END;
-
+    UPDATE ranks SET updated_at = CURRENT_TIMESTAMP WHERE id = old.id;
 
 -- Add useful indexes
 CREATE INDEX idx_pool_draft_id ON pool (draft_id);

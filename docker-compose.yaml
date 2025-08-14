@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ci6ndex:
     image: ghcr.io/hazzardr/ci6ndex:latest
