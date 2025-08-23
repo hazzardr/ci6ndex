@@ -2,9 +2,10 @@ package ci6ndex
 
 import (
 	"embed"
-	"github.com/charmbracelet/log"
 	"os"
 	"time"
+
+	"github.com/charmbracelet/log"
 )
 
 type Ci6ndex struct {

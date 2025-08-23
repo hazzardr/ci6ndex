@@ -66,6 +66,7 @@ CREATE TABLE ranks
     FOREIGN KEY (player_id) references players (id)
 );
 
+CREATE UNIQUE INDEX ranks_leader_id_player_id_uindex ON ranks(leader_id, player_id);
 
 -- Add useful indexes
 CREATE INDEX idx_pool_draft_id ON pool (draft_id);

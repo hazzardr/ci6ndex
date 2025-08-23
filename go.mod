@@ -1,6 +1,6 @@
 module ci6ndex
 
-go 1.24.4
+go 1.25.0
 
 require (
 	github.com/alecthomas/kong v1.12.1
@@ -13,6 +13,7 @@ require (
 	github.com/nao1215/markdown v0.8.0
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.24.3
+	golang.org/x/sync v0.16.0
 )
 
 require (
@@ -45,6 +46,5 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/exp v0.0.0-20250811191247-51f88131bc50 // indirect
-	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 )

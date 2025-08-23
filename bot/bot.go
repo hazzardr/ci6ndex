@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
@@ -15,7 +16,6 @@ import (
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/disgo/handler"
-	"github.com/disgoorg/disgo/handler/middleware"
 	"github.com/disgoorg/disgo/rest"
 	json "github.com/disgoorg/json/v2"
 	snowflake "github.com/disgoorg/snowflake/v2"
@@ -29,6 +29,7 @@ type Bot struct {
 	guildIDs        string
 	listenToGuildID snowflake.ID
 	leadersCache    map[uint64][]generated.Leader
+	wg              sync.WaitGroup
 }
 
 func New(c *ci6ndex.Ci6ndex, discordToken, guildIDs string, listenToGuildID string) *Bot {
@@ -38,6 +39,7 @@ func New(c *ci6ndex.Ci6ndex, discordToken, guildIDs string, listenToGuildID stri
 		guildIDs:        guildIDs,
 		listenToGuildID: snowflake.MustParse(listenToGuildID),
 		leadersCache:    make(map[uint64][]generated.Leader),
+		wg:              sync.WaitGroup{},
 	}
 }
 
@@ -45,7 +47,7 @@ func (b *Bot) Configure() error {
 	slog.Info("configuring Discord Bot...")
 	r := handler.New()
 	r.SlashCommand("/ping", HandlePing)
-	r.SlashCommand("/leader", b.handleGetLeaderSlashCommand())
+	// r.SlashCommand("/leader", b.handleGetLeaderSlashCommand())
 
 	r.Use(FilterGuildMiddleware(b.listenToGuildID))
 
@@ -59,11 +61,12 @@ func (b *Bot) Configure() error {
 		r.ButtonComponent("/confirm-roll-draft", b.handleConfirmRollDraft())
 	})
 	r.Route("/leaders", func(r handler.Router) {
-		r.Use(middleware.Logger)
+		// r.Use(middleware.Logger)
 		r.SlashCommand("/", b.handleManageLeadersSlashCommand())
 		r.ButtonComponent("/", b.handleManageLeadersButtonCommand())
 		r.ButtonComponent("/page/{page}", b.handleManageLeadersButtonCommand())
 		r.ButtonComponent("/{leaderId}", b.handleLeaderDetailsButtonCommand())
+		r.SelectMenuComponent("/{leaderId}/rating", b.handleRateLeaderMenuSelectCommand())
 	})
 
 	r.SelectMenuComponent("/select-player", b.handlePlayerSelect())
@@ -193,4 +196,11 @@ func FilterGuildMiddleware(guildID snowflake.ID) handler.Middleware {
 			return next(event)
 		}
 	}
+}
+
+// background is a convenience function to use a singular waitgroup for bot operations.
+// This is helpful when we want to gracefully shut down, as we can wg.wait() with a timeout and ensure
+// background tasks are attempted to be finished up
+func (b *Bot) background(fn func()) {
+	b.wg.Go(fn)
 }

@@ -48,3 +48,17 @@ DELETE FROM pool
 DELETE FROM pool
    WHERE player_id = ?
     AND draft_id = ?;
+
+-- name: SubmitRankForPlayer :exec
+INSERT INTO ranks (player_id, leader_id, tier)
+VALUES (?, ?, ?)
+ON CONFLICT (leader_id, player_id)
+DO UPDATE SET
+    tier = excluded.tier,
+    updated_at = CURRENT_TIMESTAMP
+;
+
+-- name: UpdateLeaderTier :exec
+UPDATE leaders 
+SET tier = ?
+WHERE id = ?;

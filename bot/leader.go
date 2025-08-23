@@ -2,12 +2,14 @@ package bot
 
 import (
 	"bytes"
+	"ci6ndex/ci6ndex"
 	"ci6ndex/ci6ndex/generated"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"strconv"
+	"strings"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
@@ -84,32 +86,57 @@ func (b *Bot) getPrevLeader(guildID uint64, leader *generated.Leader) (*generate
 	return &leaders[prevIndex], nil
 }
 
-func (b *Bot) handleManageLeadersSlashCommand() handler.SlashCommandHandler {
-	return func(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
-		guildID := e.GuildID()
-		if guildID == nil {
-			return fmt.Errorf("event missing guild ID")
-		}
-		var currentPage uint64 = 0
-		components, err := b.handleManageLeaders("/leaders", guildID.String(), currentPage)
+func (b *Bot) handleManageLeaders(id, guildID string, page uint64) (*[]discord.LayoutComponent, error) {
+	slog.Info("handleManageLeaders", "path", id, "page", page)
+	gid, err := strconv.ParseUint(guildID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse guildID")
+	}
+	offset := (page - 1) * pageLimit
+	r, err := b.leadersScreen(gid, offset, pageLimit)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
 
+func (b *Bot) handleLeaderDetailsButtonCommand() handler.ButtonComponentHandler {
+	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
+		lid, err := strconv.ParseInt(e.Vars["leaderId"], 10, 64)
+		if err != nil {
+			return errors.Join(err, errors.New("failed to parse leaderId from event"))
+		}
+		slog.Info("handleLeaderDetails", slog.Uint64("lid", uint64(lid)), slog.String("path", bid.CustomID()))
+
+		if e.GuildID() == nil {
+			slog.Error("missing guild ID ", slog.Any("err", e))
+			return errors.New("missing guild id on event")
+		}
+		guildId, err := parseGuildId(e.GuildID().String())
+		if err != nil {
+			return errors.Join(err, errors.New("failed to parse guild ID"))
+		}
+
+		// Get leader details from database
+		leader, err := b.Ci6ndex.GetLeaderById(guildId, uint64(lid))
+		if err != nil {
+			return errors.Join(err, fmt.Errorf("failed to fetch leader with ID %d", lid))
+		}
+
+		// Create components to display leader details
+		components, err := b.leaderDetailsScreen(leader, guildId)
 		if err != nil {
 			return err
 		}
 
-		flags := discord.MessageFlagIsComponentsV2
-		flags = flags.Add(discord.MessageFlagEphemeral)
-
-		if err := e.CreateMessage(discord.MessageCreate{
-			Flags:      flags,
-			Components: *components,
+		if err := e.UpdateMessage(discord.MessageUpdate{
+			Components: &components,
 		}); err != nil {
-			slog.Error("failed to create leaders screen", "error", slog.Any("err", err))
+			slog.Error("Failed to create leader details screen", "error", err)
 			desc, ok := errorDescription(err)
 			if ok {
 				slog.Error(desc)
 			}
-			return err
 		}
 		return nil
 	}
@@ -154,73 +181,106 @@ func (b *Bot) handleManageLeadersButtonCommand() handler.ButtonComponentHandler 
 	}
 }
 
-func (b *Bot) handleManageLeaders(id, guildID string, page uint64) (*[]discord.LayoutComponent, error) {
-	slog.Info("handleManageLeaders", "path", id)
-	gid, err := strconv.ParseUint(guildID, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse guildID")
-	}
-	offset := (page - 1) * pageLimit
-	r, err := b.leadersScreen(gid, offset, pageLimit)
-	if err != nil {
-		return nil, err
-	}
-	return &r, nil
-}
-
-func (b *Bot) handleGetLeaderSlashCommand() handler.SlashCommandHandler {
-	return func(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
-		searchTerm := data.String("search")
-
-		if searchTerm == "" {
-			return errors.New("search term not provided")
-		}
-		return nil
-		// todo:
-	}
-}
-func (b *Bot) handleLeaderDetailsButtonCommand() handler.ButtonComponentHandler {
-	return func(bid discord.ButtonInteractionData, e *handler.ComponentEvent) error {
-		lid, err := strconv.ParseInt(e.Vars["leaderId"], 10, 64)
-		if err != nil {
-			return errors.Join(err, errors.New("failed to parse leaderId from event"))
-		}
-		slog.Info("handleLeaderDetails", slog.Uint64("lid", uint64(lid)), slog.String("path", bid.CustomID()))
-
-		if e.GuildID() == nil {
-			slog.Error("missing guild ID ", slog.Any("err", e))
-			return errors.New("missing guild id on event")
-		}
-		guildId, err := parseGuildId(e.GuildID().String())
-		if err != nil {
-			return errors.Join(err, errors.New("failed to parse guild ID"))
-		}
-
-		// Get leader details from database
-		leader, err := b.Ci6ndex.GetLeaderById(guildId, uint64(lid))
-		if err != nil {
-			return errors.Join(err, fmt.Errorf("failed to fetch leader with ID %d", lid))
-		}
-
-		// Create components to display leader details
-		components, err := b.leaderDetailsScreen(leader, guildId)
+func (b *Bot) handleRateLeaderMenuSelectCommand() handler.SelectMenuComponentHandler {
+	return func(data discord.SelectMenuInteractionData, e *handler.ComponentEvent) error {
+		guildID, err := parseGuildId(e.GuildID().String())
 		if err != nil {
 			return err
 		}
 
-		if err := e.UpdateMessage(discord.MessageUpdate{
-			Components: &components,
+		selectData := data.(discord.StringSelectMenuInteractionData)
+
+		// /leaders/id/rating
+		leader := strings.Split(selectData.CustomID(), "/")[2]
+		// single select
+		rank := selectData.Values[0]
+
+		leaderID, err := strconv.ParseInt(leader, 10, 64)
+		if err != nil {
+			return err
+		}
+
+		playerID, err := strconv.ParseInt(e.User().ID.String(), 10, 64)
+		if err != nil {
+			return err
+		}
+		err = b.Ci6ndex.SubmitRankForPlayer(guildID, rank, playerID, leaderID)
+		if err != nil {
+			return err
+		}
+
+		b.background(func() {
+			err := b.Ci6ndex.CalculateTierForLeader(guildID, leaderID)
+			if err != nil {
+				slog.Error("failed to calulate tier", "guild", guildID, "leader", leaderID, "err", err)
+			}
+		})
+		err = e.DeferUpdateMessage()
+		return err
+	}
+}
+
+func (b *Bot) handleManageLeadersSlashCommand() handler.SlashCommandHandler {
+	return func(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
+		guildID := e.GuildID()
+		if guildID == nil {
+			return fmt.Errorf("event missing guild ID")
+		}
+		var currentPage uint64 = 1
+		components, err := b.handleManageLeaders("/leaders", guildID.String(), currentPage)
+
+		if err != nil {
+			return err
+		}
+
+		flags := discord.MessageFlagIsComponentsV2
+		flags = flags.Add(discord.MessageFlagEphemeral)
+
+		if err := e.CreateMessage(discord.MessageCreate{
+			Flags:      flags,
+			Components: *components,
 		}); err != nil {
-			slog.Error("Failed to create leader details screen", "error", err)
+			slog.Error("failed to create leaders screen", "error", slog.Any("err", err))
 			desc, ok := errorDescription(err)
 			if ok {
 				slog.Error(desc)
 			}
+			return err
 		}
 		return nil
 	}
 }
+func (bot *Bot) updateRatingForLeaderComponent(leaderID int64) discord.StringSelectMenuComponent {
+	opts := make([]discord.StringSelectMenuOption, 5)
 
+	opts[0] = discord.StringSelectMenuOption{
+		Label:       ci6ndex.S.Name(),
+		Value:       "S",
+		Description: "This leader is the always the strongest choice when offered",
+	}
+	opts[1] = discord.StringSelectMenuOption{
+		Label:       ci6ndex.A.Name(),
+		Value:       "A",
+		Description: "This leader is the often the strongest choice when offered",
+	}
+	opts[2] = discord.StringSelectMenuOption{
+		Label:       ci6ndex.B.Name(),
+		Value:       "B",
+		Description: "This leader is the sometimes the strongest choice when offered, but has noticable downsides",
+	}
+	opts[3] = discord.StringSelectMenuOption{
+		Label:       ci6ndex.C.Name(),
+		Value:       "C",
+		Description: "This leader is not usually the strongest choice. However, they may have situational upsides",
+	}
+	opts[4] = discord.StringSelectMenuOption{
+		Label:       ci6ndex.F.Name(),
+		Value:       "F",
+		Description: "An F tier leader is never the strongest choice when offered. There is always a better choice",
+	}
+
+	return discord.NewStringSelectMenu(fmt.Sprintf("/leaders/%d/rating", leaderID), "Update rating...", opts...)
+}
 func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]discord.LayoutComponent, error) {
 	me, _ := b.Client.Caches.SelfUser()
 
@@ -230,6 +290,7 @@ func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]di
 		return nil, errors.Join(err, errors.New("failed to render leader details"))
 	}
 
+	// Bottom row buttons
 	prev, err := b.getPrevLeader(guildId, &leader)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to get previous leader"))
@@ -241,6 +302,7 @@ func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]di
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to get next leader"))
 	}
+
 	nextButton := discord.NewSecondaryButton("Next", fmt.Sprintf("/leaders/%d", next.ID)).
 		WithEmoji(discord.ComponentEmoji{Name: "➡️"})
 	layout := []discord.LayoutComponent{
@@ -248,6 +310,7 @@ func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]di
 			discord.NewSection(
 				discord.NewTextDisplay(detailsBuffer.String()),
 			).WithAccessory(discord.NewThumbnail(me.EffectiveAvatarURL())),
+			discord.NewActionRow(b.updateRatingForLeaderComponent(leader.ID)),
 			discord.NewLargeSeparator(),
 			discord.NewActionRow().WithComponents(
 				discord.NewPrimaryButton("Back", "/leaders"),
@@ -264,15 +327,19 @@ func renderLeaderDetails(buffer io.Writer, leader generated.Leader) error {
 	md := md.NewMarkdown(buffer)
 
 	emoji := leader.DiscordEmojiString.String
+	tier, err := ci6ndex.GetTierByValue(leader.Tier)
+	if err != nil {
+		return err
+	}
 
 	// Create a more detailed leader profile
 	mdBuilder := md.H1(emoji+" "+leader.LeaderName+" OF "+leader.CivName).
-		H2f("**Tier**: %.1f", leader.Tier)
+		H2f("**Tier**: %s", tier.Name())
 	if leader.Banned {
 		mdBuilder.PlainText("\n**Status**: " + getBannedStatus(leader.Banned))
 	}
 
-	err := mdBuilder.Build()
+	err = mdBuilder.Build()
 	if err != nil {
 		return errors.Join(err, errors.New("failed to build leader details markdown"))
 	}
@@ -296,7 +363,6 @@ func (b *Bot) leadersScreen(guildId uint64, currentOffset uint64, limit uint64) 
 		return nil, errors.Join(err, errors.New("failed to render leaders main screen"))
 	}
 
-	// Assuming GetLeadersInRange expects a 1-based offset and a limit (number of items)
 	leads, err := b.Ci6ndex.GetLeadersInRange(guildId, currentOffset, limit)
 	if err != nil {
 		return nil, errors.Join(err, fmt.Errorf("failed to fetch leaders with offset %d, limit %d", currentOffset, limit))

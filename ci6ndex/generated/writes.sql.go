@@ -145,3 +145,41 @@ func (q *Queries) ReturnOffering(ctx context.Context, arg ReturnOfferingParams) 
 	_, err := q.db.ExecContext(ctx, returnOffering, arg.PlayerID, arg.DraftID)
 	return err
 }
+
+const submitRankForPlayer = `-- name: SubmitRankForPlayer :exec
+INSERT INTO ranks (player_id, leader_id, tier)
+VALUES (?, ?, ?)
+ON CONFLICT (leader_id, player_id)
+DO UPDATE SET
+    tier = excluded.tier,
+    updated_at = CURRENT_TIMESTAMP
+`
+
+type SubmitRankForPlayerParams struct {
+	PlayerID int64
+	LeaderID int64
+	Tier     float64
+}
+
+func (q *Queries) SubmitRankForPlayer(ctx context.Context, arg SubmitRankForPlayerParams) error {
+	_, err := q.db.ExecContext(ctx, submitRankForPlayer, arg.PlayerID, arg.LeaderID, arg.Tier)
+	return err
+}
+
+const updateLeaderTier = `-- name: UpdateLeaderTier :exec
+;
+
+UPDATE leaders 
+SET tier = ?
+WHERE id = ?
+`
+
+type UpdateLeaderTierParams struct {
+	Tier float64
+	ID   int64
+}
+
+func (q *Queries) UpdateLeaderTier(ctx context.Context, arg UpdateLeaderTierParams) error {
+	_, err := q.db.ExecContext(ctx, updateLeaderTier, arg.Tier, arg.ID)
+	return err
+}

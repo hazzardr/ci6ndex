@@ -20,6 +20,78 @@ func (q *Queries) GetActiveDraft(ctx context.Context) (Draft, error) {
 	return i, err
 }
 
+const getAllRanks = `-- name: GetAllRanks :many
+SELECT id, leader_id, player_id, tier, updated_at
+FROM ranks r
+`
+
+func (q *Queries) GetAllRanks(ctx context.Context) ([]Rank, error) {
+	rows, err := q.db.QueryContext(ctx, getAllRanks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Rank
+	for rows.Next() {
+		var i Rank
+		if err := rows.Scan(
+			&i.ID,
+			&i.LeaderID,
+			&i.PlayerID,
+			&i.Tier,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllRanksForLeader = `-- name: GetAllRanksForLeader :many
+SELECT
+    r.player_id,
+    r.tier,
+    r.leader_id  
+FROM ranks r
+WHERE r.leader_id = ?
+`
+
+type GetAllRanksForLeaderRow struct {
+	PlayerID int64
+	Tier     float64
+	LeaderID int64
+}
+
+func (q *Queries) GetAllRanksForLeader(ctx context.Context, leaderID int64) ([]GetAllRanksForLeaderRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllRanksForLeader, leaderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllRanksForLeaderRow
+	for rows.Next() {
+		var i GetAllRanksForLeaderRow
+		if err := rows.Scan(&i.PlayerID, &i.Tier, &i.LeaderID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getEligibleLeaders = `-- name: GetEligibleLeaders :many
 SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM leaders WHERE banned = false
 `

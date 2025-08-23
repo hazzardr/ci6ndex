@@ -41,3 +41,15 @@ SELECT *
 FROM leaders l
 ORDER BY l.leader_name
 LIMIT ? OFFSET ?;
+
+-- name: GetAllRanks :many
+SELECT *
+FROM ranks r;
+
+-- name: GetAllRanksForLeader :many
+SELECT
+    r.player_id,
+    r.tier,
+    r.leader_id  
+FROM ranks r
+WHERE r.leader_id = ?;
