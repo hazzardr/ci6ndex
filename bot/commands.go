@@ -6,6 +6,7 @@ var Commands = []discord.ApplicationCommandCreate{
 	pingCommand,
 	checkLeaders,
 	startDraft,
+	getLeader,
 }
 
 var startDraft = discord.SlashCommandCreate{
@@ -23,9 +24,14 @@ var getLeader = discord.SlashCommandCreate{
 	Description: "Get details about a specific leader",
 	Options: []discord.ApplicationCommandOption{
 		discord.ApplicationCommandOptionString{
-			Name:        "search",
-			Description: "Term to search by: Can be partial name of civ or name",
-			Required:    true,
+			Name:        "leader-name",
+			Description: "name of leader to search for",
+			Required:    false,
+		},
+		discord.ApplicationCommandOptionString{
+			Name:        "civ-name",
+			Description: "name of civ to search for",
+			Required:    false,
 		},
 	},
 }

@@ -60,6 +60,7 @@ func (b *Bot) Configure() error {
 		r.ButtonComponent("/confirm-roll", b.handleConfirmRoll())
 		r.ButtonComponent("/confirm-roll-draft", b.handleConfirmRollDraft())
 	})
+	r.SlashCommand("/leader", b.handleSearchLeaderSlashCommand())
 	r.Route("/leaders", func(r handler.Router) {
 		// r.Use(middleware.Logger)
 		r.SlashCommand("/", b.handleManageLeadersSlashCommand())

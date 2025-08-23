@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -98,6 +99,97 @@ func (b *Bot) handleManageLeaders(id, guildID string, page uint64) (*[]discord.L
 		return nil, err
 	}
 	return &r, nil
+}
+
+func (b *Bot) handleSearchLeaderSlashCommand() handler.SlashCommandHandler {
+	return func(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
+		searchLeader := data.String("leader-name")
+		searchCiv := data.String("civ-name")
+		slog.Info("handleLeaderDetails", "leaderSearch", searchLeader, "civSearch", searchCiv)
+
+		flags := discord.MessageFlagEphemeral
+
+		if searchLeader == "" && searchCiv == "" {
+			err := e.CreateMessage(discord.NewMessageCreateBuilder().
+				AddFlags(flags).
+				SetContent("Invalid search, must specify leader or civ").
+				Build())
+			return err
+		}
+
+		guildID, err := parseGuildId(e.GuildID().String())
+		if err != nil {
+			return err
+		}
+
+		leaders, err := b.Leaders(guildID)
+		if err != nil {
+			return err
+		}
+
+		foundLeaders := make([]generated.Leader, 0)
+		seen := make(map[int64]bool)
+
+		if searchCiv != "" {
+			for _, l := range leaders {
+				if strings.Contains(l.CivName, strings.ToUpper(searchCiv)) && !seen[l.ID] {
+					seen[l.ID] = true
+					foundLeaders = append(foundLeaders, l)
+				}
+			}
+		}
+
+		if searchLeader != "" {
+			for _, l := range leaders {
+				if strings.Contains(l.LeaderName, strings.ToUpper(searchLeader)) && !seen[l.ID] {
+					seen[l.ID] = true
+					foundLeaders = append(foundLeaders, l)
+				}
+			}
+		}
+
+		slices.SortFunc(foundLeaders, func(l1, l2 generated.Leader) int {
+			return strings.Compare(l1.LeaderName, l2.LeaderName)
+		})
+		var header bytes.Buffer
+		err = renderLeadersMainScreen(&header)
+		if err != nil {
+			return errors.Join(err, errors.New("failed to render leaders main screen"))
+		}
+		body, err := b.leadersBody(guildID, foundLeaders)
+		if err != nil {
+			return err
+		}
+
+		me, _ := b.Client.Caches.SelfUser()
+
+		layout := discord.NewContainer().AddComponents(
+			discord.NewSection(
+				discord.NewTextDisplay(header.String()),
+			).WithAccessory(discord.NewThumbnail(me.EffectiveAvatarURL())),
+			discord.NewLargeSeparator()).
+			AddComponents(body...).
+			AddComponents(
+				discord.NewLargeSeparator(),
+			).
+			WithAccentColor(colorSuccess)
+
+		flags = flags.Add(discord.MessageFlagIsComponentsV2)
+		err = e.CreateMessage(discord.NewMessageCreateBuilder().
+			AddFlags(flags).
+			SetComponents(layout).
+			Build(),
+		)
+
+		if err != nil {
+			slog.Error("Failed to create leader details screen", "error", err)
+			desc, ok := errorDescription(err)
+			if ok {
+				slog.Error(desc)
+			}
+		}
+		return nil
+	}
 }
 
 func (b *Bot) handleLeaderDetailsButtonCommand() handler.ButtonComponentHandler {
@@ -250,6 +342,7 @@ func (b *Bot) handleManageLeadersSlashCommand() handler.SlashCommandHandler {
 		return nil
 	}
 }
+
 func (bot *Bot) updateRatingForLeaderComponent(leaderID int64) discord.StringSelectMenuComponent {
 	opts := make([]discord.StringSelectMenuOption, 5)
 
@@ -281,6 +374,7 @@ func (bot *Bot) updateRatingForLeaderComponent(leaderID int64) discord.StringSel
 
 	return discord.NewStringSelectMenu(fmt.Sprintf("/leaders/%d/rating", leaderID), "Update rating...", opts...)
 }
+
 func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]discord.LayoutComponent, error) {
 	me, _ := b.Client.Caches.SelfUser()
 
@@ -354,20 +448,7 @@ func getBannedStatus(banned bool) string {
 	return "✅ Available for draft"
 }
 
-func (b *Bot) leadersScreen(guildId uint64, currentOffset uint64, limit uint64) ([]discord.LayoutComponent, error) {
-	me, _ := b.Client.Caches.SelfUser()
-
-	var leadersHeader bytes.Buffer
-	err := renderLeadersMainScreen(&leadersHeader)
-	if err != nil {
-		return nil, errors.Join(err, errors.New("failed to render leaders main screen"))
-	}
-
-	leads, err := b.Ci6ndex.GetLeadersInRange(guildId, currentOffset, limit)
-	if err != nil {
-		return nil, errors.Join(err, fmt.Errorf("failed to fetch leaders with offset %d, limit %d", currentOffset, limit))
-	}
-
+func (b *Bot) leadersBody(guildID uint64, leads []generated.Leader) ([]discord.ContainerSubComponent, error) {
 	leaderRows := make([]discord.ContainerSubComponent, len(leads))
 	for i, leader := range leads {
 		var leaderRow bytes.Buffer
@@ -388,6 +469,27 @@ func (b *Bot) leadersScreen(guildId uint64, currentOffset uint64, limit uint64) 
 			"Details",
 			leaderRoute,
 		))
+	}
+
+	return leaderRows, nil
+}
+func (b *Bot) leadersScreen(guildId uint64, currentOffset uint64, limit uint64) ([]discord.LayoutComponent, error) {
+	me, _ := b.Client.Caches.SelfUser()
+
+	var leadersHeader bytes.Buffer
+	err := renderLeadersMainScreen(&leadersHeader)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to render leaders main screen"))
+	}
+
+	leads, err := b.Ci6ndex.GetLeadersInRange(guildId, currentOffset, limit)
+	if err != nil {
+		return nil, errors.Join(err, fmt.Errorf("failed to fetch leaders with offset %d, limit %d", currentOffset, limit))
+	}
+
+	leaderRows, err := b.leadersBody(guildId, leads)
+	if err != nil {
+		return nil, err
 	}
 
 	layout := []discord.LayoutComponent{
