@@ -4,7 +4,6 @@ VALUES
     ('AMERICA', 'ABE','<:Abraham_Lincoln_Civ6:1229388680745975868>',true, 1.33),
     ('AMERICA', 'BULLMOOSE TEDDY','<:Teddy_Roosevelt_Civ6:1229599575476670605>',false, 2),
     ('AMERICA', 'ROUGH RIDER TEDDY','<:Teddy_Roosevelt_Rough_Rider_Civ6:1229599578014093353>',false, 3.33),
-    ('AMERICA', 'TEDDY','<:Teddy_Roosevelt_Civ6:1229599575476670605>',false, 3),
     ('ARABIA', 'SALADIN SULTAN','<:Saladin_Sultan_Civ6:1229599470434648084>',false, 2.6),
     ('ARABIA', 'SALADIN VIZIR','<:Saladin_Civ6:1229599467381194792>',false, 2.75),
     ('AUSTRALIA', 'JOHN CURTIN','<:John_Curtin_Civ6:1229389046241951795>',false, 1.88),
