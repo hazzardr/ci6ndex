@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+type Document struct {
+	ID       int64
+	LeaderID int64
+	DocName  string
+	Link     string
+}
+
 type Draft struct {
 	ID     int64
 	Active bool

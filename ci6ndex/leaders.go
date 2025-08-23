@@ -63,3 +63,21 @@ func (c *Ci6ndex) GetLeaderById(guildId uint64, leaderId uint64) (generated.Lead
 
 	return leader, nil
 }
+
+func (c *Ci6ndex) GetDocumentsForLeader(guildID uint64, leaderID int64) ([]generated.Document, error) {
+	db, err := c.getDB(guildID)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	docs, err := db.Queries.GetDocumentsForLeader(ctx, leaderID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return make([]generated.Document, 0), nil
+		}
+		return nil, err
+	}
+	return docs, nil
+}

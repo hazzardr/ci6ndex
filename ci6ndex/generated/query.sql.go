@@ -92,6 +92,41 @@ func (q *Queries) GetAllRanksForLeader(ctx context.Context, leaderID int64) ([]G
 	return items, nil
 }
 
+const getDocumentsForLeader = `-- name: GetDocumentsForLeader :many
+SELECT
+    d.id, d.leader_id, d.doc_name, d.link
+FROM documents d
+WHERE d.leader_id = ?
+`
+
+func (q *Queries) GetDocumentsForLeader(ctx context.Context, leaderID int64) ([]Document, error) {
+	rows, err := q.db.QueryContext(ctx, getDocumentsForLeader, leaderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Document
+	for rows.Next() {
+		var i Document
+		if err := rows.Scan(
+			&i.ID,
+			&i.LeaderID,
+			&i.DocName,
+			&i.Link,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getEligibleLeaders = `-- name: GetEligibleLeaders :many
 SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM leaders WHERE banned = false
 `

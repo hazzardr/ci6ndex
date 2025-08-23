@@ -53,3 +53,9 @@ SELECT
     r.leader_id  
 FROM ranks r
 WHERE r.leader_id = ?;
+
+-- name: GetDocumentsForLeader :many
+SELECT
+    d.*
+FROM documents d
+WHERE d.leader_id = ?;

@@ -209,7 +209,6 @@ func (b *Bot) handleLeaderDetailsButtonCommand() handler.ButtonComponentHandler 
 			return errors.Join(err, errors.New("failed to parse guild ID"))
 		}
 
-		// Get leader details from database
 		leader, err := b.Ci6ndex.GetLeaderById(guildId, uint64(lid))
 		if err != nil {
 			return errors.Join(err, fmt.Errorf("failed to fetch leader with ID %d", lid))
@@ -343,7 +342,25 @@ func (b *Bot) handleManageLeadersSlashCommand() handler.SlashCommandHandler {
 	}
 }
 
-func (bot *Bot) updateRatingForLeaderComponent(leaderID int64) discord.StringSelectMenuComponent {
+func (b *Bot) documentsForLeaderComponent(guildID uint64, leaderID int64) ([]discord.InteractiveComponent, error) {
+	docs, err := b.Ci6ndex.GetDocumentsForLeader(guildID, leaderID)
+	if err != nil {
+		return nil, err
+	}
+	if len(docs) == 0 {
+		return nil, fmt.Errorf("no documents found for leader=%d", leaderID)
+	}
+	if len(docs) >= 5 {
+		return nil, fmt.Errorf("unable to build document action row, exceeds max buttons #: %d", len(docs))
+	}
+	buttons := make([]discord.InteractiveComponent, len(docs))
+	for i, d := range docs {
+		buttons[i] = discord.NewLinkButton(d.DocName, d.Link)
+	}
+	return buttons, nil
+}
+
+func (b *Bot) updateRatingForLeaderComponent(leaderID int64) discord.StringSelectMenuComponent {
 	opts := make([]discord.StringSelectMenuOption, 5)
 
 	opts[0] = discord.StringSelectMenuOption{
@@ -378,10 +395,17 @@ func (bot *Bot) updateRatingForLeaderComponent(leaderID int64) discord.StringSel
 func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]discord.LayoutComponent, error) {
 	me, _ := b.Client.Caches.SelfUser()
 
-	var detailsBuffer bytes.Buffer
-	err := renderLeaderDetails(&detailsBuffer, leader)
+	// Header
+	var headerBuf bytes.Buffer
+	err := renderLeaderDetails(&headerBuf, leader)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to render leader details"))
+	}
+
+	// Middle section
+	documentButtons, err := b.documentsForLeaderComponent(guildId, leader.ID)
+	if err != nil {
+		return nil, err
 	}
 
 	// Bottom row buttons
@@ -399,17 +423,24 @@ func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]di
 
 	nextButton := discord.NewSecondaryButton("Next", fmt.Sprintf("/leaders/%d", next.ID)).
 		WithEmoji(discord.ComponentEmoji{Name: "➡️"})
+
+	refreshButton := discord.NewSecondaryButton("Refresh", fmt.Sprintf("/leaders/%d", leader.ID)).
+		WithEmoji(discord.ComponentEmoji{Name: "🔄"})
 	layout := []discord.LayoutComponent{
 		discord.NewContainer().AddComponents(
 			discord.NewSection(
-				discord.NewTextDisplay(detailsBuffer.String()),
+				discord.NewTextDisplay(headerBuf.String()),
 			).WithAccessory(discord.NewThumbnail(me.EffectiveAvatarURL())),
 			discord.NewActionRow(b.updateRatingForLeaderComponent(leader.ID)),
+			discord.NewSmallSeparator(),
+			discord.NewTextDisplay("### Relevant Links"),
+			discord.NewActionRow(documentButtons...),
 			discord.NewLargeSeparator(),
 			discord.NewActionRow().WithComponents(
 				discord.NewPrimaryButton("Back", "/leaders"),
 				prevButton,
 				nextButton,
+				refreshButton,
 			)).
 			WithAccentColor(colorSuccess),
 	}
