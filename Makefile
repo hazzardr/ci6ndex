@@ -97,4 +97,4 @@ prod/deploy:
 
 .PHONY: prod/logs  ## View logs from the deployed container
 prod/logs:
-	ssh ${SSH_USER}@${DEPLOY_TARGET_IP} 'cd ~/docker/${PROJECT_NAME} && docker compose logs -f'
+	ssh ${SSH_USER}@${DEPLOY_TARGET_IP} 'cd ~/docker/${PROJECT_NAME} && sudo docker compose logs -f'
