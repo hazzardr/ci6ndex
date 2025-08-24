@@ -1,37 +1,66 @@
-# ci6ndex
+# CI6NDEX
 
-### What is it?
+A Discord bot for managing Civilization VI games with features for drafting leaders, rolling civs, and team management.
 
-This repository is a tool for managing our weekly civ 6 games. Features include:
-* Discord bot to manage drafts and roll civs
-* CLI commands for bot management (`serve` and `sync`)
+![](docs/draft_manage.png)
+![](docs/leaders.png)
+![](docs/leader_details.png)
 
-## Libraries and Tools Used
+## Features
 
-- **Kong**: Command-line interface parser and handler.
-- **env**: A library for environment-based configuration management.
-- **SQLite**: The database engine used for storing data.
-- **goose**: Database migration tool.
-- **Disgo**: A Discord library for Go.
-- **charmbracelet/log**: Logging library.
+- Discord bot with slash commands for:
+  - Leader drafting and information
+  - Civ rolling
+  - Team management (in development)
+- SQLite database for persistent storage
+- Docker deployment support
 
-## Local development
+## Setup
 
-### Needed locally:
-* .env
-  * `DISCORD_API_TOKEN`
-  * `DISCORD_BOT_APPLICATION_ID`
-  * `GUILD_IDS`
+### Requirements
 
-### How do I get set up?
+- Go 1.25+
+- SQLite
+- Discord bot token and application ID
 
-`make` will provide a list of commands to run.
+### Environment Variables
 
-### CLI Commands
+Create a `.env` file with:
 
-The application provides a CLI with the following commands:
-- `./civ bot serve` - Start the bot server
-- `./civ bot sync` - Synchronize bot data
+```
+DISCORD_API_TOKEN=your_token
+DISCORD_BOT_APPLICATION_ID=your_app_id
+GUILD_IDS=comma_separated_guild_ids
+```
 
-## TODO:
-* https://github.com/hazzardr/ci6ndex/issues
+## Development
+
+```bash
+# List available commands
+make
+
+# Build the project
+make build
+
+# Run locally
+make run
+
+# Sync Discord commands
+make sync
+
+# Generate database models
+make generate
+
+# Build Docker image
+make docker
+```
+
+## Deployment
+
+```bash
+# Deploy to production
+make prod/deploy
+
+# View logs
+make prod/logs
+```
