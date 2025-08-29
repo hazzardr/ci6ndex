@@ -205,3 +205,8 @@ func FilterGuildMiddleware(guildID snowflake.ID) handler.Middleware {
 func (b *Bot) background(fn func()) {
 	b.wg.Go(fn)
 }
+
+func (b *Bot) SyncRankings() error {
+	return b.Ci6ndex.
+	
+}

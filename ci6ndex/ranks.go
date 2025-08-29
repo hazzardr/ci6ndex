@@ -115,3 +115,8 @@ func (c *Ci6ndex) CalculateTiers(guildID uint64) error {
 	err = eg.Wait()
 	return err
 }
+
+func (c *Ci6ndex) SyncRanksFromSheet(guildID string) error {
+	c.sheets.
+}
+

@@ -32,3 +32,4 @@ bin/
 civ
 .aider*
 .crush/
+google_client_secret.json

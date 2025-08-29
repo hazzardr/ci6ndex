@@ -1,7 +1,9 @@
 package ci6ndex
 
 import (
+	"ci6ndex/external"
 	"embed"
+	"fmt"
 	"os"
 	"time"
 
@@ -11,9 +13,10 @@ import (
 type Ci6ndex struct {
 	Connections map[uint64]*DB
 	Path        string
+	sheets      *external.GoogleSheets
 }
 
-func New(embedMigrations embed.FS) (*Ci6ndex, error) {
+func New(embedMigrations embed.FS, oauth2FileLocation string) (*Ci6ndex, error) {
 	logger := log.NewWithOptions(os.Stderr, log.Options{
 		ReportCaller:    true,
 		ReportTimestamp: true,
@@ -39,8 +42,14 @@ func New(embedMigrations embed.FS) (*Ci6ndex, error) {
 		}
 	}
 
+	sheets, err := external.NewGoogleSheets(oauth2FileLocation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure google sheets client: %w", err)
+	}
+
 	return &Ci6ndex{
 		Connections: connections,
 		Path:        dataPath,
+		sheets:      sheets,
 	}, nil
 }

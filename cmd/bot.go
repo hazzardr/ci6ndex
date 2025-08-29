@@ -10,6 +10,7 @@ import (
 
 type ServeCommand struct{}
 type SyncCommand struct{}
+
 type Bot struct {
 	Serve ServeCommand `cmd:"" help:"Start the Discord Bot"`
 	Sync  SyncCommand  `cmd:"" help:"Sync the Discord Bot Application Commands"`

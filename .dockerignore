@@ -10,3 +10,4 @@ docker-compose.yml
 .github/
 Makefile
 sqlc.yaml
+google_client_secret.json
