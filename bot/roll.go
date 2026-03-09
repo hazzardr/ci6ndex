@@ -3,9 +3,10 @@ package bot
 import (
 	"ci6ndex/ci6ndex"
 	"fmt"
+	"log/slog"
+
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
-	"log/slog"
 )
 
 func (b *Bot) handleConfirmRollDraft() handler.ButtonComponentHandler {
@@ -25,7 +26,7 @@ func (b *Bot) handleConfirmRollDraft() handler.ButtonComponentHandler {
 		if err != nil {
 			return err
 		}
-		
+
 		players, err := b.Ci6ndex.GetPlayersFromActiveDraft(guild)
 		if err != nil {
 			return err
@@ -36,6 +37,8 @@ func (b *Bot) handleConfirmRollDraft() handler.ButtonComponentHandler {
 		}
 		var rules = make([]ci6ndex.Rule, 0)
 		rules = append(rules, &ci6ndex.MinTierRule{MinTier: 3})
+		rules = append(rules, &ci6ndex.NoOpRule{})
+		rules = append(rules, &ci6ndex.NoOpRule{})
 		rules = append(rules, &ci6ndex.NoOpRule{})
 		rules = append(rules, &ci6ndex.NoOpRule{})
 		offers, err := b.Ci6ndex.RollForPlayers(

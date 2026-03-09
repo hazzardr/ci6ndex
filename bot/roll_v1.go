@@ -5,14 +5,15 @@ import (
 	"ci6ndex/ci6ndex/generated"
 	"context"
 	"database/sql"
+	"log/slog"
+
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/handler"
 	"github.com/pkg/errors"
-	"log/slog"
 )
 
 const (
-	DefaultPoolSize = 3
+	DefaultPoolSize = 5
 )
 
 func HandleRollCivs(c *Bot) handler.CommandHandler {
