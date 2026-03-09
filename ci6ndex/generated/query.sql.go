@@ -21,7 +21,7 @@ func (q *Queries) GetActiveDraft(ctx context.Context) (Draft, error) {
 }
 
 const getAllRanks = `-- name: GetAllRanks :many
-SELECT id, leader_id, player_id, tier, updated_at
+SELECT id, leader_id, player_id, tier, updated_at, bbg
 FROM ranks r
 `
 
@@ -40,6 +40,7 @@ func (q *Queries) GetAllRanks(ctx context.Context) ([]Rank, error) {
 			&i.PlayerID,
 			&i.Tier,
 			&i.UpdatedAt,
+			&i.Bbg,
 		); err != nil {
 			return nil, err
 		}

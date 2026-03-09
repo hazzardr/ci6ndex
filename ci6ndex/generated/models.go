@@ -60,4 +60,5 @@ type Rank struct {
 	PlayerID  int64
 	Tier      float64
 	UpdatedAt time.Time
+	Bbg       bool
 }

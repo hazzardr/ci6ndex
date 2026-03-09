@@ -31,4 +31,5 @@ token.json
 bin/
 civ
 .aider*
+google_client_secret.json
 .crush/

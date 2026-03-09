@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/pkg/errors"
-	goose "github.com/pressly/goose/v3"
 	"log/slog"
 	"os"
 	"strconv"
+
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/pkg/errors"
+	goose "github.com/pressly/goose/v3"
 )
 
 type DB struct {
@@ -52,6 +53,13 @@ func (c *Ci6ndex) openNewConnection(path string, guildId uint64) (*DB, error) {
 		return nil, errors.Wrap(err, "failed to initialize database connection.")
 	}
 
+	err = c.migrateUp(writeConn)
+	if err != nil {
+		return nil, errors.Wrap(
+			err,
+			fmt.Sprintf("failed to run database migrations for guild %d", guildId),
+		)
+	}
 	// sqlite does not support multiple write Connections
 	writeConn.SetMaxOpenConns(1)
 	return &DB{
