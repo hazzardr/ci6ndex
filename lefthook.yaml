@@ -1,0 +1,39 @@
+# Lefthook configuration
+# Install hooks: lefthook install
+# Docs: https://github.com/evilmartians/lefthook
+
+commit-msg:
+  commands:
+    conventional-commits:
+      run: |
+        MSG_FILE="{1}"
+        MSG=$(head -n1 "$MSG_FILE")
+
+        # Conventional commit regex
+        # Matches: type: description
+        #          type(scope): description
+        #          type!: description
+        #          type(scope)!: description
+        PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?(!)?: .+'
+
+        if ! echo "$MSG" | grep -qE "$PATTERN"; then
+          echo ""
+          echo "❌ Invalid commit message."
+          echo ""
+          echo "Commit message must follow Conventional Commits specification:"
+          echo "  <type>[(optional-scope)][!]: <description>"
+          echo ""
+          echo "Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+          echo ""
+          echo "Examples:"
+          echo "  feat: add user authentication"
+          echo "  fix(api): resolve null pointer exception"
+          echo "  docs(readme): update installation instructions"
+          echo "  refactor!: remove deprecated endpoints"
+          echo ""
+          exit 1
+        fi
+
+      skip:
+        - merge
+        - squash
