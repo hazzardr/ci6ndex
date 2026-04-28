@@ -189,7 +189,7 @@ func FilterGuildMiddleware(guildID snowflake.ID) handler.Middleware {
 				slog.Debug("DROP event", "reason", "only serve guild messages", "event", event)
 				return nil
 			}
-			if !(*event.GuildID() == guildID) {
+			if *event.GuildID() != guildID {
 				slog.Info("DROP event", "reason", "guild id does not match this deployment", "allowedGuildID", guildID, "event", event)
 				return nil
 			}

@@ -24,10 +24,7 @@ type MinTierRule struct {
 }
 
 func (r *MinTierRule) IsValid(player generated.Player, leader generated.Leader) bool {
-	if leader.Tier <= r.MinTier {
-		return true
-	}
-	return false
+	return leader.Tier <= r.MinTier
 }
 
 func (r *MinTierRule) Filter(player generated.Player, leaders []generated.Leader) []generated.Leader {
