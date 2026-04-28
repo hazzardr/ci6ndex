@@ -1,10 +1,11 @@
 package bot
 
 import (
-	"github.com/disgoorg/disgo/discord"
-	"github.com/disgoorg/disgo/handler"
 	"log/slog"
 	"time"
+
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/handler"
 )
 
 func HandlePing(_ discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
@@ -13,23 +14,25 @@ func HandlePing(_ discord.SlashCommandInteractionData, e *handler.CommandEvent) 
 		gatewayPing = e.Client().Gateway.Latency().String()
 	}
 
-	eb := discord.NewEmbedBuilder().
-		SetTitle("Pong!").
+	eb := discord.NewEmbed().
+		WithTitle("Pong!").
 		AddField("Rest", "loading...", false).
 		AddField("Gateway", gatewayPing, false).
-		SetColor(colorSuccess)
+		WithColor(colorSuccess)
 	defer func() {
 		start := time.Now().UnixNano()
 		_, _ = e.Client().Rest.GetBotApplicationInfo()
 		duration := time.Now().UnixNano() - start
-		eb.SetField(0, "Round Trip", time.Duration(duration).String(), false)
-		if _, err := e.Client().Rest.UpdateInteractionResponse(e.ApplicationID(), e.Token(), discord.MessageUpdate{Embeds: &[]discord.Embed{eb.Build()}}); err != nil {
-			slog.Error("Failed to update ping embed: ", slog.Any("err", err))
+		eb.AddField("Round Trip", time.Duration(duration).String(), false)
+		if _, err := e.Client().Rest.UpdateInteractionResponse(
+			e.ApplicationID(),
+			e.Token(),
+			discord.MessageUpdate{Embeds: &[]discord.Embed{eb}},
+		); err != nil {
+			slog.Error("failed to update ping embed: ", slog.Any("err", err))
 		}
 	}()
-	return e.Respond(discord.InteractionResponseTypeCreateMessage, discord.NewMessageCreateBuilder().
-		SetEmbeds(eb.Build()).
-		Build(),
+	return e.Respond(discord.InteractionResponseTypeCreateMessage, discord.NewMessageCreateV2().
+		WithEmbeds(eb),
 	)
-
 }

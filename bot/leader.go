@@ -110,10 +110,9 @@ func (b *Bot) handleSearchLeaderSlashCommand() handler.SlashCommandHandler {
 		flags := discord.MessageFlagEphemeral
 
 		if searchLeader == "" && searchCiv == "" {
-			err := e.CreateMessage(discord.NewMessageCreateBuilder().
+			err := e.CreateMessage(discord.NewMessageCreateV2().
 				AddFlags(flags).
-				SetContent("Invalid search, must specify leader or civ").
-				Build())
+				WithContent("Invalid search, must specify leader or civ"))
 			return err
 		}
 
@@ -175,11 +174,9 @@ func (b *Bot) handleSearchLeaderSlashCommand() handler.SlashCommandHandler {
 			WithAccentColor(colorSuccess)
 
 		flags = flags.Add(discord.MessageFlagIsComponentsV2)
-		err = e.CreateMessage(discord.NewMessageCreateBuilder().
+		err = e.CreateMessage(discord.NewMessageCreateV2().
 			AddFlags(flags).
-			SetComponents(layout).
-			Build(),
-		)
+			WithComponents(layout))
 
 		if err != nil {
 			slog.Error("Failed to create leader details screen", "error", err)

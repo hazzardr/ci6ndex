@@ -57,7 +57,7 @@ func (b *Bot) Configure() error {
 		r.ButtonComponent("/create-draft", b.handleCreateDraft())
 	})
 	r.Group(func(r handler.Router) {
-		r.ButtonComponent("/confirm-roll", b.handleConfirmRoll())
+		// r.ButtonComponent("/confirm-roll", b.handleConfirmRoll())
 		r.ButtonComponent("/confirm-roll-draft", b.handleConfirmRollDraft())
 	})
 	r.SlashCommand("/leader", b.handleSearchLeaderSlashCommand())
@@ -70,7 +70,7 @@ func (b *Bot) Configure() error {
 		r.SelectMenuComponent("/{leaderId}/rating", b.handleRateLeaderMenuSelectCommand())
 	})
 
-	r.SelectMenuComponent("/select-player", b.handlePlayerSelect())
+	// r.SelectMenuComponent("/select-player", b.handlePlayerSelect())
 	//r.ButtonComponent("/game/latest", HandleViewLatestCompletedGame(b))
 
 	var err error
@@ -82,7 +82,6 @@ func (b *Bot) Configure() error {
 				gateway.IntentGuilds,
 				gateway.IntentDirectMessages,
 			),
-			gateway.WithCompress(true),
 			gateway.WithPresenceOpts(
 				gateway.WithPlayingActivity("loading..."),
 			),

@@ -53,6 +53,10 @@ build:
 	@go build -o ./bin/$(EXEC_NAME) .
 	@echo "Done!"
 
+.PHONY: lint ## lint the project
+lint:
+	@golangci-lint run ./...
+
 .PHONY: docker ## build the docker image
 docker:
 	docker build -t $(PROJECT_NAME):latest .
