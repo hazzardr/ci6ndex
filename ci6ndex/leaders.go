@@ -24,6 +24,9 @@ func (c *Ci6ndex) GetLeaders(guildId uint64) ([]generated.Leader, error) {
 		return nil, errors.Join(err, errors.New("failed to query leaders"))
 	}
 	slices.SortFunc(leaders, func(l1, l2 generated.Leader) int {
+		if cmp := strings.Compare(l1.CivName, l2.CivName); cmp != 0 {
+			return cmp
+		}
 		return strings.Compare(l1.LeaderName, l2.LeaderName)
 	})
 	return leaders, nil

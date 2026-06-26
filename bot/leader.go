@@ -148,6 +148,9 @@ func (b *Bot) handleSearchLeaderSlashCommand() handler.SlashCommandHandler {
 		}
 
 		slices.SortFunc(foundLeaders, func(l1, l2 generated.Leader) int {
+			if cmp := strings.Compare(l1.CivName, l2.CivName); cmp != 0 {
+				return cmp
+			}
 			return strings.Compare(l1.LeaderName, l2.LeaderName)
 		})
 		var header bytes.Buffer
@@ -449,13 +452,13 @@ func renderLeaderDetails(buffer io.Writer, leader generated.Leader) error {
 	md := md.NewMarkdown(buffer)
 
 	emoji := leader.DiscordEmojiString.String
-	tier, err := ci6ndex.GetTierByValue(leader.Tier)
+	tier, err := ci6ndex.GetTierForLeader(leader)
 	if err != nil {
 		return err
 	}
 
 	// Create a more detailed leader profile
-	mdBuilder := md.H1(emoji+" "+leader.LeaderName+" OF "+leader.CivName).
+	mdBuilder := md.H1(emoji+" "+leaderDisplayName(leader)+" of "+leader.CivName).
 		H2f("**Tier**: %s", tier.Name())
 	if leader.Banned {
 		mdBuilder.PlainText("\n**Status**: " + getBannedStatus(leader.Banned))
@@ -476,12 +479,19 @@ func getBannedStatus(banned bool) string {
 	return "✅ Available for draft"
 }
 
+func leaderDisplayName(leader generated.Leader) string {
+	if leader.FriendlyName.Valid && leader.FriendlyName.String != "" {
+		return leader.FriendlyName.String
+	}
+	return leader.LeaderName
+}
+
 func (b *Bot) leadersBody(guildID uint64, leads []generated.Leader) ([]discord.ContainerSubComponent, error) {
 	leaderRows := make([]discord.ContainerSubComponent, len(leads))
 	for i, leader := range leads {
 		var leaderRow bytes.Buffer
 		err := md.NewMarkdown(&leaderRow).
-			H1(leader.DiscordEmojiString.String + fmt.Sprintf(" %s ", leader.LeaderName)).
+			H1(leader.DiscordEmojiString.String + fmt.Sprintf(" %s ", leaderDisplayName(leader))).
 			Build()
 		if err != nil {
 			return nil, errors.Join(err, fmt.Errorf("failed to build leader: %v", leader))

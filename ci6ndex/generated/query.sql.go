@@ -129,7 +129,7 @@ func (q *Queries) GetDocumentsForLeader(ctx context.Context, leaderID int64) ([]
 }
 
 const getEligibleLeaders = `-- name: GetEligibleLeaders :many
-SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM leaders WHERE banned = false
+SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier, friendly_name, unranked FROM leaders WHERE banned = false
 `
 
 func (q *Queries) GetEligibleLeaders(ctx context.Context) ([]Leader, error) {
@@ -148,6 +148,8 @@ func (q *Queries) GetEligibleLeaders(ctx context.Context) ([]Leader, error) {
 			&i.DiscordEmojiString,
 			&i.Banned,
 			&i.Tier,
+			&i.FriendlyName,
+			&i.Unranked,
 		); err != nil {
 			return nil, err
 		}
@@ -163,7 +165,7 @@ func (q *Queries) GetEligibleLeaders(ctx context.Context) ([]Leader, error) {
 }
 
 const getLeaderById = `-- name: GetLeaderById :one
-SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier
+SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier, friendly_name, unranked
 FROM leaders l
 WHERE l.id = ?
 `
@@ -178,12 +180,15 @@ func (q *Queries) GetLeaderById(ctx context.Context, id int64) (Leader, error) {
 		&i.DiscordEmojiString,
 		&i.Banned,
 		&i.Tier,
+		&i.FriendlyName,
+		&i.Unranked,
 	)
 	return i, err
 }
 
 const getLeaders = `-- name: GetLeaders :many
-SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier FROM leaders
+SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier, friendly_name, unranked FROM leaders
+ORDER BY civ_name, leader_name
 `
 
 func (q *Queries) GetLeaders(ctx context.Context) ([]Leader, error) {
@@ -202,6 +207,8 @@ func (q *Queries) GetLeaders(ctx context.Context) ([]Leader, error) {
 			&i.DiscordEmojiString,
 			&i.Banned,
 			&i.Tier,
+			&i.FriendlyName,
+			&i.Unranked,
 		); err != nil {
 			return nil, err
 		}
@@ -217,9 +224,9 @@ func (q *Queries) GetLeaders(ctx context.Context) ([]Leader, error) {
 }
 
 const getLeadersByLimitAndOffset = `-- name: GetLeadersByLimitAndOffset :many
-SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier
+SELECT id, civ_name, leader_name, discord_emoji_string, banned, tier, friendly_name, unranked
 FROM leaders l
-ORDER BY l.leader_name
+ORDER BY l.civ_name, l.leader_name
 LIMIT ? OFFSET ?
 `
 
@@ -244,6 +251,8 @@ func (q *Queries) GetLeadersByLimitAndOffset(ctx context.Context, arg GetLeaders
 			&i.DiscordEmojiString,
 			&i.Banned,
 			&i.Tier,
+			&i.FriendlyName,
+			&i.Unranked,
 		); err != nil {
 			return nil, err
 		}

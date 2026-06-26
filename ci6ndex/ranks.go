@@ -43,6 +43,15 @@ func (c *Ci6ndex) CalculateTierForLeader(guildID uint64, leaderID int64) error {
 		return err
 	}
 
+	leader, err := db.Queries.GetLeaderById(ctx, leaderID)
+	if err != nil {
+		return err
+	}
+	if leader.Unranked {
+		slog.Info("leader is unranked, skipping tier calculation", "guildID", guildID, "leader", leaderID)
+		return nil
+	}
+
 	ranks, err := db.Queries.GetAllRanksForLeader(ctx, leaderID)
 	if err != nil {
 		return err
@@ -91,7 +100,21 @@ func (c *Ci6ndex) CalculateTiers(guildID uint64) error {
 		ranksByLeads[r.LeaderID] = append(ranksByLeads[r.LeaderID], r)
 	}
 
+	leaders, err := db.Queries.GetLeaders(ctx)
+	if err != nil {
+		return err
+	}
+	unrankedLeaders := make(map[int64]bool)
+	for _, l := range leaders {
+		if l.Unranked {
+			unrankedLeaders[l.ID] = true
+		}
+	}
+
 	for leaderID, rs := range ranksByLeads {
+		if unrankedLeaders[leaderID] {
+			continue
+		}
 		sum := 0.0
 		for _, r := range rs {
 			sum += r.Tier

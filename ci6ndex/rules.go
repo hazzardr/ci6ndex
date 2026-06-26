@@ -24,6 +24,9 @@ type MinTierRule struct {
 }
 
 func (r *MinTierRule) IsValid(player generated.Player, leader generated.Leader) bool {
+	if leader.Unranked {
+		return false
+	}
 	return leader.Tier <= r.MinTier
 }
 

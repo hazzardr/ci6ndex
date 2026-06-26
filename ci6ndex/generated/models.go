@@ -26,6 +26,13 @@ type DraftRegistry struct {
 	DraftID  int64
 }
 
+type GameVersion struct {
+	ID          int64
+	Name        string
+	Description sql.NullString
+	Current     bool
+}
+
 type Leader struct {
 	ID                 int64
 	CivName            string
@@ -33,6 +40,8 @@ type Leader struct {
 	DiscordEmojiString sql.NullString
 	Banned             bool
 	Tier               float64
+	FriendlyName       sql.NullString
+	Unranked           bool
 }
 
 type Pick struct {

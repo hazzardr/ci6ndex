@@ -1,6 +1,7 @@
 package ci6ndex
 
 import (
+	"ci6ndex/ci6ndex/generated"
 	"fmt"
 	"math"
 )
@@ -38,6 +39,10 @@ var (
 		name:  "F 💩",
 		value: 5.0,
 	}
+	Unranked = Tier{
+		name:  "Unranked ❓",
+		value: 0.0,
+	}
 )
 
 func GetTierByName(name string) (*Tier, error) {
@@ -60,6 +65,8 @@ func GetTierByName(name string) (*Tier, error) {
 func GetTierByValue(val float64) (*Tier, error) {
 	intVal := int(math.Round(val))
 	switch intVal {
+	case 0:
+		return &Unranked, nil
 	case 1:
 		return &S, nil
 	case 2:
@@ -73,4 +80,13 @@ func GetTierByValue(val float64) (*Tier, error) {
 	default:
 		return nil, fmt.Errorf("invalid tier value: %f", val)
 	}
+}
+
+// GetTierForLeader returns the display tier for a leader, respecting the
+// unranked flag.
+func GetTierForLeader(leader generated.Leader) (*Tier, error) {
+	if leader.Unranked {
+		return &Unranked, nil
+	}
+	return GetTierByValue(leader.Tier)
 }

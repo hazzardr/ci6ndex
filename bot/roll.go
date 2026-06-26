@@ -59,7 +59,7 @@ func (b *Bot) handleConfirmRollDraft() handler.ButtonComponentHandler {
 		for i, offer := range offers {
 			leaderStr := ""
 			for _, leader := range offer.Leaders {
-				leaderStr += fmt.Sprintf("%s %s,", leader.DiscordEmojiString.String, leader.LeaderName)
+				leaderStr += fmt.Sprintf("%s %s,", leader.DiscordEmojiString.String, leaderDisplayName(leader))
 			}
 			// Strip final ,
 			leaderStr = leaderStr[:len(leaderStr)-1]

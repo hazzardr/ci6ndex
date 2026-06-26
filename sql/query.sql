@@ -1,5 +1,6 @@
 -- name: GetLeaders :many
-SELECT * FROM leaders;
+SELECT * FROM leaders
+ORDER BY civ_name, leader_name;
 
 -- name: GetLeaderById :one
 SELECT *
@@ -39,7 +40,7 @@ WHERE id = ?;
 -- name: GetLeadersByLimitAndOffset :many
 SELECT *
 FROM leaders l
-ORDER BY l.leader_name
+ORDER BY l.civ_name, l.leader_name
 LIMIT ? OFFSET ?;
 
 -- name: GetAllRanks :many
