@@ -149,7 +149,7 @@ func (q *Queries) ReturnOffering(ctx context.Context, arg ReturnOfferingParams) 
 const submitRankForPlayer = `-- name: SubmitRankForPlayer :exec
 INSERT INTO ranks (player_id, leader_id, tier)
 VALUES (?, ?, ?)
-ON CONFLICT (leader_id, player_id)
+ON CONFLICT (leader_id, player_id, bbg)
 DO UPDATE SET
     tier = excluded.tier,
     updated_at = CURRENT_TIMESTAMP

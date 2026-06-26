@@ -1,4 +1,4 @@
-FROM golang:1.25.0-alpine AS build
+FROM golang:1.26.2-alpine AS build
 RUN apk add build-base
 
 RUN mkdir /app
@@ -10,7 +10,7 @@ COPY . .
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -o ./bin/civ .
 
 # Run stage
-FROM alpine
+FROM alpine:3.21
 
 WORKDIR /app
 COPY --from=build /app/bin/civ /app/ci6ndex
