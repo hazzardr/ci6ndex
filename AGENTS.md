@@ -92,7 +92,7 @@ ci6ndex/
    `github.com/caarlos0/env/v11` parses env vars into `Config`. `.env.dev` is used for local development; `.env` is used for production / sync.
 
 9. **Deployment**  
-   Docker multi-stage build produces a static-ish binary. Production deployment is managed by Ansible in the `hosted` repository (`brihome_docker` role on the LAN 2 Docker VM). The `prod/*` mise tasks are deprecated and will be removed.
+   Docker multi-stage build produces a static-ish binary. Production deployment is managed entirely by Ansible in the `hosted` repository (`brihome_docker` role on the LAN 2 Docker VM). No deployment logic lives in this repository.
 
 ## Important Commands
 
@@ -109,9 +109,6 @@ Always prefer `mise run <task>` over raw `go` commands.
 | `mise run docker` | Build Docker image `ci6ndex:latest` |
 | `mise run update` | Update Go dependencies |
 | `mise run doctor` | Verify local dev environment (go, sqlc, docker in PATH) |
-| `mise run prod/deploy` | **Deprecated.** Deploy `docker-compose.yaml` to remote host. Use Ansible in `hosted` instead. |
-| `mise run prod/logs` | **Deprecated.** Tail remote Docker Compose logs. Use `docker logs` on the Docker VM instead. |
-| `mise run prod/connect` | **Deprecated.** SSH into deploy target. Use the `hosted` Ansible inventory instead. |
 
 ## Environment Variables
 

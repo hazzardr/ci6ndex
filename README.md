@@ -84,13 +84,3 @@ mise run generate
 # Build Docker image
 mise run docker
 ```
-
-## Deployment
-
-```bash
-# Deploy to production
-mise run prod/deploy
-
-# View logs
-mise run prod/logs
-```
