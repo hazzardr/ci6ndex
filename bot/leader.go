@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"ci6ndex/ci6ndex"
 	"ci6ndex/ci6ndex/generated"
+	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -291,10 +293,31 @@ func (b *Bot) handleRateLeaderMenuSelectCommand() handler.SelectMenuComponentHan
 			return err
 		}
 
-		playerID, err := strconv.ParseInt(e.User().ID.String(), 10, 64)
+		user := e.User()
+		playerID, err := strconv.ParseInt(user.ID.String(), 10, 64)
 		if err != nil {
 			return err
 		}
+
+		globalName := sql.NullString{}
+		if user.GlobalName != nil {
+			globalName = sql.NullString{String: *user.GlobalName, Valid: true}
+		}
+		avatar := sql.NullString{}
+		if user.Avatar != nil {
+			avatar = sql.NullString{String: *user.Avatar, Valid: true}
+		}
+
+		err = b.Ci6ndex.AddPlayer(context.Background(), guildID, generated.AddPlayerParams{
+			ID:            playerID,
+			Username:      user.Username,
+			GlobalName:    globalName,
+			DiscordAvatar: avatar,
+		})
+		if err != nil {
+			return err
+		}
+
 		err = b.Ci6ndex.SubmitRankForPlayer(guildID, rank, playerID, leaderID)
 		if err != nil {
 			return err
