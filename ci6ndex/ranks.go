@@ -34,6 +34,42 @@ func (c *Ci6ndex) SubmitRankForPlayer(guildID uint64, rank string, playerID int6
 	return nil
 }
 
+type LeaderRankWithPlayer struct {
+	Tier       float64
+	PlayerID   int64
+	Username   string
+	GlobalName sql.NullString
+}
+
+// GetRanksForLeader returns all player-submitted ranks for a leader with player info.
+func (c *Ci6ndex) GetRanksForLeader(guildID uint64, leaderID int64) ([]LeaderRankWithPlayer, error) {
+	db, err := c.getDB(guildID)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	ranks, err := db.Queries.GetRanksForLeaderWithPlayers(ctx, leaderID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return make([]LeaderRankWithPlayer, 0), nil
+		}
+		return nil, err
+	}
+
+	result := make([]LeaderRankWithPlayer, len(ranks))
+	for i, r := range ranks {
+		result[i] = LeaderRankWithPlayer{
+			Tier:       r.Tier,
+			PlayerID:   r.PlayerID,
+			Username:   r.Username,
+			GlobalName: r.GlobalName,
+		}
+	}
+	return result, nil
+}
+
 func (c *Ci6ndex) CalculateTierForLeader(guildID uint64, leaderID int64) error {
 	slog.Info("calculating tier", "guild", guildID, "leader", leaderID)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

@@ -24,7 +24,7 @@ A Discord bot for managing Civilization VI multiplayer games. It supports leader
 ci6ndex/
 ├── main.go                  # Entry point: loads config, initializes ci6ndex core + bot, delegates to CLI
 ├── config.go                # Env-based config (DISCORD_API_TOKEN, GUILD_IDS, etc.)
-├── Makefile                 # Primary development interface
+├── mise.toml                # Primary development interface (mise tasks)
 ├── Dockerfile               # Multi-stage Go build; binary runs `bot serve`
 ├── docker-compose.yaml      # Production deployment with volume-mounted ./data
 ├── go.mod / go.sum          # Go module (Go 1.26.2)
@@ -92,26 +92,26 @@ ci6ndex/
    `github.com/caarlos0/env/v11` parses env vars into `Config`. `.env.dev` is used for local development; `.env` is used for production / sync.
 
 9. **Deployment**  
-   Docker multi-stage build produces a static-ish binary. Production deployment is managed by Ansible in the `hosted` repository (`brihome_docker` role on the LAN 2 Docker VM). The `prod/*` Makefile targets are deprecated and will be removed.
+   Docker multi-stage build produces a static-ish binary. Production deployment is managed by Ansible in the `hosted` repository (`brihome_docker` role on the LAN 2 Docker VM). The `prod/*` mise tasks are deprecated and will be removed.
 
 ## Important Commands
 
-Always prefer `make` targets over raw `go` commands.
+Always prefer `mise run <task>` over raw `go` commands.
 
 | Command | Description |
 |---------|-------------|
-| `make help` | List available commands |
-| `make build` | Generate DB code **and** build binary to `./bin/civ` |
-| `make run` | Build, then run `civ bot serve` with `.env.dev` loaded |
-| `make sync` | Build, then run `civ bot sync` with `.env` loaded |
-| `make generate` | Run `sqlc generate` to regenerate `ci6ndex/generated/` |
-| `make clean` | Delete `ci6ndex/generated/` and `bin/` |
-| `make docker` | Build Docker image `ci6ndex:latest` |
-| `make update` | Update Go dependencies |
-| `make doctor` | Verify local dev environment (go, sqlc, docker in PATH) |
-| `make prod/deploy` | **Deprecated.** Deploy `docker-compose.yaml` to remote host. Use Ansible in `hosted` instead. |
-| `make prod/logs` | **Deprecated.** Tail remote Docker Compose logs. Use `docker logs` on the Docker VM instead. |
-| `make prod/connect` | **Deprecated.** SSH into deploy target. Use the `hosted` Ansible inventory instead. |
+| `mise run help` | List available tasks |
+| `mise run build` | Generate DB code **and** build binary to `./bin/civ` |
+| `mise run run` | Build, then run `civ bot serve` with `.env.dev` loaded |
+| `mise run sync` | Build, then run `civ bot sync` with `.env` loaded |
+| `mise run generate` | Run `sqlc generate` to regenerate `ci6ndex/generated/` |
+| `mise run clean` | Delete `ci6ndex/generated/` and `bin/` |
+| `mise run docker` | Build Docker image `ci6ndex:latest` |
+| `mise run update` | Update Go dependencies |
+| `mise run doctor` | Verify local dev environment (go, sqlc, docker in PATH) |
+| `mise run prod/deploy` | **Deprecated.** Deploy `docker-compose.yaml` to remote host. Use Ansible in `hosted` instead. |
+| `mise run prod/logs` | **Deprecated.** Tail remote Docker Compose logs. Use `docker logs` on the Docker VM instead. |
+| `mise run prod/connect` | **Deprecated.** SSH into deploy target. Use the `hosted` Ansible inventory instead. |
 
 ## Environment Variables
 
@@ -135,8 +135,8 @@ Always prefer `make` targets over raw `go` commands.
 
 ## Notes for Agents
 
-- Any change to `sql/query.sql` or `sql/writes.sql` requires `make generate` before building.
+- Any change to `sql/query.sql` or `sql/writes.sql` requires `mise run generate` before building.
 - Any schema change requires a new Goose migration file in `sql/migrations/` (follow `00N_description.sql` naming).
-- The `generated/` package must compile cleanly; if sqlc output looks wrong, run `make clean && make generate`.
+- The `generated/` package must compile cleanly; if sqlc output looks wrong, run `mise run clean && mise run generate`.
 - When adding new Discord interactions, register the command in `bot/commands.go` **and** add the route in `bot/bot.go` `Configure()`.
 - Keep domain logic in `ci6ndex/` and Discord-specific rendering/handlers in `bot/`.

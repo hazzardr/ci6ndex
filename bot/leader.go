@@ -402,6 +402,17 @@ func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]di
 		return nil, errors.Join(err, errors.New("failed to render leader details"))
 	}
 
+	// Community rankings
+	var rankingsBuf bytes.Buffer
+	ranks, err := b.Ci6ndex.GetRanksForLeader(guildId, leader.ID)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to fetch community rankings"))
+	}
+	err = renderCommunityRankings(&rankingsBuf, ranks)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to render community rankings"))
+	}
+
 	// Middle section
 	documentButtons, err := b.documentsForLeaderComponent(guildId, leader.ID)
 	if err != nil {
@@ -432,6 +443,8 @@ func (b *Bot) leaderDetailsScreen(leader generated.Leader, guildId uint64) ([]di
 				discord.NewTextDisplay(headerBuf.String()),
 			).WithAccessory(discord.NewThumbnail(me.EffectiveAvatarURL())),
 			discord.NewActionRow(b.updateRatingForLeaderComponent(leader.ID)),
+			discord.NewSmallSeparator(),
+			discord.NewTextDisplay(rankingsBuf.String()),
 			discord.NewSmallSeparator(),
 			discord.NewTextDisplay("### Relevant Links"),
 			discord.NewActionRow(documentButtons...),
@@ -477,6 +490,28 @@ func getBannedStatus(banned bool) string {
 		return "🧑‍⚖️ Banned from drafts"
 	}
 	return "✅ Available for draft"
+}
+
+func renderCommunityRankings(buffer io.Writer, ranks []ci6ndex.LeaderRankWithPlayer) error {
+	md := md.NewMarkdown(buffer)
+	mdBuilder := md.H3("Community Rankings")
+
+	if len(ranks) == 0 {
+		mdBuilder.PlainText("No rankings submitted yet.")
+		return mdBuilder.Build()
+	}
+
+	mdBuilder.PlainTextf("Rated by %d player(s)", len(ranks))
+
+	for _, r := range ranks {
+		tier, err := ci6ndex.GetTierByValue(r.Tier)
+		if err != nil {
+			return err
+		}
+		mdBuilder.PlainTextf("- %s <@%d>", tier.Name(), r.PlayerID)
+	}
+
+	return mdBuilder.Build()
 }
 
 func leaderDisplayName(leader generated.Leader) string {

@@ -66,31 +66,31 @@ GUILD_IDS=comma_separated_guild_ids
 ## Development
 
 ```bash
-# List available commands
-make
+# List available tasks
+mise run help
 
 # Build the project
-make build
+mise run build
 
 # Run locally
-make run
+mise run run
 
 # Sync Discord commands
-make sync
+mise run sync
 
 # Generate database models
-make generate
+mise run generate
 
 # Build Docker image
-make docker
+mise run docker
 ```
 
 ## Deployment
 
 ```bash
 # Deploy to production
-make prod/deploy
+mise run prod/deploy
 
 # View logs
-make prod/logs
+mise run prod/logs
 ```

@@ -7,6 +7,7 @@ package generated
 
 import (
 	"context"
+	"database/sql"
 )
 
 const getActiveDraft = `-- name: GetActiveDraft :one
@@ -401,6 +402,53 @@ func (q *Queries) GetPlayersFromDraft(ctx context.Context, draftID int64) ([]Pla
 			&i.Username,
 			&i.GlobalName,
 			&i.DiscordAvatar,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRanksForLeaderWithPlayers = `-- name: GetRanksForLeaderWithPlayers :many
+SELECT
+    r.tier,
+    p.id AS player_id,
+    p.username,
+    p.global_name
+FROM ranks r
+JOIN players p ON r.player_id = p.id
+WHERE r.leader_id = ?
+ORDER BY r.tier, p.username
+`
+
+type GetRanksForLeaderWithPlayersRow struct {
+	Tier       float64
+	PlayerID   int64
+	Username   string
+	GlobalName sql.NullString
+}
+
+func (q *Queries) GetRanksForLeaderWithPlayers(ctx context.Context, leaderID int64) ([]GetRanksForLeaderWithPlayersRow, error) {
+	rows, err := q.db.QueryContext(ctx, getRanksForLeaderWithPlayers, leaderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetRanksForLeaderWithPlayersRow
+	for rows.Next() {
+		var i GetRanksForLeaderWithPlayersRow
+		if err := rows.Scan(
+			&i.Tier,
+			&i.PlayerID,
+			&i.Username,
+			&i.GlobalName,
 		); err != nil {
 			return nil, err
 		}

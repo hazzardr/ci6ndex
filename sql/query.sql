@@ -60,3 +60,14 @@ SELECT
     d.*
 FROM documents d
 WHERE d.leader_id = ?;
+
+-- name: GetRanksForLeaderWithPlayers :many
+SELECT
+    r.tier,
+    p.id AS player_id,
+    p.username,
+    p.global_name
+FROM ranks r
+JOIN players p ON r.player_id = p.id
+WHERE r.leader_id = ?
+ORDER BY r.tier, p.username;
